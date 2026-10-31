@@ -304,6 +304,7 @@ button:disabled:hover {
   display: inline-block;
   min-width: 70px;
   padding: 0 6px;
+  margin: 3px;
   border-radius: 4px;
   color: var(--text);
   cursor: pointer;
@@ -416,15 +417,10 @@ button:disabled:hover {
 }
 
 .square.drill-hint {
-  background: #ff00ff !important;
-  outline: 5px solid red !important;
-  outline-offset: -5px !important;
-  box-shadow: none !important;
-  opacity: 1 !important;
-  position: relative !important;
-  z-index: 999 !important;
+  background: #67faff !important;
+  box-shadow: inset 0 0 0 5px #046468 !important;
+  border-radius: 2px;
 }
-
 .drill-alternatives {
   margin-top: 16px;
   padding: 12px;
@@ -450,5 +446,236 @@ button:disabled:hover {
 }
 
 .drill-alternative.other {
-  border-left: 3px solid #888;
+  border-left: 3px solid #0091aa;
+}
+
+.app {
+  display: grid;
+  grid-template-columns: minmax(320px, 576px) minmax(220px, 280px) minmax(
+      240px,
+      300px
+    );
+  gap: 20px;
+  justify-content: center;
+  align-items: start;
+  padding: 24px;
+}
+
+.board-section {
+  min-width: 0;
+}
+
+.moves-section,
+.repertoire-section {
+  min-width: 0;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+
+.moves-section h2,
+.repertoire-section h2 {
+  margin: 0 0 14px;
+  color: var(--accent);
+  font-size: 1.3rem;
+}
+
+.moves {
+  max-height: 65vh;
+}
+
+.drill-alternatives {
+  margin-bottom: 12px;
+}
+
+@media (max-width: 1050px) {
+  .app {
+    grid-template-columns: minmax(300px, 576px) minmax(240px, 300px);
+  }
+
+  .repertoire-section {
+    grid-column: 2;
+  }
+}
+
+@media (max-width: 700px) {
+  .app {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 12px;
+  }
+
+  .board-wrap {
+    width: min(100%, 576px);
+    margin: 0 auto;
+  }
+
+  .moves-section,
+  .repertoire-section {
+    width: 100%;
+  }
+
+  .moves {
+    max-height: 280px;
+  }
+}
+
+.rep-library {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.rep-card {
+  padding: 12px;
+  margin: 2px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--control);
+}
+
+.rep-card.active {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
+.rep-card h3 {
+  margin: 0 0 6px;
+  color: var(--text);
+}
+
+.rep-card p {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.rep-card button {
+  margin: 3px;
+}
+
+/* Repertoire import alanı */
+.import-rep-btn {
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px;
+  background: var(--accent-strong);
+  color: #062b2b;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.import-rep-btn:hover {
+  background: var(--accent);
+}
+
+/* Repertoire renk seçimi */
+.import-color {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 10px 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.import-color select {
+  background: var(--control);
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 7px;
+}
+
+/* Repertoire cards */
+.rep-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: var(--control);
+}
+
+.rep-card h3 {
+  margin: 0;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.rep-card p {
+  padding: 7px 10px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.16);
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* Kartın altındaki butonlar */
+.rep-card button {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 9px 6px;
+  border-radius: 6px;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.rep-card button:first-of-type {
+  background: var(--accent-strong);
+  color: #062b2b;
+}
+
+.rep-card button:first-of-type:hover {
+  background: var(--accent);
+}
+
+/* Butonları tek satırda hizala */
+.rep-card {
+  position: relative;
+}
+
+.rep-card button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rep-card button:first-of-type {
+  margin-top: 2px;
+}
+
+/* Kart içindeki buton grubunu düzenle */
+.rep-card {
+  --button-gap: 6px;
+}
+
+.rep-card button + button {
+  margin-left: 0;
+}
+
+.rep-card-actions {
+  display: flex;
+  gap: 7px;
+  width: 100%;
+  margin-top: auto;
+}
+
+.rep-card-actions button {
+  flex: 1;
+}
+
+.library-header {
+  margin: 4px;
+}
+
+.rep-info {
+  margin-top: 7px;
 }

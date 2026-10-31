@@ -14,54 +14,61 @@
   </head>
   <body>
     <main class="app">
-      <div class="board-wrap">
-        <div id="strip-top" class="strip"></div>
-        <div id="board" class="board"></div>
-        <div id="strip-bottom" class="strip"></div>
-      </div>
+      <section class="board-section">
+        <div class="board-wrap">
+          <div id="strip-top" class="strip"></div>
+          <div id="board" class="board"></div>
+          <div id="strip-bottom" class="strip"></div>
+        </div>
+      </section>
 
-      <aside class="panel">
-        <h1>Azurite</h1>
+      <section class="moves-section">
+        <h2>PGN / Moves</h2>
         <div id="status" class="status"></div>
         <div id="opening" class="opening"></div>
+
         <div class="buttons">
           <button id="btn-undo">Undo</button>
           <button id="btn-flip">Flip</button>
           <button id="btn-reset">Reset</button>
         </div>
 
-        <section class="rep">
-          <div id="rep-manage" class="rep-manage" hidden>
-            <select id="rep-select" title="Choose a repertoire"></select>
-            <button id="btn-rep-rename">Rename</button>
-            <button id="btn-rep-delete">Delete</button>
-          </div>
+        <ol id="moves" class="moves"></ol>
+      </section>
+
+      <aside class="repertoire-section">
+        <div class="library-header">
+          <h2>My Repertoires</h2>
+          <span id="rep-count">0 saved</span>
+        </div>
+
+        <div id="rep-library" class="rep-library"></div>
+
+        <button id="btn-import-rep" class="import-rep-btn">
+          + Import new PGN
+        </button>
+
+        <div id="rep-details" class="rep-details">
           <div id="rep-info" class="rep-info"></div>
 
-          <button id="btn-drill" class="drill-btn" hidden>Drill</button>
+          <button id="btn-drill" class="drill-btn" hidden>
+            Train this repertoire
+          </button>
+
           <div id="rep-turn" class="rep-turn"></div>
           <button id="btn-drill-action" class="drill-action" hidden></button>
+
           <div id="rep-next" class="rep-next"></div>
           <div id="rep-comment" class="rep-comment"></div>
           <div id="drill-alternatives" class="drill-alternatives" hidden></div>
 
-          <div class="rep-import">
-            <label class="file-btn">
-              Import PGN
-              <input id="pgn-file" type="file" accept=".pgn,.txt" hidden />
-            </label>
-            <select
-              id="rep-color"
-              title="Which side is the new repertoire for?"
-            >
-              <option value="w">as White</option>
-              <option value="b">as Black</option>
-            </select>
-          </div>
-          <div id="rep-notice" class="rep-notice"></div>
-        </section>
+          <!-- <button id="btn-rep-rename">Rename</button>
+          <button id="btn-rep-delete">Delete</button> -->
+        </div>
 
-        <ol id="moves" class="moves"></ol>
+        <input id="pgn-file" type="file" accept=".pgn,.txt" hidden />
+
+        <div id="rep-notice" class="rep-notice"></div>
       </aside>
     </main>
 

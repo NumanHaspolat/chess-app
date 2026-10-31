@@ -31,11 +31,7 @@ const stripTopEl = document.getElementById("strip-top");
 const stripBottomEl = document.getElementById("strip-bottom");
 const openingEl = document.getElementById("opening");
 const pgnFileEl = document.getElementById("pgn-file");
-const repColorEl = document.getElementById("rep-color");
-const repManageEl = document.getElementById("rep-manage");
-const repSelectEl = document.getElementById("rep-select");
-const repRenameEl = document.getElementById("btn-rep-rename");
-const repDeleteEl = document.getElementById("btn-rep-delete");
+const importRepBtnEl = document.getElementById("btn-import-rep");
 const drillBtnEl = document.getElementById("btn-drill");
 const drillActionEl = document.getElementById("btn-drill-action");
 const undoBtnEl = document.getElementById("btn-undo");
@@ -142,12 +138,15 @@ function renderBoard() {
 
       if (drillHintSquares.includes(name)) {
         squareEl.classList.add("drill-hint");
-        squareEl.style.setProperty("background", "#00ffff", "important");
-        console.log("Hint class added:", name, squareEl.className);
       }
       squareEl.className =
         "square " + ((fileIndex + rankNumber) % 2 === 0 ? "dark" : "light");
+
       squareEl.dataset.square = name;
+
+      if (drillHintSquares.includes(name)) {
+        squareEl.classList.add("drill-hint");
+      }
 
       if (lastMove && (name === lastMove.from || name === lastMove.to)) {
         squareEl.classList.add("last-move");
@@ -305,6 +304,8 @@ function update() {
   renderOpening();
   renderRepertoire();
   renderMoves();
+  renderRepLibrary();
+  renderDrillAlternatives();
 }
 
 /* ---------- Game actions ---------- */
@@ -561,7 +562,9 @@ fetch("./assets/openings.json")
   })
   .catch((err) => console.warn("Could not load openings.json", err));
 
-/* ---------- Repertoire library (PGN import, switch, rename, delete) ---------- */
+importRepBtnEl.addEventListener("click", () => {
+  pgnFileEl.click();
+});
 
 const library = Library.load();
 let repNotice = { text: "", isError: false };
@@ -585,18 +588,6 @@ function colorName(color) {
 
 function renderRepertoire() {
   const repertoire = library.active;
-
-  // Repertoire picker
-  repManageEl.hidden = library.items.length === 0;
-  repSelectEl.innerHTML = "";
-  for (const item of library.items) {
-    const option = document.createElement("option");
-    option.value = item.id;
-    option.textContent = `${item.name} (${colorName(item.color)})`;
-    repSelectEl.appendChild(option);
-  }
-  if (repertoire) repSelectEl.value = repertoire.id;
-
   undoBtnEl.disabled = !!drill;
   drillBtnEl.hidden = !repertoire;
   drillBtnEl.textContent = drill ? "Stop drill" : "Drill";
@@ -671,43 +662,6 @@ repNextEl.addEventListener("click", (e) => {
   if (move) playMove(move.from, move.to, move.promotion);
 });
 
-/* ---------- Switching, renaming, deleting ---------- */
-
-repSelectEl.addEventListener("change", () => {
-  endDrill();
-  library.setActive(repSelectEl.value);
-  persist();
-  if (library.active) orientation = library.active.color;
-  setNotice("");
-  update();
-});
-
-repRenameEl.addEventListener("click", () => {
-  const rep = library.active;
-  if (!rep) return;
-  const name = prompt("Rename repertoire", rep.name);
-  if (name === null) return;
-  const trimmed = name.trim().slice(0, 60);
-  if (!trimmed) return;
-  rep.name = trimmed;
-  persist();
-  update();
-});
-
-repDeleteEl.addEventListener("click", () => {
-  const rep = library.active;
-  if (!rep) return;
-  if (!confirm(`Delete "${rep.name}"? This cannot be undone.`)) return;
-  endDrill();
-  library.remove(rep.id);
-  persist();
-  if (library.active) orientation = library.active.color;
-  setNotice("");
-  update();
-});
-
-/* ---------- PGN import (every import is saved as its own repertoire) ---------- */
-
 pgnFileEl.addEventListener("change", async () => {
   const file = pgnFileEl.files[0];
   pgnFileEl.value = ""; // allows importing the same file again
@@ -715,7 +669,7 @@ pgnFileEl.addEventListener("change", async () => {
 
   const defaultName =
     file.name.replace(/\.[^.]+$/, "").slice(0, 60) || "Repertoire";
-  const rep = new Repertoire({ color: repColorEl.value, name: defaultName });
+  const rep = new Repertoire({ color: "w", name: defaultName });
   const result = importPgn(await file.text(), Chess, rep);
 
   if (result.games === 0 || rep.stats().moves === 0) {
@@ -959,5 +913,88 @@ function renderDrillAlternatives() {
   });
 }
 
+function renderRepLibrary() {
+  const container = document.getElementById("rep-library");
+  const count = document.getElementById("rep-count");
+
+  if (!container || !count) return;
+
+  container.innerHTML = "";
+
+  const repertoires = library.items;
+
+  count.textContent = `${repertoires.length} Saved`;
+
+  repertoires.forEach((rep) => {
+    const card = document.createElement("div");
+    card.className = "rep-card";
+
+    if (library.active?.id === rep.id) {
+      card.classList.add("active");
+    }
+
+    const title = document.createElement("h3");
+    title.textContent = rep.name;
+
+    const selectButton = document.createElement("button");
+    selectButton.textContent =
+      library.active?.id === rep.id ? "Selected" : "Select";
+
+    selectButton.addEventListener("click", () => {
+      endDrill();
+      library.setActive(rep.id);
+      persist();
+
+      if (library.active) {
+        orientation = library.active.color;
+      }
+
+      setNotice("");
+      update();
+    });
+
+    const renameButton = document.createElement("button");
+    renameButton.textContent = "Rename";
+
+    renameButton.addEventListener("click", () => {
+      const name = prompt("Rename repertoire", rep.name);
+      if (name === null) return;
+
+      const trimmed = name.trim().slice(0, 60);
+      if (!trimmed) return;
+
+      rep.name = trimmed;
+      persist();
+      update();
+    });
+
+    const deleteButton = document.createElement("button");
+    deleteButton.textContent = "Delete";
+
+    deleteButton.addEventListener("click", () => {
+      if (!confirm(`Delete "${rep.name}"? This cannot be undone.`)) {
+        return;
+      }
+
+      endDrill();
+      library.remove(rep.id);
+      persist();
+
+      if (library.active) {
+        orientation = library.active.color;
+      }
+
+      setNotice("");
+      update();
+    });
+
+    const actions = document.createElement("div");
+    actions.className = "rep-card-actions";
+    actions.append(selectButton, renameButton, deleteButton);
+
+    card.append(title, actions);
+    container.appendChild(card);
+  });
+}
+
 update();
-renderDrillAlternatives();

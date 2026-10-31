@@ -414,3 +414,41 @@ button:disabled:hover {
   flex: 1;
   white-space: nowrap;
 }
+
+.square.drill-hint {
+  background: #ff00ff !important;
+  outline: 5px solid red !important;
+  outline-offset: -5px !important;
+  box-shadow: none !important;
+  opacity: 1 !important;
+  position: relative !important;
+  z-index: 999 !important;
+}
+
+.drill-alternatives {
+  margin-top: 16px;
+  padding: 12px;
+  border: 1px solid #35e6c2;
+  border-radius: 8px;
+}
+
+.drill-alternatives h3 {
+  margin: 0 0 10px;
+  font-size: 14px;
+}
+
+.drill-alternative {
+  padding: 8px;
+  margin-top: 6px;
+  border-radius: 5px;
+  background: rgba(53, 230, 194, 0.1);
+  font-size: 14px;
+}
+
+.drill-alternative.main {
+  border-left: 3px solid #35e6c2;
+}
+
+.drill-alternative.other {
+  border-left: 3px solid #888;
+}

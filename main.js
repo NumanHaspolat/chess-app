@@ -48,6 +48,7 @@ const repCommentEl = document.getElementById("rep-comment");
 let orientation = "w";
 let selectedSquare = null;
 let legalMoves = [];
+let drillHintSquares = [];
 let drag = null; // active press/drag state
 let hoverSquare = null;
 
@@ -133,6 +134,17 @@ function renderBoard() {
       const rankNumber = Number(name[1]);
 
       const squareEl = document.createElement("div");
+
+      squareEl.className =
+        "square " + ((fileIndex + rankNumber) % 2 === 0 ? "dark" : "light");
+
+      squareEl.dataset.square = name;
+
+      if (drillHintSquares.includes(name)) {
+        squareEl.classList.add("drill-hint");
+        squareEl.style.setProperty("background", "#00ffff", "important");
+        console.log("Hint class added:", name, squareEl.className);
+      }
       squareEl.className =
         "square " + ((fileIndex + rankNumber) % 2 === 0 ? "dark" : "light");
       squareEl.dataset.square = name;
@@ -748,6 +760,7 @@ pgnFileEl.addEventListener("change", async () => {
 const OPPONENT_DELAY_MS = 500;
 
 function endDrill() {
+  drillHintSquares = [];
   if (drill && drill.timer) clearTimeout(drill.timer);
   drill = null;
 }
@@ -758,11 +771,23 @@ function startDrill() {
   endDrill();
 
   game.reset();
+  drillHintSquares = [];
   viewPly = null;
   clearSelection();
   orientation = rep.color;
 
-  drill = { rep, phase: "your-move", mistake: null, empty: false, timer: null };
+  drill = {
+    rep,
+    phase: "your-move",
+    mistake: null,
+
+    // Hata ve ipucu takibi
+    mistakeCount: 0,
+    hintShown: false,
+
+    // Alternatif doğru hamleler
+    alternatives: [],
+  };
   advanceDrill();
 }
 
@@ -803,24 +828,55 @@ function advanceDrill() {
 // Called after the player moved during a drill
 function onDrillMove(move) {
   if (judgeMove(drill.rep, move.before, move.san)) {
+    drill.mistakeCount = 0;
+    drill.hintShown = false;
+    drillHintSquares = [];
+    drill.alternatives = [];
+
+    renderDrillAlternatives();
     advanceDrill();
     return;
   }
+
+  drill.mistakeCount++;
+
+  const node = drill.rep.getNode(move.before);
+
+  const correctEdges = node ? [...node.edges.values()] : [];
+
+  // İlk hatada mor kareyi göster.
+  if (drill.mistakeCount >= 1) {
+    drillHintSquares = correctEdges.length
+      ? [parseUci(correctEdges[0].uci).from]
+      : [];
+  }
+
+  // İkinci hatada panelde doğru hamleleri göster.
+  if (drill.mistakeCount >= 2) {
+    drill.hintShown = true;
+    drill.alternatives = correctEdges.slice(0, 2);
+  }
+
   drill.phase = "mistake";
   drill.mistake = move.san;
-  update();
-}
 
+  update();
+  renderDrillAlternatives();
+}
 function retryDrill() {
   if (!drill || drill.phase !== "mistake") return;
-  game.undo(); // take back the wrong move
+
+  // Yanlış hamle sadece Try Again'e basıldığında geri alınır.
+  game.undo();
+
   viewPly = null;
   clearSelection();
+
   drill.phase = "your-move";
   drill.mistake = null;
+
   update();
 }
-
 function renderDrillStatus() {
   switch (drill.phase) {
     case "your-move":
@@ -860,4 +916,48 @@ drillActionEl.addEventListener("click", () => {
   else if (drill.phase === "complete") startDrill();
 });
 
+function renderDrillAlternatives() {
+  const panel = document.getElementById("drill-alternatives");
+
+  if (!panel) {
+    console.error("drill-alternatives HTML elementi bulunamadı!");
+    return;
+  }
+
+  console.log("Panel kontrolü:", {
+    phase: drill?.phase,
+    hintShown: drill?.hintShown,
+    alternatives: drill?.alternatives,
+  });
+
+  panel.innerHTML = "";
+
+  if (
+    !drill ||
+    drill.phase !== "mistake" ||
+    !drill.hintShown ||
+    !drill.alternatives?.length
+  ) {
+    panel.hidden = true;
+    return;
+  }
+
+  panel.hidden = false;
+
+  const title = document.createElement("h3");
+  title.textContent = "Correct moves";
+  panel.appendChild(title);
+
+  drill.alternatives.forEach((edge, index) => {
+    const item = document.createElement("div");
+
+    item.className = "drill-alternative " + (index === 0 ? "main" : "other");
+
+    item.textContent = `${index === 0 ? "Main move" : "Alternative"}: ${edge.san}`;
+
+    panel.appendChild(item);
+  });
+}
+
 update();
+renderDrillAlternatives();

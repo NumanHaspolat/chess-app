@@ -27,6 +27,10 @@
   box-sizing: border-box;
 }
 
+[hidden] {
+  display: none !important;
+}
+
 body {
   margin: 0;
   min-height: 100vh;
@@ -256,13 +260,21 @@ select {
   font-family: var(--font-pixel);
   font-size: 1rem;
 }
-select:disabled {
-  opacity: 0.6;
+select:disabled,
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+button:disabled:hover {
+  background: var(--control);
+  border-color: var(--panel-border);
 }
 
 .moves {
   margin: 0;
-  padding-left: 24px;
+  padding: 0;
+  list-style: none;
+  counter-reset: ply;
   max-height: 320px;
   overflow-y: auto;
   font-family: var(--font-pixel);
@@ -273,11 +285,24 @@ select:disabled {
   scrollbar-width: thin;
 }
 
+/* Move numbers drawn by us (the native ol markers sit outside the box and got
+   clipped by the scroll area, so "10." showed up as "0.") */
+.moves li {
+  display: flex;
+  align-items: baseline;
+  counter-increment: ply;
+}
+.moves li::before {
+  content: counter(ply) ".";
+  flex: 0 0 2.8em;
+  padding-right: 8px;
+  text-align: right;
+}
+
 /* Clickable moves in the notation list */
 .move {
   display: inline-block;
-  margin: 2px;
-  min-width: 55px;
+  min-width: 70px;
   padding: 0 6px;
   border-radius: 4px;
   color: var(--text);
@@ -309,15 +334,18 @@ select:disabled {
   padding-top: 12px;
   border-top: 1px solid var(--panel-border);
 }
-.rep-head {
+.rep-manage {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   margin-bottom: 8px;
 }
-.rep-head .file-btn {
-  flex: 1 1 120px;
-  white-space: nowrap;
+.rep-manage select {
+  flex: 1;
+  min-width: 0;
+}
+.rep-manage button {
+  flex: 0 0 auto;
+  padding: 8px 10px;
 }
 .rep-info,
 .rep-notice,
@@ -357,4 +385,32 @@ select:disabled {
 }
 .rep-comment {
   color: var(--text);
+}
+
+/* Drill */
+.drill-btn,
+.drill-action {
+  display: block;
+  width: 100%;
+  margin-bottom: 8px;
+}
+.drill-btn.active {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+  color: #04201d;
+  font-weight: 700;
+}
+.drill-action {
+  border-color: var(--accent-strong);
+}
+
+/* Importing */
+.rep-import {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.rep-import .file-btn {
+  flex: 1;
+  white-space: nowrap;
 }

@@ -137,7 +137,9 @@ function parseLine(tokens, i, startFen, ctx) {
 
     if (t.type === "comment") {
       if (lastEdge) {
-        lastEdge.comment = lastEdge.comment ? `${lastEdge.comment} ${t.text}` : t.text;
+        lastEdge.comment = lastEdge.comment
+          ? `${lastEdge.comment} ${t.text}`
+          : t.text;
       }
       i++;
       continue;
@@ -149,7 +151,11 @@ function parseLine(tokens, i, startFen, ctx) {
     try {
       move = chess.move(t.san);
     } catch {
-      ctx.errors.push({ game: ctx.game, san: t.san, message: `Illegal or unreadable move "${t.san}"` });
+      ctx.errors.push({
+        game: ctx.game,
+        san: t.san,
+        message: `Illegal or unreadable move "${t.san}"`,
+      });
       return skipToLineEnd(tokens, i + 1);
     }
     const uci = move.from + move.to + (move.promotion ?? "");
@@ -174,12 +180,18 @@ export function importPgn(text, Chess, rep) {
 
     if (g.headers.Variant && !/^standard$/i.test(g.headers.Variant)) {
       summary.skipped++;
-      summary.errors.push({ game, message: `Variant "${g.headers.Variant}" is not supported` });
+      summary.errors.push({
+        game,
+        message: `Variant "${g.headers.Variant}" is not supported`,
+      });
       return;
     }
     if (g.headers.FEN && positionKey(g.headers.FEN) !== positionKey(startFen)) {
       summary.skipped++;
-      summary.errors.push({ game, message: "Custom start positions (FEN) are not supported" });
+      summary.errors.push({
+        game,
+        message: "Custom start positions (FEN) are not supported",
+      });
       return;
     }
 

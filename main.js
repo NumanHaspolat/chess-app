@@ -1,11 +1,8 @@
 import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.0.0/+esm";
 import { createPieceEl, preloadPieces } from "./src/pieces.js";
-import {
-  Repertoire,
-  loadRepertoire,
-  saveRepertoire,
-  clearSavedRepertoire,
-} from "./src/repertoire.js";
+import { Repertoire } from "./src/repertoire.js";
+import { Library } from "./src/library.js";
+import { judgeMove, pickReply, lineEnded, parseUci } from "./src/drill.js";
 import { importPgn } from "./src/pgn.js";
 import { OpeningBook } from "./src/openings.js";
 
@@ -35,7 +32,13 @@ const stripBottomEl = document.getElementById("strip-bottom");
 const openingEl = document.getElementById("opening");
 const pgnFileEl = document.getElementById("pgn-file");
 const repColorEl = document.getElementById("rep-color");
-const repClearEl = document.getElementById("btn-rep-clear");
+const repManageEl = document.getElementById("rep-manage");
+const repSelectEl = document.getElementById("rep-select");
+const repRenameEl = document.getElementById("btn-rep-rename");
+const repDeleteEl = document.getElementById("btn-rep-delete");
+const drillBtnEl = document.getElementById("btn-drill");
+const drillActionEl = document.getElementById("btn-drill-action");
+const undoBtnEl = document.getElementById("btn-undo");
 const repInfoEl = document.getElementById("rep-info");
 const repNoticeEl = document.getElementById("rep-notice");
 const repTurnEl = document.getElementById("rep-turn");
@@ -299,7 +302,7 @@ function clearSelection() {
   legalMoves = [];
 }
 
-function playMove(from, to, promotion = "q") {
+function playMove(from, to, promotion = "q", byDrill = false) {
   const target = game.get(to);
 
   const move = game.move({
@@ -324,6 +327,11 @@ function playMove(from, to, promotion = "q") {
 
   clearSelection();
   update();
+
+  if (drill) {
+    if (byDrill) advanceDrill();
+    else onDrillMove(move);
+  }
 }
 
 /* ---------- Pointer input (click + drag) ---------- */
@@ -333,6 +341,9 @@ boardEl.addEventListener("pointerdown", (e) => {
 
   // Moves can only be played on the live position
   if (viewPly !== null) return;
+
+  // During a drill the board only accepts moves when it is the player's turn
+  if (drill && drill.phase !== "your-move") return;
 
   const name = squareFromPoint(e.clientX, e.clientY);
   if (!name) return;
@@ -476,7 +487,8 @@ window.addEventListener("keydown", (e) => {
 
 /* ---------- Buttons ---------- */
 
-document.getElementById("btn-undo").addEventListener("click", () => {
+undoBtnEl.addEventListener("click", () => {
+  if (drill) return; // undoing would desync the drill (use Try again instead)
   game.undo();
   viewPly = null;
   clearSelection();
@@ -489,6 +501,10 @@ document.getElementById("btn-flip").addEventListener("click", () => {
 });
 
 document.getElementById("btn-reset").addEventListener("click", () => {
+  if (drill) {
+    startDrill(); // Reset during a drill restarts it
+    return;
+  }
   game.reset();
   viewPly = null;
   clearSelection();
@@ -533,16 +549,46 @@ fetch("./assets/openings.json")
   })
   .catch((err) => console.warn("Could not load openings.json", err));
 
-/* ---------- Repertoire (PGN import + position tree) ---------- */
+/* ---------- Repertoire library (PGN import, switch, rename, delete) ---------- */
 
-let repertoire = loadRepertoire(); // null until a PGN is imported
+const library = Library.load();
 let repNotice = { text: "", isError: false };
-if (repertoire) orientation = repertoire.color;
+let drill = null; // null = not drilling, otherwise see startDrill()
+
+if (library.active) orientation = library.active.color;
+
+function setNotice(text, isError = false) {
+  repNotice = { text, isError };
+}
+
+function persist() {
+  if (!library.save()) {
+    setNotice("Could not save to browser storage (full or blocked).", true);
+  }
+}
+
+function colorName(color) {
+  return color === "w" ? "White" : "Black";
+}
 
 function renderRepertoire() {
-  repColorEl.disabled = !!repertoire;
-  repClearEl.hidden = !repertoire;
-  if (repertoire) repColorEl.value = repertoire.color;
+  const repertoire = library.active;
+
+  // Repertoire picker
+  repManageEl.hidden = library.items.length === 0;
+  repSelectEl.innerHTML = "";
+  for (const item of library.items) {
+    const option = document.createElement("option");
+    option.value = item.id;
+    option.textContent = `${item.name} (${colorName(item.color)})`;
+    repSelectEl.appendChild(option);
+  }
+  if (repertoire) repSelectEl.value = repertoire.id;
+
+  undoBtnEl.disabled = !!drill;
+  drillBtnEl.hidden = !repertoire;
+  drillBtnEl.textContent = drill ? "Stop drill" : "Drill";
+  drillBtnEl.classList.toggle("active", !!drill);
 
   repNoticeEl.textContent = repNotice.text;
   repNoticeEl.classList.toggle("error", repNotice.isError);
@@ -550,6 +596,7 @@ function renderRepertoire() {
   repCommentEl.textContent = "";
   repTurnEl.textContent = "";
   repTurnEl.classList.remove("off");
+  drillActionEl.hidden = true;
 
   if (!repertoire) {
     repInfoEl.textContent = "No repertoire yet. Import a PGN file to start.";
@@ -557,15 +604,19 @@ function renderRepertoire() {
   }
 
   const { positions, moves } = repertoire.stats();
-  repInfoEl.textContent =
-    `${repertoire.name} · ${repertoire.color === "w" ? "White" : "Black"}` +
-    ` · ${positions} positions, ${moves} moves`;
+  repInfoEl.textContent = `${positions} positions, ${moves} moves`;
 
   // Comment attached to the move that led to this position
   const last = view.history({ verbose: true }).at(-1);
   if (last && last.before) {
     const edge = repertoire.getNode(last.before)?.edges.get(last.san);
     if (edge && edge.comment) repCommentEl.textContent = edge.comment;
+  }
+
+  // While drilling the next moves stay hidden (that would give the answer away)
+  if (drill) {
+    renderDrillStatus();
+    return;
   }
 
   const node = repertoire.getNode(view.fen());
@@ -596,6 +647,7 @@ function renderRepertoire() {
 
 // Clicking a suggested move plays it on the board
 repNextEl.addEventListener("click", (e) => {
+  if (drill) return;
   const btn = e.target.closest(".rep-move");
   if (!btn) return;
 
@@ -607,53 +659,205 @@ repNextEl.addEventListener("click", (e) => {
   if (move) playMove(move.from, move.to, move.promotion);
 });
 
+/* ---------- Switching, renaming, deleting ---------- */
+
+repSelectEl.addEventListener("change", () => {
+  endDrill();
+  library.setActive(repSelectEl.value);
+  persist();
+  if (library.active) orientation = library.active.color;
+  setNotice("");
+  update();
+});
+
+repRenameEl.addEventListener("click", () => {
+  const rep = library.active;
+  if (!rep) return;
+  const name = prompt("Rename repertoire", rep.name);
+  if (name === null) return;
+  const trimmed = name.trim().slice(0, 60);
+  if (!trimmed) return;
+  rep.name = trimmed;
+  persist();
+  update();
+});
+
+repDeleteEl.addEventListener("click", () => {
+  const rep = library.active;
+  if (!rep) return;
+  if (!confirm(`Delete "${rep.name}"? This cannot be undone.`)) return;
+  endDrill();
+  library.remove(rep.id);
+  persist();
+  if (library.active) orientation = library.active.color;
+  setNotice("");
+  update();
+});
+
+/* ---------- PGN import (every import is saved as its own repertoire) ---------- */
+
 pgnFileEl.addEventListener("change", async () => {
   const file = pgnFileEl.files[0];
   pgnFileEl.value = ""; // allows importing the same file again
   if (!file) return;
 
-  const isNew = !repertoire;
-  const rep =
-    repertoire ??
-    new Repertoire({
-      color: repColorEl.value,
-      name: file.name.replace(/\.[^.]+$/, ""),
-    });
-
+  const defaultName =
+    file.name.replace(/\.[^.]+$/, "").slice(0, 60) || "Repertoire";
+  const rep = new Repertoire({ color: repColorEl.value, name: defaultName });
   const result = importPgn(await file.text(), Chess, rep);
 
-  if (result.games === 0) {
-    repNotice = {
-      text: result.errors.length
+  if (result.games === 0 || rep.stats().moves === 0) {
+    setNotice(
+      result.errors.length
         ? `Nothing imported. ${result.errors[0].message}`
-        : "No games found in that file.",
-      isError: true,
-    };
+        : "No moves found in that file.",
+      true,
+    );
     update();
     return;
   }
 
-  repertoire = rep;
-  saveRepertoire(repertoire);
-  if (isNew) orientation = repertoire.color;
+  const name = prompt("Name this repertoire", defaultName);
+  if (name === null) {
+    setNotice("Import cancelled.");
+    update();
+    return;
+  }
+  rep.name = name.trim().slice(0, 60) || defaultName;
 
-  let text = `Imported ${result.games} game${result.games === 1 ? "" : "s"}, ${result.newMoves} new moves.`;
+  endDrill();
+  library.add(rep);
+  orientation = rep.color;
+
+  let text = `Imported "${rep.name}": ${result.games} game${result.games === 1 ? "" : "s"}, ${rep.stats().moves} moves.`;
   if (result.errors.length) {
     const e = result.errors[0];
     text +=
       ` ${result.errors.length} problem${result.errors.length === 1 ? "" : "s"}` +
       ` (game ${e.game}: ${e.message}).`;
   }
-  repNotice = { text, isError: result.errors.length > 0 };
+  setNotice(text, result.errors.length > 0);
+  persist();
   update();
 });
 
-repClearEl.addEventListener("click", () => {
-  if (!confirm("Delete the imported repertoire?")) return;
-  repertoire = null;
-  repNotice = { text: "", isError: false };
-  clearSavedRepertoire();
+/* ---------- Drill ---------- */
+// drill = { rep, phase, mistake, empty, timer }
+// phase: "your-move" | "opponent" | "mistake" | "complete"
+
+const OPPONENT_DELAY_MS = 500;
+
+function endDrill() {
+  if (drill && drill.timer) clearTimeout(drill.timer);
+  drill = null;
+}
+
+function startDrill() {
+  const rep = library.active;
+  if (!rep) return;
+  endDrill();
+
+  game.reset();
+  viewPly = null;
+  clearSelection();
+  orientation = rep.color;
+
+  drill = { rep, phase: "your-move", mistake: null, empty: false, timer: null };
+  advanceDrill();
+}
+
+// Decides what happens next at the live position: finish, wait for the player,
+// or let the opponent answer with a random repertoire move.
+function advanceDrill() {
+  if (!drill) return;
+  const { rep } = drill;
+
+  if (lineEnded(rep, game.fen())) {
+    drill.phase = "complete";
+    drill.empty = game.history().length === 0;
+    update();
+    return;
+  }
+
+  if (game.turn() === rep.color) {
+    drill.phase = "your-move";
+    update();
+    return;
+  }
+
+  drill.phase = "opponent";
   update();
+  drill.timer = setTimeout(() => {
+    if (!drill) return;
+    drill.timer = null;
+    const edge = pickReply(rep, game.fen());
+    if (!edge) {
+      advanceDrill();
+      return;
+    }
+    const { from, to, promotion } = parseUci(edge.uci);
+    playMove(from, to, promotion, true);
+  }, OPPONENT_DELAY_MS);
+}
+
+// Called after the player moved during a drill
+function onDrillMove(move) {
+  if (judgeMove(drill.rep, move.before, move.san)) {
+    advanceDrill();
+    return;
+  }
+  drill.phase = "mistake";
+  drill.mistake = move.san;
+  update();
+}
+
+function retryDrill() {
+  if (!drill || drill.phase !== "mistake") return;
+  game.undo(); // take back the wrong move
+  viewPly = null;
+  clearSelection();
+  drill.phase = "your-move";
+  drill.mistake = null;
+  update();
+}
+
+function renderDrillStatus() {
+  switch (drill.phase) {
+    case "your-move":
+      repTurnEl.textContent = "Your move";
+      break;
+    case "opponent":
+      repTurnEl.textContent = "Opponent's move...";
+      break;
+    case "mistake":
+      repTurnEl.textContent = `Mistake: ${drill.mistake} is not in your repertoire.`;
+      repTurnEl.classList.add("off");
+      drillActionEl.textContent = "Try again";
+      drillActionEl.hidden = false;
+      break;
+    case "complete":
+      repTurnEl.textContent = drill.empty
+        ? "This repertoire has no moves."
+        : "Line complete. Well done!";
+      drillActionEl.textContent = "Restart";
+      drillActionEl.hidden = drill.empty;
+      break;
+  }
+}
+
+drillBtnEl.addEventListener("click", () => {
+  if (drill) {
+    endDrill();
+    update();
+  } else {
+    startDrill();
+  }
+});
+
+drillActionEl.addEventListener("click", () => {
+  if (!drill) return;
+  if (drill.phase === "mistake") retryDrill();
+  else if (drill.phase === "complete") startDrill();
 });
 
 update();

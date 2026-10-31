@@ -31,22 +31,33 @@
         </div>
 
         <section class="rep">
-          <div class="rep-head">
+          <div id="rep-manage" class="rep-manage" hidden>
+            <select id="rep-select" title="Choose a repertoire"></select>
+            <button id="btn-rep-rename">Rename</button>
+            <button id="btn-rep-delete">Delete</button>
+          </div>
+          <div id="rep-info" class="rep-info"></div>
+
+          <button id="btn-drill" class="drill-btn" hidden>Drill</button>
+          <div id="rep-turn" class="rep-turn"></div>
+          <button id="btn-drill-action" class="drill-action" hidden></button>
+          <div id="rep-next" class="rep-next"></div>
+          <div id="rep-comment" class="rep-comment"></div>
+
+          <div class="rep-import">
             <label class="file-btn">
               Import PGN
               <input id="pgn-file" type="file" accept=".pgn,.txt" hidden />
             </label>
-            <select id="rep-color" title="Which side is this repertoire for?">
-              <option value="w">White</option>
-              <option value="b">Black</option>
+            <select
+              id="rep-color"
+              title="Which side is the new repertoire for?"
+            >
+              <option value="w">as White</option>
+              <option value="b">as Black</option>
             </select>
-            <button id="btn-rep-clear" hidden>Clear</button>
           </div>
-          <div id="rep-info" class="rep-info"></div>
           <div id="rep-notice" class="rep-notice"></div>
-          <div id="rep-turn" class="rep-turn"></div>
-          <div id="rep-next" class="rep-next"></div>
-          <div id="rep-comment" class="rep-comment"></div>
         </section>
 
         <ol id="moves" class="moves"></ol>

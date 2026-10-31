@@ -601,7 +601,9 @@ repNextEl.addEventListener("click", (e) => {
 
   if (viewPly !== null) goToPly(game.history().length); // back to the live position
 
-  const move = game.moves({ verbose: true }).find((m) => m.san === btn.dataset.san);
+  const move = game
+    .moves({ verbose: true })
+    .find((m) => m.san === btn.dataset.san);
   if (move) playMove(move.from, move.to, move.promotion);
 });
 
@@ -638,7 +640,8 @@ pgnFileEl.addEventListener("change", async () => {
   let text = `Imported ${result.games} game${result.games === 1 ? "" : "s"}, ${result.newMoves} new moves.`;
   if (result.errors.length) {
     const e = result.errors[0];
-    text += ` ${result.errors.length} problem${result.errors.length === 1 ? "" : "s"}` +
+    text +=
+      ` ${result.errors.length} problem${result.errors.length === 1 ? "" : "s"}` +
       ` (game ${e.game}: ${e.message}).`;
   }
   repNotice = { text, isError: result.errors.length > 0 };

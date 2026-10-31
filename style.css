@@ -276,7 +276,8 @@ select:disabled {
 /* Clickable moves in the notation list */
 .move {
   display: inline-block;
-  min-width: 70px;
+  margin: 2px;
+  min-width: 55px;
   padding: 0 6px;
   border-radius: 4px;
   color: var(--text);

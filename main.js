@@ -1,25 +1,17 @@
 import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.0.0/+esm";
+import { createPieceEl, preloadPieces } from "./src/pieces.js";
+import {
+  Repertoire,
+  loadRepertoire,
+  saveRepertoire,
+  clearSavedRepertoire,
+} from "./src/repertoire.js";
+import { importPgn } from "./src/pgn.js";
+import { OpeningBook } from "./src/openings.js";
 
 const game = new Chess(); // the real game (always the full move history)
 
-// Pixel-art sprites live in assets/pieces/{w|b}{P|N|B|R|Q|K}.svg
-const PIECE_TYPES = ["p", "n", "b", "r", "q", "k"];
-
-function createPieceEl(color, type, extraClass = "") {
-  const el = document.createElement("img");
-  el.className = `piece ${color}` + (extraClass ? ` ${extraClass}` : "");
-  el.src = `./assets/pieces/${color}${type.toUpperCase()}.svg`;
-  el.alt = "";
-  el.draggable = false;
-  return el;
-}
-
-// Preload every sprite so re-rendering the board never flashes empty squares
-for (const color of ["w", "b"]) {
-  for (const type of PIECE_TYPES) {
-    new Image().src = `./assets/pieces/${color}${type.toUpperCase()}.svg`;
-  }
-}
+preloadPieces();
 
 const FILES = "abcdefgh";
 const DRAG_THRESHOLD = 4; // pixels before a press becomes a drag
@@ -40,6 +32,15 @@ const statusEl = document.getElementById("status");
 const movesEl = document.getElementById("moves");
 const stripTopEl = document.getElementById("strip-top");
 const stripBottomEl = document.getElementById("strip-bottom");
+const openingEl = document.getElementById("opening");
+const pgnFileEl = document.getElementById("pgn-file");
+const repColorEl = document.getElementById("rep-color");
+const repClearEl = document.getElementById("btn-rep-clear");
+const repInfoEl = document.getElementById("rep-info");
+const repNoticeEl = document.getElementById("rep-notice");
+const repTurnEl = document.getElementById("rep-turn");
+const repNextEl = document.getElementById("rep-next");
+const repCommentEl = document.getElementById("rep-comment");
 
 let orientation = "w";
 let selectedSquare = null;
@@ -286,6 +287,8 @@ function update() {
   renderBoard();
   renderStrips();
   renderStatus();
+  renderOpening();
+  renderRepertoire();
   renderMoves();
 }
 
@@ -296,13 +299,13 @@ function clearSelection() {
   legalMoves = [];
 }
 
-function playMove(from, to) {
+function playMove(from, to, promotion = "q") {
   const target = game.get(to);
 
   const move = game.move({
     from,
     to,
-    promotion: "q",
+    promotion,
   });
 
   if (game.isCheckmate()) {
@@ -489,6 +492,164 @@ document.getElementById("btn-reset").addEventListener("click", () => {
   game.reset();
   viewPly = null;
   clearSelection();
+  update();
+});
+
+/* ---------- Opening recognition (lichess chess-openings, CC0) ---------- */
+
+let openingBook = null; // built after assets/openings.json has loaded
+
+function renderOpening() {
+  openingEl.classList.remove("dim");
+
+  if (!openingBook) {
+    openingEl.textContent = "";
+    return;
+  }
+
+  const sanMoves = view.history();
+  if (sanMoves.length === 0) {
+    openingEl.textContent = "Starting position";
+    return;
+  }
+
+  const hit = openingBook.find(sanMoves, Chess);
+  if (!hit) {
+    openingEl.textContent = "No named opening";
+    openingEl.classList.add("dim");
+    return;
+  }
+
+  openingEl.textContent = `${hit.eco} · ${hit.name}`;
+  // Dimmed when the current position is already past the last named position
+  if (!hit.exact) openingEl.classList.add("dim");
+}
+
+fetch("./assets/openings.json")
+  .then((res) => res.json())
+  .then((rows) => {
+    openingBook = OpeningBook.build(rows, Chess);
+    renderOpening();
+  })
+  .catch((err) => console.warn("Could not load openings.json", err));
+
+/* ---------- Repertoire (PGN import + position tree) ---------- */
+
+let repertoire = loadRepertoire(); // null until a PGN is imported
+let repNotice = { text: "", isError: false };
+if (repertoire) orientation = repertoire.color;
+
+function renderRepertoire() {
+  repColorEl.disabled = !!repertoire;
+  repClearEl.hidden = !repertoire;
+  if (repertoire) repColorEl.value = repertoire.color;
+
+  repNoticeEl.textContent = repNotice.text;
+  repNoticeEl.classList.toggle("error", repNotice.isError);
+  repNextEl.innerHTML = "";
+  repCommentEl.textContent = "";
+  repTurnEl.textContent = "";
+  repTurnEl.classList.remove("off");
+
+  if (!repertoire) {
+    repInfoEl.textContent = "No repertoire yet. Import a PGN file to start.";
+    return;
+  }
+
+  const { positions, moves } = repertoire.stats();
+  repInfoEl.textContent =
+    `${repertoire.name} · ${repertoire.color === "w" ? "White" : "Black"}` +
+    ` · ${positions} positions, ${moves} moves`;
+
+  // Comment attached to the move that led to this position
+  const last = view.history({ verbose: true }).at(-1);
+  if (last && last.before) {
+    const edge = repertoire.getNode(last.before)?.edges.get(last.san);
+    if (edge && edge.comment) repCommentEl.textContent = edge.comment;
+  }
+
+  const node = repertoire.getNode(view.fen());
+  if (!node) {
+    repTurnEl.textContent = "Out of repertoire";
+    repTurnEl.classList.add("off");
+    return;
+  }
+  if (node.edges.size === 0) {
+    repTurnEl.textContent = "End of line";
+    return;
+  }
+
+  repTurnEl.textContent =
+    view.turn() === repertoire.color ? "Your move" : "Opponent's options";
+
+  let first = true;
+  for (const edge of node.edges.values()) {
+    const btn = document.createElement("button");
+    btn.className = "rep-move" + (first ? " main" : "");
+    btn.dataset.san = edge.san;
+    btn.textContent = edge.san;
+    if (edge.comment) btn.title = edge.comment;
+    repNextEl.appendChild(btn);
+    first = false;
+  }
+}
+
+// Clicking a suggested move plays it on the board
+repNextEl.addEventListener("click", (e) => {
+  const btn = e.target.closest(".rep-move");
+  if (!btn) return;
+
+  if (viewPly !== null) goToPly(game.history().length); // back to the live position
+
+  const move = game.moves({ verbose: true }).find((m) => m.san === btn.dataset.san);
+  if (move) playMove(move.from, move.to, move.promotion);
+});
+
+pgnFileEl.addEventListener("change", async () => {
+  const file = pgnFileEl.files[0];
+  pgnFileEl.value = ""; // allows importing the same file again
+  if (!file) return;
+
+  const isNew = !repertoire;
+  const rep =
+    repertoire ??
+    new Repertoire({
+      color: repColorEl.value,
+      name: file.name.replace(/\.[^.]+$/, ""),
+    });
+
+  const result = importPgn(await file.text(), Chess, rep);
+
+  if (result.games === 0) {
+    repNotice = {
+      text: result.errors.length
+        ? `Nothing imported. ${result.errors[0].message}`
+        : "No games found in that file.",
+      isError: true,
+    };
+    update();
+    return;
+  }
+
+  repertoire = rep;
+  saveRepertoire(repertoire);
+  if (isNew) orientation = repertoire.color;
+
+  let text = `Imported ${result.games} game${result.games === 1 ? "" : "s"}, ${result.newMoves} new moves.`;
+  if (result.errors.length) {
+    const e = result.errors[0];
+    text += ` ${result.errors.length} problem${result.errors.length === 1 ? "" : "s"}` +
+      ` (game ${e.game}: ${e.message}).`;
+  }
+  repNotice = { text, isError: result.errors.length > 0 };
+  update();
+});
+
+repClearEl.addEventListener("click", () => {
+  if (!confirm("Delete the imported repertoire?")) return;
+  repertoire = null;
+  repNotice = { text: "", isError: false };
+  clearSavedRepertoire();
   update();
 });
 

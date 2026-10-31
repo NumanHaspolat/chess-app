@@ -211,7 +211,7 @@ body {
 }
 
 .status {
-  margin-bottom: 12px;
+  margin-bottom: 4px;
   font-size: 1rem;
   font-weight: 600;
   color: var(--text-muted);
@@ -223,7 +223,8 @@ body {
   margin-bottom: 12px;
 }
 
-button {
+button,
+.file-btn {
   flex: 1;
   padding: 8px;
   border: 1px solid var(--panel-border);
@@ -237,9 +238,26 @@ button {
     background 0.15s,
     border-color 0.15s;
 }
-button:hover {
+button:hover,
+.file-btn:hover {
   background: var(--control-hover);
   border-color: var(--accent-strong);
+}
+.file-btn {
+  display: block;
+  text-align: center;
+}
+select {
+  padding: 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: var(--control);
+  color: var(--text);
+  font-family: var(--font-pixel);
+  font-size: 1rem;
+}
+select:disabled {
+  opacity: 0.6;
 }
 
 .moves {
@@ -271,4 +289,71 @@ button:hover {
   background: var(--accent-strong);
   color: #04201d;
   font-weight: 700;
+}
+
+/* Opening name */
+.opening {
+  min-height: 1.4em;
+  margin-bottom: 12px;
+  font-size: 1rem;
+  color: var(--accent);
+}
+.opening.dim {
+  color: var(--text-muted);
+}
+
+/* Repertoire section */
+.rep {
+  margin-bottom: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--panel-border);
+}
+.rep-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.rep-head .file-btn {
+  flex: 1 1 120px;
+  white-space: nowrap;
+}
+.rep-info,
+.rep-notice,
+.rep-comment {
+  margin-bottom: 8px;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+.rep-notice:empty,
+.rep-comment:empty,
+.rep-turn:empty {
+  display: none;
+}
+.rep-notice.error {
+  color: #ff9d9d;
+}
+.rep-turn {
+  margin-bottom: 6px;
+  color: var(--accent);
+}
+.rep-turn.off {
+  color: #ff9d9d;
+}
+.rep-next {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.rep-move {
+  flex: 0 0 auto;
+  padding: 4px 10px;
+}
+.rep-move.main {
+  border-color: var(--accent-strong);
+}
+.rep-comment {
+  color: var(--text);
 }

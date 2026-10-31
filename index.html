@@ -23,11 +23,32 @@
       <aside class="panel">
         <h1>Azurite</h1>
         <div id="status" class="status"></div>
+        <div id="opening" class="opening"></div>
         <div class="buttons">
           <button id="btn-undo">Undo</button>
           <button id="btn-flip">Flip</button>
           <button id="btn-reset">Reset</button>
         </div>
+
+        <section class="rep">
+          <div class="rep-head">
+            <label class="file-btn">
+              Import PGN
+              <input id="pgn-file" type="file" accept=".pgn,.txt" hidden />
+            </label>
+            <select id="rep-color" title="Which side is this repertoire for?">
+              <option value="w">White</option>
+              <option value="b">Black</option>
+            </select>
+            <button id="btn-rep-clear" hidden>Clear</button>
+          </div>
+          <div id="rep-info" class="rep-info"></div>
+          <div id="rep-notice" class="rep-notice"></div>
+          <div id="rep-turn" class="rep-turn"></div>
+          <div id="rep-next" class="rep-next"></div>
+          <div id="rep-comment" class="rep-comment"></div>
+        </section>
+
         <ol id="moves" class="moves"></ol>
       </aside>
     </main>

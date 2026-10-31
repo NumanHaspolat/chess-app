@@ -607,7 +607,7 @@ function renderRepertoire() {
   }
 
   const { positions, moves } = repertoire.stats();
-  repInfoEl.textContent = `${positions} positions, ${moves} moves`;
+  // repInfoEl.textContent = `${positions} positions, ${moves} moves`;
 
   // Comment attached to the move that led to this position
   const last = view.history({ verbose: true }).at(-1);
@@ -820,9 +820,7 @@ function onDrillMove(move) {
 function retryDrill() {
   if (!drill || drill.phase !== "mistake") return;
 
-  // Yanlış hamle sadece Try Again'e basıldığında geri alınır.
   game.undo();
-
   viewPly = null;
   clearSelection();
 
@@ -935,6 +933,9 @@ function renderRepLibrary() {
 
     const title = document.createElement("h3");
     title.textContent = rep.name;
+    const positionCount = document.createElement("p");
+    positionCount.className = "rep-card-position-count";
+    positionCount.textContent = `${rep.stats().positions} positions, as ${rep.color === "w" ? "White" : "Black"}`;
 
     const selectButton = document.createElement("button");
     selectButton.textContent =
@@ -992,7 +993,7 @@ function renderRepLibrary() {
     actions.className = "rep-card-actions";
     actions.append(selectButton, renameButton, deleteButton);
 
-    card.append(title, actions);
+    card.append(title, positionCount, actions);
     container.appendChild(card);
   });
 }

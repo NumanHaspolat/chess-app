@@ -679,3 +679,12 @@ button:disabled:hover {
 .rep-info {
   margin-top: 7px;
 }
+
+.rep-card-position-count {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.16);
+  color: var(--text-muted);
+  font-size: 13px;
+}

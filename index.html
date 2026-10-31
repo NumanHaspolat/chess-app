@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Azurite</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Tiny5+Duo&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body>
+    <main class="app">
+      <div class="board-wrap">
+        <div id="strip-top" class="strip"></div>
+        <div id="board" class="board"></div>
+        <div id="strip-bottom" class="strip"></div>
+      </div>
+
+      <aside class="panel">
+        <h1>Azurite</h1>
+        <div id="status" class="status"></div>
+        <div class="buttons">
+          <button id="btn-undo">Undo</button>
+          <button id="btn-flip">Flip</button>
+          <button id="btn-reset">Reset</button>
+        </div>
+        <ol id="moves" class="moves"></ol>
+      </aside>
+    </main>
+
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

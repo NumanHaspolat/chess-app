@@ -1,0 +1,274 @@
+:root {
+  /* Theme: dark turquoise / deep blue */
+  --bg: #0a1b22;
+  --bg-glow: #12404a;
+  --panel: #0f2a33;
+  --panel-border: #1b4652;
+  --control: #17414d;
+  --control-hover: #1f5865;
+  --text: #d6eeee;
+  --text-muted: #7fa9ae;
+  --accent: #2dd4bf;
+  --accent-strong: #14b8a6;
+
+  /* Board */
+  --light: #bfe3df;
+  --dark: #3f8896;
+  --selected: rgba(250, 226, 110, 0.65);
+  --last-move: rgba(45, 212, 191, 0.4);
+  --legal-dot: rgba(6, 38, 48, 0.42);
+  --check: rgba(255, 70, 70, 0.6);
+
+  /* Pixel font */
+  --font-pixel: "Tiny5 Duo", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--text);
+  font-family: var(--font-pixel);
+  font-size: 16px;
+  background:
+    radial-gradient(1200px 600px at 30% -10%, var(--bg-glow), transparent 70%),
+    var(--bg);
+}
+
+.app {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 24px;
+}
+
+/* Board wrapper and player strips */
+.board-wrap {
+  --size: min(92vw, 576px); /* 72px squares = 4px per sprite pixel */
+  width: var(--size);
+}
+
+.strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 4px;
+  font-size: 1rem;
+}
+
+.strip-name {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.strip-captured {
+  display: flex;
+  align-items: center;
+}
+.strip-captured .piece {
+  width: 36px; /* 2px per sprite pixel */
+  height: 36px;
+  cursor: default;
+  margin-right: -12px; /* slight overlap, like lichess */
+}
+.strip-captured .piece:last-child {
+  margin-right: -4px;
+}
+
+.strip-advantage {
+  font-weight: 700;
+  color: var(--accent);
+}
+
+/* Board */
+.board {
+  width: var(--size);
+  height: var(--size);
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 1px var(--panel-border),
+    0 12px 32px rgba(0, 0, 0, 0.55),
+    0 0 40px rgba(45, 212, 191, 0.08);
+  user-select: none;
+  touch-action: none;
+}
+
+.square {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.square.light {
+  background: var(--light);
+}
+.square.dark {
+  background: var(--dark);
+}
+.square.last-move {
+  background-image: linear-gradient(var(--last-move), var(--last-move));
+}
+.square.selected {
+  background-image: linear-gradient(var(--selected), var(--selected));
+}
+.square.check {
+  background-image: radial-gradient(var(--check), transparent 75%);
+}
+.square.drag-over {
+  box-shadow: inset 0 0 0 4px rgba(255, 255, 255, 0.75);
+}
+
+/* Legal move indicators */
+.square.legal::after {
+  content: "";
+  position: absolute;
+  width: 28%;
+  height: 28%;
+  border-radius: 50%;
+  background: var(--legal-dot);
+}
+.square.legal.capture::after {
+  width: 90%;
+  height: 90%;
+  background: transparent;
+  border: 6px solid var(--legal-dot);
+}
+
+/* Pieces: pixel-art SVG sprites (18x18 sprite pixels, outline baked into white) */
+.piece {
+  display: block;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  cursor: grab;
+  image-rendering: pixelated;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.piece.dragging {
+  opacity: 0.3;
+}
+
+.drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  z-index: 1000;
+  cursor: grabbing;
+}
+
+/* Coordinates */
+.coord {
+  position: absolute;
+  font-size: 12px;
+  font-weight: 700;
+  pointer-events: none;
+}
+.coord.rank {
+  top: 3px;
+  left: 4px;
+}
+.coord.file {
+  bottom: 2px;
+  right: 4px;
+}
+.square.light .coord {
+  color: var(--dark);
+}
+.square.dark .coord {
+  color: var(--light);
+}
+
+/* Side panel */
+.panel {
+  width: 280px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+}
+
+.panel h1 {
+  margin: 0 0 12px;
+  font-size: 2rem;
+  letter-spacing: 1px;
+  background: linear-gradient(90deg, var(--accent), #71c1f7);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.status {
+  margin-bottom: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.buttons {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+button {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: var(--control);
+  color: var(--text);
+  font-family: var(--font-pixel); /* buttons do not inherit font-family */
+  font-size: 1rem;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+button:hover {
+  background: var(--control-hover);
+  border-color: var(--accent-strong);
+}
+
+.moves {
+  margin: 0;
+  padding-left: 24px;
+  max-height: 320px;
+  overflow-y: auto;
+  font-family: var(--font-pixel);
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: var(--text-muted);
+  scrollbar-color: var(--control-hover) transparent;
+  scrollbar-width: thin;
+}
+
+/* Clickable moves in the notation list */
+.move {
+  display: inline-block;
+  min-width: 70px;
+  padding: 0 6px;
+  border-radius: 4px;
+  color: var(--text);
+  cursor: pointer;
+}
+.move:hover {
+  background: var(--control);
+}
+.move.active {
+  background: var(--accent-strong);
+  color: #04201d;
+  font-weight: 700;
+}

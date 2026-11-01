@@ -7,8 +7,8 @@ const LEGACY_KEY = "azurite.repertoire.v1"; // earlier single-repertoire version
 
 export class Library {
   constructor(items = [], activeId = null) {
-    this.items = items; // Repertoire[]
-    this.activeId = items.some((r) => r.id === activeId) ? activeId : (items[0]?.id ?? null);
+    this.items = items;
+    this.activeId = items.some((r) => r.id === activeId) ? activeId : null;
   }
 
   get active() {
@@ -30,7 +30,8 @@ export class Library {
     if (index === -1) return;
     this.items.splice(index, 1);
     if (this.activeId === id) {
-      this.activeId = this.items[Math.min(index, this.items.length - 1)]?.id ?? null;
+      this.activeId =
+        this.items[Math.min(index, this.items.length - 1)]?.id ?? null;
     }
   }
 

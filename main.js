@@ -5,6 +5,7 @@ import { Library } from "./src/library.js";
 import { judgeMove, pickReply, lineEnded, parseUci } from "./src/drill.js";
 import { importPgn } from "./src/pgn.js";
 import { OpeningBook } from "./src/openings.js";
+import { loadOpening } from "./src/opening-trainer.js";
 
 const game = new Chess(); // the real game (always the full move history)
 
@@ -812,7 +813,20 @@ document.getElementById("btn-reset").addEventListener("click", () => {
 
 /* ---------- Opening recognition (lichess chess-openings, CC0) ---------- */
 
-let openingBook = null; // built after assets/openings.json has loaded
+let openingBook = null;
+let curatedOpening = null;
+
+async function initCuratedOpenings() {
+  try {
+    curatedOpening = await loadOpening("scotch-game", Chess);
+
+    console.log("Curated opening loaded:", curatedOpening);
+    console.log("Validated variations:", curatedOpening.variations.length);
+  } catch (error) {
+    console.error("Could not load curated openings:", error);
+  }
+}
+// built after assets/openings.json has loaded
 
 function renderOpening() {
   openingEl.classList.remove("dim");
@@ -1393,11 +1407,6 @@ function renderRepLibrary() {
       endDrill();
       library.remove(rep.id);
       persist();
-
-      if (library.active) {
-        orientation = library.active.color;
-      }
-
       setNotice("");
       update();
     });
@@ -1412,5 +1421,5 @@ function renderRepLibrary() {
 }
 
 initStockfish();
-
+initCuratedOpenings();
 update();

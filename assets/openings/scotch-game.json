@@ -1,0 +1,22 @@
+{
+  "id": "scotch-game",
+  "name": "Scotch Game",
+  "color": "white",
+  "description": "An active opening that opens the center early and develops pieces quickly.",
+  "variations": [
+    {
+      "id": "scotch-main",
+      "name": "Main Line",
+      "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4",
+      "explanations": {
+        "e4": "Take control of the center and open lines for your pieces.",
+        "e5": "Black challenges your central control.",
+        "Nf3": "Develop your knight and attack the e5 pawn.",
+        "Nc6": "Black develops a knight and defends the e5 pawn.",
+        "d4": "Challenge Black's central pawn immediately. This is the defining idea of the Scotch Game.",
+        "exd4": "Black captures your central pawn.",
+        "Nxd4": "Recapture with your knight, placing it actively in the center."
+      }
+    }
+  ]
+}

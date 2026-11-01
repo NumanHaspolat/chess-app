@@ -509,6 +509,7 @@ button:disabled {
 
 .page-heading p {
   color: var(--text-muted);
+  padding-bottom: 1rem;
 }
 
 .repertoire-layout {

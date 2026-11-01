@@ -83,6 +83,7 @@ let drillMistakeTimer = null;
 let drillCompleteTimer = null;
 let viewPly = null; // null = live position, otherwise number of plies being viewed
 let view = game; // the position currently displayed on the board
+let learnHintMove = null;
 
 /* ---------- Coordinates helpers ---------- */
 
@@ -816,6 +817,17 @@ function renderBoard(animate = true) {
 
   boardEl.innerHTML = "";
 
+  // Learn okları için SVG katmanı
+  const arrowLayer = document.createElementNS(
+    "http://www.w3.org/2000/svg",
+    "svg",
+  );
+
+  arrowLayer.classList.add("learn-arrow-layer");
+  arrowLayer.setAttribute("viewBox", "0 0 8 8");
+  arrowLayer.setAttribute("preserveAspectRatio", "none");
+  arrowLayer.setAttribute("aria-hidden", "true");
+
   const checkSquare = view.inCheck() ? findKingSquare(view.turn()) : null;
 
   for (let row = 0; row < 8; row++) {
@@ -833,6 +845,16 @@ function renderBoard(animate = true) {
 
       if (drillHintSquares.includes(name)) {
         squareEl.classList.add("drill-hint");
+      }
+
+      if (learnHintMove) {
+        if (name === learnHintMove.from) {
+          squareEl.classList.add("learn-from");
+        }
+
+        if (name === learnHintMove.to) {
+          squareEl.classList.add("learn-to");
+        }
       }
 
       if (lastMove && (name === lastMove.from || name === lastMove.to)) {
@@ -867,6 +889,70 @@ function renderBoard(animate = true) {
     }
   }
 
+  // Learn modunda önerilen hamle için ok çiz
+  if (learnHintMove) {
+    const files = "abcdefgh";
+
+    const fromCol = files.indexOf(learnHintMove.from[0]);
+    const fromRow = 8 - Number(learnHintMove.from[1]);
+
+    const toCol = files.indexOf(learnHintMove.to[0]);
+    const toRow = 8 - Number(learnHintMove.to[1]);
+
+    const dx = toCol - fromCol;
+    const dy = toRow - fromRow;
+    const length = Math.hypot(dx, dy);
+
+    if (length > 0) {
+      const offset = 0.22;
+
+      const arrow = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "line",
+      );
+
+      arrow.setAttribute("x1", fromCol + 0.5);
+      arrow.setAttribute("y1", fromRow + 0.5);
+      arrow.setAttribute("x2", toCol + 0.5 - (dx / length) * offset);
+      arrow.setAttribute("y2", toRow + 0.5 - (dy / length) * offset);
+      arrow.setAttribute("marker-end", "url(#learn-arrow-head)");
+      arrow.classList.add("learn-arrow");
+
+      const defs = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "defs",
+      );
+
+      const marker = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "marker",
+      );
+
+      marker.setAttribute("id", "learn-arrow-head");
+      marker.setAttribute("markerWidth", "4");
+      marker.setAttribute("markerHeight", "4");
+      marker.setAttribute("refX", "3");
+      marker.setAttribute("refY", "2");
+      marker.setAttribute("orient", "auto");
+      marker.setAttribute("markerUnits", "userSpaceOnUse");
+
+      const head = document.createElementNS(
+        "http://www.w3.org/2000/svg",
+        "path",
+      );
+
+      head.setAttribute("d", "M 0 0 L 4 2 L 0 4 Z");
+      head.classList.add("learn-arrow-head");
+
+      marker.appendChild(head);
+      defs.appendChild(marker);
+
+      arrowLayer.appendChild(defs);
+      arrowLayer.appendChild(arrow);
+    }
+  }
+
+  boardEl.appendChild(arrowLayer);
   // Yeni tahtadaki hedef taşını eski konumundan kaydır.
   if (animate && oldPieceRect && lastMove) {
     const toSquare = boardEl.querySelector(`[data-square="${lastMove.to}"]`);

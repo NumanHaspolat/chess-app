@@ -959,6 +959,7 @@ button:disabled:hover {
   border: 1px solid var(--panel-border);
   border-radius: 10px;
   box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);
+  margin-top: 1rem;
 }
 
 .nav-brand {
@@ -982,18 +983,25 @@ button:disabled:hover {
   text-decoration: none;
   font-size: 1.05rem;
   border-radius: 6px;
-  transition: 0.2s ease;
+  border: 1px solid transparent;
+
+  transition:
+    transform 0.25s ease,
+    color 0.25s ease,
+    background 0.25s ease,
+    border-color 0.25s ease;
 }
 
 .nav-link:hover {
   color: var(--accent-strong);
   background: var(--control);
+  transform: translateY(-3px);
 }
 
 .nav-link.active {
   color: var(--accent-strong);
   background: rgba(45, 192, 212, 0.12);
-  border: 1px solid var(--panel-border);
+  border: 1px solid var(--accent);
 }
 
 @media (max-width: 500px) {
@@ -1017,4 +1025,103 @@ button:disabled:hover {
     padding: 9px 12px;
     font-size: 0.95rem;
   }
+}
+
+.page-section {
+  width: 90%;
+  max-width: 1100px;
+  margin: 40px auto;
+  color: var(--text);
+}
+
+.page-section[hidden] {
+  display: none;
+}
+
+.page-heading {
+  margin-bottom: 28px;
+}
+
+.page-heading h1 {
+  color: var(--accent-strong);
+  margin-bottom: 8px;
+}
+
+.page-heading p {
+  color: var(--text-muted);
+}
+
+.openings-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.opening-card {
+  padding: 24px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  transition:
+    transform 0.25s ease,
+    border-color 0.25s ease;
+}
+
+.opening-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--accent);
+}
+
+.opening-card h2 {
+  color: var(--accent-strong);
+  margin-top: 0;
+}
+
+.opening-card p {
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.opening-card-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.opening-card-actions button {
+  flex: 1;
+  padding: 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: var(--control);
+  color: var(--text);
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.opening-card-actions button:hover {
+  background: var(--control-hover);
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.opening-color {
+  display: inline-block;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+}
+
+.opening-color.white {
+  color: #8deaff;
+  background: rgba(45, 192, 212, 0.14);
+  border: 1px solid rgba(45, 192, 212, 0.4);
+}
+
+.opening-color.black {
+  color: #196f97;
+  background: rgba(150, 120, 220, 0.14);
+  border: 1px solid rgba(150, 120, 220, 0.4);
 }

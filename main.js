@@ -819,12 +819,55 @@ let curatedOpening = null;
 async function initCuratedOpenings() {
   try {
     curatedOpening = await loadOpening("scotch-game", Chess);
-
     console.log("Curated opening loaded:", curatedOpening);
     console.log("Validated variations:", curatedOpening.variations.length);
+
+    renderOpenings();
   } catch (error) {
     console.error("Could not load curated openings:", error);
   }
+}
+
+function renderOpenings() {
+  const list = document.querySelector("#openings-list");
+
+  if (!list || !curatedOpening) return;
+
+  list.innerHTML = "";
+
+  const card = document.createElement("article");
+  card.className = "opening-card";
+
+  const title = document.createElement("h2");
+  title.textContent = curatedOpening.name;
+
+  const description = document.createElement("p");
+  description.textContent = curatedOpening.description;
+  
+  const color = document.createElement("span");
+  color.className = `opening-color ${curatedOpening.color}`;
+  color.textContent = curatedOpening.color === "white" ? "White" : "Black";
+
+  const actions = document.createElement("div");
+  actions.className = "opening-card-actions";
+
+  const learnButton = document.createElement("button");
+  learnButton.textContent = "Learn";
+
+  const trainButton = document.createElement("button");
+  trainButton.textContent = "Train";
+
+  learnButton.addEventListener("click", () => {
+    console.log("Learn opening:", curatedOpening.id);
+  });
+
+  trainButton.addEventListener("click", () => {
+    console.log("Train opening:", curatedOpening.id);
+  });
+
+  actions.append(learnButton, trainButton);
+  card.append(title, description, color, actions);
+  list.append(card);
 }
 // built after assets/openings.json has loaded
 
@@ -1419,6 +1462,44 @@ function renderRepLibrary() {
     container.appendChild(card);
   });
 }
+
+// Navbar page navigation
+const navLinks = document.querySelectorAll(".nav-link");
+const brandLink = document.querySelector(".nav-brand");
+
+const pages = {
+  play: document.querySelector("#play"),
+  openings: document.querySelector("#openings"),
+  profile: document.querySelector("#profile"),
+};
+
+function showPage(pageName) {
+  Object.entries(pages).forEach(([name, element]) => {
+    element.hidden = name !== pageName;
+  });
+
+  navLinks.forEach((link) => {
+    link.classList.toggle(
+      "active",
+      link.getAttribute("href") === `#${pageName}`,
+    );
+  });
+}
+
+navLinks.forEach((link) => {
+  link.addEventListener("click", (event) => {
+    event.preventDefault();
+    const pageName = link.getAttribute("href").slice(1);
+    showPage(pageName);
+    history.replaceState(null, "", `#${pageName}`);
+  });
+});
+
+brandLink.addEventListener("click", (event) => {
+  event.preventDefault();
+  showPage("play");
+  history.replaceState(null, "", "#play");
+});
 
 initStockfish();
 initCuratedOpenings();

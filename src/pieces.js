@@ -11,7 +11,7 @@ let workingSuffix = 0; // index into SUFFIXES that is known (or assumed) to work
 export const PIECE_TYPES = ["p", "n", "b", "r", "q", "k"];
 
 export function pieceSrc(color, type, suffixIndex = workingSuffix) {
-  return `${SPRITE_DIR}${color}${type.toUpperCase()}.svg`;
+  return `${SPRITE_DIR}${color}${type.toUpperCase()}.png`;
 }
 
 export function createPieceEl(color, type, extraClass = "") {

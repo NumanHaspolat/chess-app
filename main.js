@@ -186,7 +186,7 @@ function renderBoard() {
       const squareEl = document.createElement("div");
 
       squareEl.className =
-        "square " + ((fileIndex + rankNumber) % 2 === 0 ? "dark" : "light");
+        "square " + ((fileIndex + rankNumber) % 2 === 0 ? "light" : "dark");
 
       squareEl.dataset.square = name;
 

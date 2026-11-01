@@ -13,12 +13,26 @@
     />
     <link rel="icon" href="./assets/frost icon.jpg" />
   </head>
+
   <body>
     <main class="app">
       <section class="board-section">
         <div class="board-wrap">
           <div id="strip-top" class="strip"></div>
-          <div id="board" class="board"></div>
+
+          <!-- Chessboard + Evaluation bar -->
+          <div class="board-row">
+            <div class="evaluation">
+              <div id="evaluation-bar" class="evaluation-bar">
+                <div id="evaluation-white" class="evaluation-white"></div>
+                <div id="evaluation-black" class="evaluation-black"></div>
+              </div>
+              <div id="evaluation-score" class="evaluation-score">0.0</div>
+            </div>
+
+            <div id="board" class="board"></div>
+          </div>
+
           <div id="strip-bottom" class="strip"></div>
 
           <div
@@ -29,6 +43,7 @@
             <div class="drill-complete-card">
               <h2>Line Complete!</h2>
               <p id="drill-complete-stats"></p>
+
               <div class="drill-complete-buttons">
                 <button id="btn-drill-continue">Continue</button>
                 <button id="btn-drill-stop">Stop Drill</button>
@@ -77,9 +92,6 @@
           <div id="rep-next" class="rep-next"></div>
           <div id="rep-comment" class="rep-comment"></div>
           <div id="drill-alternatives" class="drill-alternatives" hidden></div>
-
-          <!-- <button id="btn-rep-rename">Rename</button>
-          <button id="btn-rep-delete">Delete</button> -->
         </div>
 
         <input id="pgn-file" type="file" accept=".pgn,.txt" hidden />

@@ -5,16 +5,16 @@
   --panel: #0f2a33;
   --panel-border: #1b4652;
   --control: #17414d;
-  --control-hover: #1f5865;
+  --control-hover: #1f5565;
   --text: #d6eeee;
   --text-muted: #7fa9ae;
   --accent: rgb(45, 192, 212);
-  --accent-strong: #14a5b8;
+  --accent-strong: #3fdef3;
 
   /* Board */
   --light: #bfdee3;
   --dark: #348aa0;
-  --selected: rgba(149, 204, 255, 0.65);
+  --selected: rgba(149, 225, 255, 0.65);
   --last-move: rgba(45, 212, 191, 0.4);
   --legal-dot: rgba(6, 38, 48, 0.42);
   --check: rgba(255, 70, 70, 0.6);
@@ -715,7 +715,10 @@ button:disabled:hover {
 .rep-card {
   cursor: pointer;
 }
+
 .board-wrap {
+  width: min(100%, 598px);
+  margin: 0 auto;
   position: relative;
 }
 
@@ -839,4 +842,104 @@ button:disabled:hover {
   background: #c1f6fffd;
   color: #14251b;
   border-color: #008fa8;
+}
+
+/* ===== BOARD + LEFT EVALUATION BAR ===== */
+
+.board-wrap {
+  --size: min(calc(92vw - 42px), 576px);
+  width: calc(var(--size) + 34px);
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.board-row {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.board-row .board {
+  flex: 0 0 var(--size);
+  width: var(--size);
+  height: var(--size);
+  min-width: 0;
+}
+
+.evaluation {
+  width: 24px;
+  flex: 0 0 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.evaluation-bar {
+  width: 22px;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column-reverse;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 3px;
+  background: #252a30;
+}
+
+.evaluation-white {
+  height: 50%;
+  flex: 0 0 auto;
+  background: #f1f1ed;
+  transition: height 350ms ease;
+}
+
+.evaluation-black {
+  flex: 1;
+  min-height: 0;
+  background: #252a30;
+  transition: height 350ms ease;
+}
+
+.evaluation-score {
+  min-height: 16px;
+  width: 34px;
+  color: var(--text);
+  font-size: 11px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Masaüstünde bar ve tahta için yeterli alan */
+.app {
+  grid-template-columns:
+    minmax(354px, 620px)
+    minmax(220px, 280px)
+    minmax(240px, 300px);
+}
+
+@media (max-width: 1050px) {
+  .app {
+    grid-template-columns:
+      minmax(354px, 620px)
+      minmax(240px, 300px);
+  }
+}
+
+@media (max-width: 700px) {
+  .app {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .board-wrap {
+    width: min(100%, 610px);
+    margin-left: auto;
+    margin-right: auto;
+  }
 }

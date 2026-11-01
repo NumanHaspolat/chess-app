@@ -45,6 +45,8 @@ const evaluationScoreEl = document.getElementById("evaluation-score");
 const movesEl = document.getElementById("moves");
 const stripTopEl = document.getElementById("strip-top");
 const stripBottomEl = document.getElementById("strip-bottom");
+const repStripTopEl = document.getElementById("rep-strip-top");
+const repStripBottomEl = document.getElementById("rep-strip-bottom");
 const openingEl = document.getElementById("opening");
 const pgnFileEl = document.getElementById("pgn-file");
 const importRepBtnEl = document.getElementById("btn-import-rep");
@@ -309,6 +311,7 @@ function updateRepertoireBoard(animate = true) {
   }
 
   const displayGame = drill ? drillGame : syncRepView();
+  renderRepertoireStrips(displayGame);
 
   requestEngineEvaluation(displayGame.fen(), "repertoire");
 }
@@ -945,22 +948,21 @@ function renderMoves() {
 
 /* ---------- Material ---------- */
 
-function getMaterial() {
+function getMaterial(position) {
   const counts = {
     w: { p: 0, n: 0, b: 0, r: 0, q: 0 },
     b: { p: 0, n: 0, b: 0, r: 0, q: 0 },
   };
 
-  view
+  position
     .board()
     .flat()
     .forEach((piece) => {
       if (piece && piece.type !== "k") counts[piece.color][piece.type]++;
     });
 
-  // Pieces each side is "ahead" by, shown in the opponent's color
   const ahead = { w: [], b: [] };
-  let net = 0; // positive = white ahead
+  let net = 0;
 
   for (const type of DISPLAY_ORDER) {
     const diff = counts.w[type] - counts.b[type];
@@ -1000,13 +1002,21 @@ function renderStrip(el, color, material) {
 }
 
 function renderStrips() {
-  const material = getMaterial();
+  const material = getMaterial(view);
   const bottomColor = orientation;
   const topColor = orientation === "w" ? "b" : "w";
+
   renderStrip(stripBottomEl, bottomColor, material);
   renderStrip(stripTopEl, topColor, material);
 }
 
+function renderRepertoireStrips(position) {
+  const material = getMaterial(position);
+  const bottomColor = repOrientation;
+  const topColor = repOrientation === "w" ? "b" : "w";
+  renderStrip(repStripBottomEl, bottomColor, material);
+  renderStrip(repStripTopEl, topColor, material);
+}
 function syncView() {
   const moves = game.history();
   const total = moves.length;
@@ -1040,6 +1050,7 @@ function update(animate = true) {
     renderRepertoireBoard(false);
   }
 }
+
 /* ---------- Game actions ---------- */
 
 function clearSelection() {

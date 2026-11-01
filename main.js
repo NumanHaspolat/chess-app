@@ -66,6 +66,7 @@ const repMovesEl = document.getElementById("rep-moves");
 const repStatusEl = document.getElementById("rep-move-status");
 const repBackBtn = document.getElementById("rep-back");
 const repNextEl = document.getElementById("rep-next-info");
+const repOpeningEl = document.getElementById("rep-opening");
 const repResetBtn = document.getElementById("rep-reset");
 const repFlipBtn = document.getElementById("rep-flip");
 
@@ -312,6 +313,7 @@ function updateRepertoireBoard(animate = true) {
 
   const displayGame = drill ? drillGame : syncRepView();
   renderRepertoireStrips(displayGame);
+  renderRepertoireOpening(displayGame);
 
   requestEngineEvaluation(displayGame.fen(), "repertoire");
 }
@@ -1546,6 +1548,34 @@ function renderOpenings() {
   card.append(title, description, color, actions);
   list.append(card);
 }
+
+function renderRepertoireOpening(position) {
+  if (!repOpeningEl) return;
+
+  repOpeningEl.classList.remove("dim");
+
+  if (!openingBook) {
+    repOpeningEl.textContent = "";
+    return;
+  }
+
+  const sanMoves = position.history();
+
+  if (sanMoves.length === 0) {
+    repOpeningEl.textContent = "Starting position";
+    return;
+  }
+
+  const hit = openingBook.find(sanMoves, Chess);
+
+  if (!hit) {
+    repOpeningEl.textContent = "No named opening";
+    repOpeningEl.classList.add("dim");
+    return;
+  }
+
+  repOpeningEl.textContent = `${hit.eco} · ${hit.name}`;
+}
 // built after assets/openings.json has loaded
 
 function renderOpening() {
@@ -1571,7 +1601,6 @@ function renderOpening() {
 
   openingEl.textContent = `${hit.eco} · ${hit.name}`;
   // Dimmed when the current position is already past the last named position
-  if (!hit.exact) openingEl.classList.add("dim");
 }
 
 fetch("./assets/openings.json")

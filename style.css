@@ -983,3 +983,58 @@ button:disabled {
     width: calc(100% - 28px);
   }
 }
+
+.opening {
+  color: #97efff;
+}
+.learn-opening-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 18px;
+  padding: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--panel-bg);
+}
+
+.learn-opening-title {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#learn-opening-name {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+#learn-variation-name {
+  font-size: 13px;
+  opacity: 0.65;
+}
+
+.learn-variations-btn {
+  width: 100%;
+}
+
+.learn-variations-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.learn-variation-option {
+  width: 100%;
+  text-align: left;
+}
+
+.learn-variation-option.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.learn-opening-bar[hidden],
+.learn-variations-list[hidden] {
+  display: none;
+}

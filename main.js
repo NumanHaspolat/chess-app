@@ -1149,6 +1149,27 @@ function clearSelection() {
 }
 
 function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
+  // Learn modu: kullanıcının hamlesini kontrol et
+  if (lesson && !byDrill) {
+    const expectedMove = lesson.variation.moves[lesson.index];
+
+    if (!expectedMove) return;
+
+    const expected = game.move(expectedMove.san, { sloppy: true });
+
+    if (expected) {
+      game.undo();
+
+      if (expected.from !== from || expected.to !== to) {
+        playSound("move");
+        console.log("Wrong Learn move. Try again.");
+        return;
+      }
+    } else {
+      return;
+    }
+  }
+
   const target = game.get(to);
 
   const move = game.move({
@@ -1156,6 +1177,8 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
     to,
     promotion,
   });
+
+  if (!move) return;
 
   if (game.isCheckmate()) {
     playSound("gameover");
@@ -1171,6 +1194,14 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
     playSound("move");
   }
 
+  if (lesson) {
+    lesson.index++;
+
+    const nextMove = lesson.variation.moves[lesson.index];
+
+    learnHintMove = nextMove ? { from: nextMove.from, to: nextMove.to } : null;
+  }
+
   clearSelection();
   update(animate);
 
@@ -1179,7 +1210,6 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
     else onDrillMove(move);
   }
 }
-
 /* ---------- Pointer input (click + drag) ---------- */
 
 boardEl.addEventListener("pointerdown", (e) => {
@@ -1568,31 +1598,12 @@ function selectLearnVariation() {
 function nextLessonMove() {
   if (!lesson || !lesson.variation) return;
 
-  const moves = lesson.variation.moves;
+  const moveData = lesson.variation.moves[lesson.index];
 
-  if (lesson.index >= moves.length) return;
+  if (!moveData) return;
 
-  const move = game.move(moves[lesson.index].san);
-
-  if (game.isCheckmate()) {
-    playSound("gameover");
-  } else if (game.inCheck()) {
-    playSound("check");
-  } else if (move.flags.includes("k") || move.flags.includes("q")) {
-    playSound("castle");
-  } else if (move.flags.includes("p")) {
-    playSound("promote");
-  } else if (move.captured) {
-    playSound("capture");
-  } else {
-    playSound("move");
-  }
-  lesson.index++;
-
-  clearSelection();
-  update();
+  playMove(moveData.from, moveData.to, "q", false);
 }
-
 function previousLessonMove() {
   if (!lesson || !lesson.variation || lesson.index === 0) return;
 

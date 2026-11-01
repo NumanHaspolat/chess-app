@@ -47,6 +47,7 @@ let legalMoves = [];
 let drillHintSquares = [];
 let drag = null; // active press/drag state
 let hoverSquare = null;
+let drillMistakeTimer = null;
 
 let viewPly = null; // null = live position, otherwise number of plies being viewed
 let view = game; // the position currently displayed on the board
@@ -117,10 +118,25 @@ function goToPly(ply) {
 /* ---------- Rendering ---------- */
 
 function renderBoard() {
-  boardEl.innerHTML = "";
-
   const history = view.history({ verbose: true });
   const lastMove = history[history.length - 1];
+
+  // Animasyondan önce taşın eski konumunu kaydet.
+  let oldPieceRect = null;
+
+  if (lastMove) {
+    const fromSquare = boardEl.querySelector(
+      `[data-square="${lastMove.from}"]`,
+    );
+    const oldPiece = fromSquare?.querySelector(".piece");
+
+    if (oldPiece) {
+      oldPieceRect = oldPiece.getBoundingClientRect();
+    }
+  }
+
+  boardEl.innerHTML = "";
+
   const checkSquare = view.inCheck() ? findKingSquare(view.turn()) : null;
 
   for (let row = 0; row < 8; row++) {
@@ -139,28 +155,28 @@ function renderBoard() {
       if (drillHintSquares.includes(name)) {
         squareEl.classList.add("drill-hint");
       }
-      squareEl.className =
-        "square " + ((fileIndex + rankNumber) % 2 === 0 ? "dark" : "light");
-
-      squareEl.dataset.square = name;
-
-      if (drillHintSquares.includes(name)) {
-        squareEl.classList.add("drill-hint");
-      }
 
       if (lastMove && (name === lastMove.from || name === lastMove.to)) {
         squareEl.classList.add("last-move");
       }
-      if (name === selectedSquare) squareEl.classList.add("selected");
-      if (name === checkSquare) squareEl.classList.add("check");
+
+      if (name === selectedSquare) {
+        squareEl.classList.add("selected");
+      }
+
+      if (name === checkSquare) {
+        squareEl.classList.add("check");
+      }
 
       const move = legalMoves.find((m) => m.to === name);
+
       if (move) {
         squareEl.classList.add("legal");
         if (move.captured) squareEl.classList.add("capture");
       }
 
       const piece = view.get(name);
+
       if (piece) {
         squareEl.appendChild(createPieceEl(piece.color, piece.type));
       }
@@ -171,8 +187,31 @@ function renderBoard() {
       boardEl.appendChild(squareEl);
     }
   }
-}
 
+  // Yeni tahtadaki hedef taşını eski konumundan kaydır.
+  if (oldPieceRect && lastMove) {
+    const toSquare = boardEl.querySelector(`[data-square="${lastMove.to}"]`);
+    const newPiece = toSquare?.querySelector(".piece");
+
+    if (newPiece) {
+      const newRect = newPiece.getBoundingClientRect();
+
+      const deltaX = oldPieceRect.left - newRect.left;
+      const deltaY = oldPieceRect.top - newRect.top;
+
+      newPiece.style.transition = "none";
+      newPiece.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+
+      // Başlangıç konumunu tarayıcıya uygulat.
+      newPiece.offsetHeight;
+
+      requestAnimationFrame(() => {
+        newPiece.style.transition = "transform 180ms ease";
+        newPiece.style.transform = "translate(0, 0)";
+      });
+    }
+  }
+}
 function addCoord(squareEl, type, text) {
   const el = document.createElement("span");
   el.className = `coord ${type}`;
@@ -814,6 +853,33 @@ function onDrillMove(move) {
   drill.phase = "mistake";
   drill.mistake = move.san;
 
+  const boardWrap = document.querySelector(".board-wrap");
+
+  if (boardWrap) {
+    boardWrap.classList.remove("board-shake");
+    void boardWrap.offsetWidth;
+    boardWrap.classList.add("board-shake");
+  }
+
+  clearTimeout(drillMistakeTimer);
+
+  drillMistakeTimer = setTimeout(() => {
+    if (!drill || drill.phase !== "mistake") return;
+
+    game.undo();
+    viewPly = null;
+    clearSelection();
+
+    drill.phase = "your-move";
+    drill.mistake = null;
+
+    update();
+
+    if (boardWrap) {
+      boardWrap.classList.remove("board-shake");
+    }
+  }, 1000);
+
   update();
   renderDrillAlternatives();
 }
@@ -876,20 +942,9 @@ function renderDrillAlternatives() {
     return;
   }
 
-  console.log("Panel kontrolü:", {
-    phase: drill?.phase,
-    hintShown: drill?.hintShown,
-    alternatives: drill?.alternatives,
-  });
-
   panel.innerHTML = "";
 
-  if (
-    !drill ||
-    drill.phase !== "mistake" ||
-    !drill.hintShown ||
-    !drill.alternatives?.length
-  ) {
+  if (!drill || !drill.hintShown || !drill.alternatives?.length) {
     panel.hidden = true;
     return;
   }
@@ -910,7 +965,6 @@ function renderDrillAlternatives() {
     panel.appendChild(item);
   });
 }
-
 function renderRepLibrary() {
   const container = document.getElementById("rep-library");
   const count = document.getElementById("rep-count");

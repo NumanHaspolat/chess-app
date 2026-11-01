@@ -13,23 +13,21 @@
     />
     <link rel="icon" href="./assets/frost icon.jpg" />
   </head>
-
   <body>
     <header class="navbar">
       <a href="#play" class="nav-brand">AZURITE</a>
-
       <nav class="nav-links">
         <a href="#play" class="nav-link active">Play</a>
         <a href="#openings" class="nav-link">Openings</a>
+        <a href="#repertoire" class="nav-link">My Repertoire</a>
         <a href="#profile" class="nav-link">Profile</a>
       </nav>
     </header>
+
     <main class="app" id="play">
       <section class="board-section">
         <div class="board-wrap">
           <div id="strip-top" class="strip"></div>
-
-          <!-- Chessboard + Evaluation bar -->
           <div class="board-row">
             <div class="evaluation">
               <div id="evaluation-bar" class="evaluation-bar">
@@ -38,10 +36,8 @@
               </div>
               <div id="evaluation-score" class="evaluation-score">0.0</div>
             </div>
-
             <div id="board" class="board"></div>
           </div>
-
           <div id="strip-bottom" class="strip"></div>
 
           <div
@@ -52,7 +48,6 @@
             <div class="drill-complete-card">
               <h2>Line Complete!</h2>
               <p id="drill-complete-stats"></p>
-
               <div class="drill-complete-buttons">
                 <button id="btn-drill-continue">Continue</button>
                 <button id="btn-drill-stop">Stop Drill</button>
@@ -66,60 +61,99 @@
         <h2>Moves</h2>
         <div id="status" class="status"></div>
         <div id="opening" class="opening"></div>
-
         <div class="buttons">
           <button id="btn-undo">Undo</button>
           <button id="btn-flip">Flip</button>
           <button id="btn-reset">Reset</button>
         </div>
-
         <ol id="moves" class="moves"></ol>
       </section>
 
-      <aside class="repertoire-section">
-        <div class="library-header">
-          <h2>My Repertoires</h2>
-          <span id="rep-count">0 saved</span>
+      <section class="learn-section">
+        <div id="learn-panel" class="learn-panel" hidden>
+          <h2 id="learn-title">Learn</h2>
+          <p id="learn-progress"></p>
+          <div id="learn-explanation" class="learn-explanation">
+            Opening lesson is ready.
+          </div>
+          <div class="learn-controls">
+            <button id="learn-back" disabled>Back</button>
+            <button id="learn-next">Next</button>
+            <button id="learn-exit">Exit</button>
+          </div>
         </div>
+      </section>
+    </main>
 
-        <div id="rep-library" class="rep-library"></div>
+    <section id="repertoire" class="page-section" hidden>
+      <div class="page-heading">
+        <h1>My Repertoire</h1>
+        <p>Manage and review your personal chess repertoire.</p>
+      </div>
 
-        <button id="btn-import-rep" class="import-rep-btn">
-          + Import new PGN
-        </button>
+      <div class="repertoire-layout">
+        <section class="repertoire-board-section">
+          <div class="board-wrap">
+            <div id="rep-strip-top" class="strip"></div>
+            <div class="board-row">
+              <div id="rep-board" class="board"></div>
+            </div>
+            <div id="rep-strip-bottom" class="strip"></div>
+          </div>
 
-        <div id="rep-details" class="rep-details">
+          <div class="repertoire-board-controls">
+            <button id="rep-back">Back</button>
+            <button id="rep-next">Next</button>
+            <button id="rep-flip">Flip</button>
+          </div>
+          <div id="rep-move-status" class="status"></div>
+        </section>
+
+        <section class="repertoire-moves-section">
+          <h2>Moves</h2>
           <div id="rep-info" class="rep-info"></div>
-
-          <button id="btn-drill" class="drill-btn" hidden>
-            Train this repertoire
-          </button>
-
           <div id="rep-turn" class="rep-turn"></div>
-          <button id="btn-drill-action" class="drill-action" hidden></button>
-
-          <div id="rep-next" class="rep-next"></div>
+          <ol id="rep-moves" class="moves"></ol>
+          <div id="rep-next-info" class="rep-next"></div>
           <div id="rep-comment" class="rep-comment"></div>
           <div id="drill-alternatives" class="drill-alternatives" hidden></div>
-        </div>
+          <button id="btn-drill-action" class="drill-action" hidden></button>
+        </section>
 
-        <input id="pgn-file" type="file" accept=".pgn,.txt" hidden />
+        <aside class="repertoire-management-section">
+          <div class="library-header">
+            <h2>My Repertoires</h2>
+            <span id="rep-count">0 saved</span>
+          </div>
+          <div id="rep-library" class="rep-library"></div>
+          <button id="btn-import-rep" class="import-rep-btn">
+            + Import new PGN
+          </button>
+          <input id="pgn-file" type="file" accept=".pgn,.txt" hidden />
+          <div id="rep-notice" class="rep-notice"></div>
+          <div class="repertoire-drill-section">
+            <h3>Training</h3>
+            <button id="btn-drill" class="drill-btn" hidden>
+              Train this repertoire
+            </button>
+          </div>
+        </aside>
+      </div>
+    </section>
 
-        <div id="rep-notice" class="rep-notice"></div>
-      </aside>
-    </main>
     <section id="openings" class="page-section" hidden>
       <div class="page-heading">
         <h1>Openings</h1>
         <p>Build your repertoire, one move at a time.</p>
       </div>
-
       <div id="openings-list" class="openings-list"></div>
     </section>
 
     <section id="profile" class="page-section" hidden>
-      <h1>Profile</h1>
-      <p>Your training progress and statistics will appear here.</p>
+      <div class="page-heading">
+        <h1>Profile</h1>
+        <p>Your training progress and statistics will appear here.</p>
+      </div>
     </section>
 
     <script type="module" src="main.js"></script>

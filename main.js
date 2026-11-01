@@ -7,7 +7,13 @@ import { importPgn } from "./src/pgn.js";
 import { OpeningBook } from "./src/openings.js";
 import { loadOpening } from "./src/opening-trainer.js";
 
-const game = new Chess(); // the real game (always the full move history)
+const game = new Chess();
+const repertoireGame = new Chess();
+
+let repOrientation = "w";
+let repSelectedSquare = null;
+let repLegalMoves = [];
+let repViewPly = null; // the real game (always the full move history)
 
 preloadPieces();
 
@@ -43,12 +49,18 @@ const undoBtnEl = document.getElementById("btn-undo");
 const repInfoEl = document.getElementById("rep-info");
 const repNoticeEl = document.getElementById("rep-notice");
 const repTurnEl = document.getElementById("rep-turn");
-const repNextEl = document.getElementById("rep-next");
 const repCommentEl = document.getElementById("rep-comment");
 const drillCompleteOverlay = document.getElementById("drill-complete-overlay");
 const drillCompleteStats = document.getElementById("drill-complete-stats");
 const drillContinueBtn = document.getElementById("btn-drill-continue");
 const drillStopBtn = document.getElementById("btn-drill-stop");
+const repBoardEl = document.getElementById("rep-board");
+const repMovesEl = document.getElementById("rep-moves");
+const repStatusEl = document.getElementById("rep-move-status");
+const repBackBtn = document.getElementById("rep-back");
+const repNextEl = document.getElementById("rep-next-info");
+const repNextBtn = document.getElementById("rep-next");
+const repFlipBtn = document.getElementById("rep-flip");
 
 let orientation = "w";
 let selectedSquare = null;
@@ -133,6 +145,157 @@ function findKingSquare(color) {
   return king ? king.square : null;
 }
 
+function renderRepertoireBoard() {
+  if (!repBoardEl) return;
+
+  repBoardEl.innerHTML = "";
+
+  for (let row = 0; row < 8; row++) {
+    for (let col = 0; col < 8; col++) {
+      const squareName =
+        repOrientation === "w"
+          ? FILES[col] + (8 - row)
+          : FILES[7 - col] + (row + 1);
+
+      const fileIndex = FILES.indexOf(squareName[0]);
+      const rankNumber = Number(squareName[1]);
+
+      const square = document.createElement("div");
+
+      square.className =
+        "square " + ((fileIndex + rankNumber) % 2 === 0 ? "light" : "dark");
+
+      square.dataset.square = squareName;
+
+      if (repSelectedSquare === squareName) {
+        square.classList.add("selected");
+      }
+
+      const lastMove = repertoireGame.history({ verbose: true }).at(-1);
+
+      if (
+        lastMove &&
+        (lastMove.from === squareName || lastMove.to === squareName)
+      ) {
+        square.classList.add("last-move");
+      }
+
+      const legalMove = repLegalMoves.find((move) => move.to === squareName);
+
+      if (legalMove) {
+        square.classList.add("legal");
+        if (legalMove.captured) square.classList.add("capture");
+      }
+
+      const piece = repertoireGame.get(squareName);
+
+      if (piece) {
+        square.appendChild(createPieceEl(piece.color, piece.type));
+      }
+
+      if (col === 0) addCoord(square, "rank", squareName[1]);
+      if (row === 7) addCoord(square, "file", squareName[0]);
+
+      repBoardEl.appendChild(square);
+    }
+  }
+}
+
+function renderRepertoireMoves() {
+  if (!repMovesEl) return;
+
+  const history = repertoireGame.history();
+  repMovesEl.innerHTML = "";
+
+  for (let i = 0; i < history.length; i += 2) {
+    const li = document.createElement("li");
+
+    const white = document.createElement("span");
+    white.className = "move";
+    white.textContent = history[i];
+    li.appendChild(white);
+
+    if (history[i + 1]) {
+      const black = document.createElement("span");
+      black.className = "move";
+      black.textContent = history[i + 1];
+      li.appendChild(black);
+    }
+
+    repMovesEl.appendChild(li);
+  }
+}
+
+function updateRepertoireBoard() {
+  renderRepertoireBoard();
+  renderRepertoireMoves();
+
+  if (repStatusEl) {
+    repStatusEl.textContent =
+      repertoireGame.turn() === "w" ? "White to move" : "Black to move";
+  }
+}
+
+function updateRepertoirePage() {
+  updateRepertoireBoard();
+  renderRepertoire();
+  renderRepLibrary();
+}
+
+repBoardEl.addEventListener("click", (event) => {
+  const square = event.target.closest(".square");
+  if (!square) return;
+
+  const name = square.dataset.square;
+  const piece = repertoireGame.get(name);
+
+  if (repSelectedSquare) {
+    const move = repLegalMoves.find((m) => m.to === name);
+
+    if (move) {
+      repertoireGame.move({
+        from: repSelectedSquare,
+        to: name,
+        promotion: "q",
+      });
+
+      repSelectedSquare = null;
+      repLegalMoves = [];
+
+      updateRepertoirePage();
+      return;
+    }
+  }
+
+  if (piece && piece.color === repertoireGame.turn()) {
+    repSelectedSquare = name;
+    repLegalMoves = repertoireGame.moves({
+      square: name,
+      verbose: true,
+    });
+  } else {
+    repSelectedSquare = null;
+    repLegalMoves = [];
+  }
+
+  updateRepertoireBoard();
+});
+
+repBackBtn.addEventListener("click", () => {
+  repertoireGame.undo();
+  repSelectedSquare = null;
+  repLegalMoves = [];
+  updateRepertoirePage();
+});
+
+repNextBtn.addEventListener("click", () => {
+  // Sonraki hamle gezinme özelliğini PGN geçmişi üzerinden ekleyeceğiz.
+});
+
+repFlipBtn.addEventListener("click", () => {
+  repOrientation = repOrientation === "w" ? "b" : "w";
+  updateRepertoireBoard();
+});
 /* ---------- View (history navigation) ---------- */
 
 function syncView() {
@@ -563,8 +726,8 @@ function update() {
   renderRepLibrary();
   renderDrillAlternatives();
   renderDrillCompleteOverlay();
+  renderLearnPanel();
 }
-
 /* ---------- Game actions ---------- */
 
 function clearSelection() {
@@ -607,6 +770,7 @@ function playMove(from, to, promotion = "q", byDrill = false) {
 /* ---------- Pointer input (click + drag) ---------- */
 
 boardEl.addEventListener("pointerdown", (e) => {
+  if (lesson) return;
   if (e.button !== 0 || drag) return;
 
   // Moves can only be played on the live position
@@ -815,6 +979,8 @@ document.getElementById("btn-reset").addEventListener("click", () => {
 
 let openingBook = null;
 let curatedOpening = null;
+let lesson = null;
+let savedPlayState = null;
 
 async function initCuratedOpenings() {
   try {
@@ -826,6 +992,115 @@ async function initCuratedOpenings() {
   } catch (error) {
     console.error("Could not load curated openings:", error);
   }
+}
+
+function startLearn(variation) {
+  if (drill) endDrill();
+
+  savedPlayState = {
+    pgn: game.pgn(),
+    orientation,
+  };
+
+  game.reset();
+  viewPly = null;
+  clearSelection();
+
+  lesson = {
+    variation,
+    index: 0,
+  };
+
+  orientation = curatedOpening.color === "black" ? "b" : "w";
+
+  showPage("play");
+  update();
+}
+
+function nextLessonMove() {
+  if (!lesson) return;
+
+  const moves = lesson.variation.moves;
+
+  if (lesson.index >= moves.length) return;
+
+  const move = game.move(moves[lesson.index].san);
+
+  if (game.isCheckmate()) {
+    playSound("gameover");
+  } else if (game.inCheck()) {
+    playSound("check");
+  } else if (move.flags.includes("k") || move.flags.includes("q")) {
+    playSound("castle");
+  } else if (move.flags.includes("p")) {
+    playSound("promote");
+  } else if (move.captured) {
+    playSound("capture");
+  } else {
+    playSound("move");
+  }
+  lesson.index++;
+
+  clearSelection();
+  update();
+}
+
+function previousLessonMove() {
+  if (!lesson || lesson.index === 0) return;
+
+  game.undo();
+  lesson.index--;
+
+  clearSelection();
+  update();
+}
+
+function exitLearn() {
+  if (!lesson) return;
+
+  game.reset();
+
+  if (savedPlayState?.pgn) {
+    game.loadPgn(savedPlayState.pgn);
+  }
+
+  if (savedPlayState) {
+    orientation = savedPlayState.orientation;
+  }
+
+  lesson = null;
+  savedPlayState = null;
+
+  viewPly = null;
+  clearSelection();
+
+  update();
+}
+
+function renderLearnPanel() {
+  const panel = document.getElementById("learn-panel");
+
+  if (!panel) return;
+
+  panel.hidden = !lesson;
+
+  if (!lesson) return;
+
+  const moves = lesson.variation.moves;
+  const currentMove = moves[lesson.index - 1];
+
+  document.getElementById("learn-title").textContent =
+    `${curatedOpening.name} · ${lesson.variation.name}`;
+
+  document.getElementById("learn-progress").textContent =
+    `Move ${lesson.index} / ${moves.length}`;
+
+  document.getElementById("learn-explanation").textContent =
+    currentMove?.explanation || "Starting position. Press Next to begin.";
+
+  document.getElementById("learn-back").disabled = lesson.index === 0;
+
+  document.getElementById("learn-next").disabled = lesson.index >= moves.length;
 }
 
 function renderOpenings() {
@@ -843,7 +1118,7 @@ function renderOpenings() {
 
   const description = document.createElement("p");
   description.textContent = curatedOpening.description;
-  
+
   const color = document.createElement("span");
   color.className = `opening-color ${curatedOpening.color}`;
   color.textContent = curatedOpening.color === "white" ? "White" : "Black";
@@ -858,7 +1133,7 @@ function renderOpenings() {
   trainButton.textContent = "Train";
 
   learnButton.addEventListener("click", () => {
-    console.log("Learn opening:", curatedOpening.id);
+    startLearn(curatedOpening.variations[0]);
   });
 
   trainButton.addEventListener("click", () => {
@@ -953,7 +1228,7 @@ function renderRepertoire() {
   // repInfoEl.textContent = `${positions} positions, ${moves} moves`;
 
   // Comment attached to the move that led to this position
-  const last = view.history({ verbose: true }).at(-1);
+  const last = repertoireGame.history({ verbose: true }).at(-1);
   if (last && last.before) {
     const edge = repertoire.getNode(last.before)?.edges.get(last.san);
     if (edge && edge.comment) repCommentEl.textContent = edge.comment;
@@ -965,7 +1240,7 @@ function renderRepertoire() {
     return;
   }
 
-  const node = repertoire.getNode(view.fen());
+  const node = repertoire.getNode(repertoireGame.fen());
   if (!node) {
     repTurnEl.textContent = "Out of repertoire";
     repTurnEl.classList.add("off");
@@ -977,7 +1252,10 @@ function renderRepertoire() {
   }
 
   repTurnEl.textContent =
-    view.turn() === repertoire.color ? "Your move" : "Opponent's options";
+    repertoireGame.turn() === repertoire.color
+      ? "Your move"
+      : "Opponent's options";
+  view.turn() === repertoire.color ? "Your move" : "Opponent's options";
 
   let first = true;
   for (const edge of node.edges.values()) {
@@ -991,18 +1269,29 @@ function renderRepertoire() {
   }
 }
 
-// Clicking a suggested move plays it on the board
+// Clicking a suggested move plays it on the repertoire board only.
 repNextEl.addEventListener("click", (e) => {
   if (drill) return;
+
   const btn = e.target.closest(".rep-move");
   if (!btn) return;
 
-  if (viewPly !== null) goToPly(game.history().length); // back to the live position
-
-  const move = game
+  const move = repertoireGame
     .moves({ verbose: true })
     .find((m) => m.san === btn.dataset.san);
-  if (move) playMove(move.from, move.to, move.promotion);
+
+  if (!move) return;
+
+  repertoireGame.move({
+    from: move.from,
+    to: move.to,
+    promotion: move.promotion || "q",
+  });
+
+  repSelectedSquare = null;
+  repLegalMoves = [];
+
+  updateRepertoirePage();
 });
 
 pgnFileEl.addEventListener("change", async () => {
@@ -1470,6 +1759,7 @@ const brandLink = document.querySelector(".nav-brand");
 const pages = {
   play: document.querySelector("#play"),
   openings: document.querySelector("#openings"),
+  repertoire: document.querySelector("#repertoire"),
   profile: document.querySelector("#profile"),
 };
 
@@ -1500,6 +1790,14 @@ brandLink.addEventListener("click", (event) => {
   showPage("play");
   history.replaceState(null, "", "#play");
 });
+
+document.getElementById("learn-next").addEventListener("click", nextLessonMove);
+
+document
+  .getElementById("learn-back")
+  .addEventListener("click", previousLessonMove);
+
+document.getElementById("learn-exit").addEventListener("click", exitLearn);
 
 initStockfish();
 initCuratedOpenings();

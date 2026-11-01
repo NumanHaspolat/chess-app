@@ -9,6 +9,7 @@ import { loadOpening } from "./src/opening-trainer.js";
 
 const game = new Chess();
 const repertoireGame = new Chess();
+const drillGame = new Chess();
 
 let repOrientation = "w";
 let repSelectedSquare = null;
@@ -33,6 +34,10 @@ const SOUNDS = {
 
 const boardEl = document.getElementById("board");
 const statusEl = document.getElementById("status");
+const repEvaluationBarEl = document.getElementById("rep-evaluation-bar");
+const repEvaluationWhiteEl = document.getElementById("rep-evaluation-white");
+const repEvaluationBlackEl = document.getElementById("rep-evaluation-black");
+const repEvaluationScoreEl = document.getElementById("rep-evaluation-score");
 const evaluationBarEl = document.getElementById("evaluation-bar");
 const evaluationWhiteEl = document.getElementById("evaluation-white");
 const evaluationBlackEl = document.getElementById("evaluation-black");
@@ -59,7 +64,7 @@ const repMovesEl = document.getElementById("rep-moves");
 const repStatusEl = document.getElementById("rep-move-status");
 const repBackBtn = document.getElementById("rep-back");
 const repNextEl = document.getElementById("rep-next-info");
-const repNextBtn = document.getElementById("rep-next");
+const repResetBtn = document.getElementById("rep-reset");
 const repFlipBtn = document.getElementById("rep-flip");
 
 let orientation = "w";
@@ -68,6 +73,9 @@ let legalMoves = [];
 let drillHintSquares = [];
 let drag = null; // active press/drag state
 let hoverSquare = null;
+let repSuppressClick = false;
+let repDrag = null;
+let repHoverSquare = null;
 let drillMistakeTimer = null;
 let drillCompleteTimer = null;
 let viewPly = null; // null = live position, otherwise number of plies being viewed
@@ -137,6 +145,20 @@ function squareFromPoint(x, y) {
   return squareName(row, col);
 }
 
+function repSquareFromPoint(x, y) {
+  const rect = repBoardEl.getBoundingClientRect();
+  const size = rect.width / 8;
+
+  const col = Math.floor((x - rect.left) / size);
+  const row = Math.floor((y - rect.top) / size);
+
+  if (col < 0 || col > 7 || row < 0 || row > 7) return null;
+
+  return repOrientation === "w"
+    ? FILES[col] + (8 - row)
+    : FILES[7 - col] + (row + 1);
+}
+
 function findKingSquare(color) {
   const king = view
     .board()
@@ -145,8 +167,26 @@ function findKingSquare(color) {
   return king ? king.square : null;
 }
 
-function renderRepertoireBoard() {
+function renderRepertoireBoard(animate = true) {
   if (!repBoardEl) return;
+
+  const currentGame = drill ? drillGame : repertoireGame;
+  const displayGame = drill ? drillGame : syncRepView();
+  const lastMove = currentGame.history({ verbose: true }).at(-1);
+
+  let oldPieceRect = null;
+
+  if (animate && lastMove) {
+    const oldPiece = repBoardEl.querySelector(
+      `[data-square="${lastMove.from}"] .piece`,
+    );
+
+    if (oldPiece) {
+      oldPieceRect = oldPiece.getBoundingClientRect();
+    }
+  }
+
+  const boardGame = displayGame;
 
   repBoardEl.innerHTML = "";
 
@@ -166,12 +206,15 @@ function renderRepertoireBoard() {
         "square " + ((fileIndex + rankNumber) % 2 === 0 ? "light" : "dark");
 
       square.dataset.square = squareName;
+      if (drillHintSquares.includes(squareName)) {
+        square.classList.add("drill-hint");
+      }
 
       if (repSelectedSquare === squareName) {
         square.classList.add("selected");
       }
 
-      const lastMove = repertoireGame.history({ verbose: true }).at(-1);
+      const lastMove = boardGame.history({ verbose: true }).at(-1);
 
       if (
         lastMove &&
@@ -187,7 +230,7 @@ function renderRepertoireBoard() {
         if (legalMove.captured) square.classList.add("capture");
       }
 
-      const piece = repertoireGame.get(squareName);
+      const piece = boardGame.get(squareName);
 
       if (piece) {
         square.appendChild(createPieceEl(piece.color, piece.type));
@@ -199,77 +242,260 @@ function renderRepertoireBoard() {
       repBoardEl.appendChild(square);
     }
   }
+
+  // Animate the moved piece to its new square.
+  if (animate && oldPieceRect && lastMove) {
+    const toSquare = repBoardEl.querySelector(`[data-square="${lastMove.to}"]`);
+    const newPiece = toSquare?.querySelector(".piece");
+
+    if (newPiece) {
+      const newRect = newPiece.getBoundingClientRect();
+
+      const deltaX = oldPieceRect.left - newRect.left;
+      const deltaY = oldPieceRect.top - newRect.top;
+
+      newPiece.style.transition = "none";
+      newPiece.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+
+      newPiece.offsetHeight;
+
+      requestAnimationFrame(() => {
+        newPiece.style.transition = "transform 180ms ease";
+        newPiece.style.transform = "translate(0, 0)";
+      });
+    }
+  }
 }
 
 function renderRepertoireMoves() {
   if (!repMovesEl) return;
 
   const history = repertoireGame.history();
+  const activePly = repViewPly ?? history.length;
+
   repMovesEl.innerHTML = "";
 
   for (let i = 0; i < history.length; i += 2) {
     const li = document.createElement("li");
 
     const white = document.createElement("span");
-    white.className = "move";
+    white.className = "move" + (i + 1 === activePly ? " active" : "");
+    white.dataset.ply = i + 1;
     white.textContent = history[i];
     li.appendChild(white);
 
     if (history[i + 1]) {
       const black = document.createElement("span");
-      black.className = "move";
+      black.className = "move" + (i + 2 === activePly ? " active" : "");
+      black.dataset.ply = i + 2;
       black.textContent = history[i + 1];
       li.appendChild(black);
     }
 
     repMovesEl.appendChild(li);
   }
+
+  const activeEl = repMovesEl.querySelector(".move.active");
+  if (activeEl) activeEl.scrollIntoView({ block: "nearest" });
 }
 
-function updateRepertoireBoard() {
-  renderRepertoireBoard();
+function updateRepertoireBoard(animate = true) {
+  renderRepertoireBoard(animate);
   renderRepertoireMoves();
 
   if (repStatusEl) {
     repStatusEl.textContent =
       repertoireGame.turn() === "w" ? "White to move" : "Black to move";
   }
+
+  const displayGame = drill ? drillGame : syncRepView();
+
+  requestEngineEvaluation(displayGame.fen(), "repertoire");
 }
 
-function updateRepertoirePage() {
-  updateRepertoireBoard();
+function updateRepertoirePage(animate = true) {
+  updateRepertoireBoard(animate);
   renderRepertoire();
   renderRepLibrary();
 }
 
-repBoardEl.addEventListener("click", (event) => {
-  const square = event.target.closest(".square");
-  if (!square) return;
+repBoardEl.addEventListener("pointerdown", (e) => {
+  if (e.button !== 0 || repDrag) return;
+  if (drill && drill.phase !== "your-move") return;
 
-  const name = square.dataset.square;
-  const piece = repertoireGame.get(name);
+  const name = repSquareFromPoint(e.clientX, e.clientY);
+  if (!name) return;
+
+  e.preventDefault();
+
+  const currentGame = drill ? drillGame : repertoireGame;
+  const piece = currentGame.get(name);
 
   if (repSelectedSquare) {
     const move = repLegalMoves.find((m) => m.to === name);
 
     if (move) {
-      repertoireGame.move({
+      const currentGame = drill ? drillGame : repertoireGame;
+
+      const played = currentGame.move({
         from: repSelectedSquare,
         to: name,
         promotion: "q",
       });
 
-      repSelectedSquare = null;
-      repLegalMoves = [];
+      if (played) {
+        repSelectedSquare = null;
+        repLegalMoves = [];
+        repSuppressClick = true;
 
-      updateRepertoirePage();
+        playSound(played.captured ? "capture" : "move");
+        updateRepertoirePage();
+
+        if (drill) onDrillMove(played);
+      }
+
       return;
     }
   }
 
-  if (piece && piece.color === repertoireGame.turn()) {
+  if (piece && piece.color === currentGame.turn()) {
+    const wasSelected = repSelectedSquare === name;
+
     repSelectedSquare = name;
-    repLegalMoves = repertoireGame.moves({
+    repLegalMoves = currentGame.moves({
+      square: name,
+      verbose: true,
+    });
+
+    renderRepertoireBoard();
+
+    repDrag = {
+      from: name,
+      piece,
+      startX: e.clientX,
+      startY: e.clientY,
+      moved: false,
+      wasSelected,
+      ghost: null,
+      size: 0,
+    };
+  }
+});
+
+function endRepDrag(e, cancelled = false) {
+  if (!repDrag) return;
+
+  const currentDrag = repDrag;
+  const target = repSquareFromPoint(e.clientX, e.clientY);
+
+  if (currentDrag.ghost) {
+    currentDrag.ghost.remove();
+  }
+
+  const origin = repBoardEl.querySelector(
+    `[data-square="${currentDrag.from}"] .piece`,
+  );
+
+  if (origin) origin.classList.remove("dragging");
+
+  setRepHover(repHoverSquare, false);
+  repHoverSquare = null;
+  repDrag = null;
+
+  if (cancelled || !currentDrag.moved || !target) return;
+
+  const move = repLegalMoves.find((m) => m.to === target);
+
+  if (!move) {
+    renderRepertoireBoard();
+    return;
+  }
+
+  const currentGame = drill ? drillGame : repertoireGame;
+
+  const played = currentGame.move({
+    from: currentDrag.from,
+    to: target,
+    promotion: "q",
+  });
+
+  if (played) {
+    repSelectedSquare = null;
+    repLegalMoves = [];
+
+    playSound(played.captured ? "capture" : "move");
+    updateRepertoirePage(false);
+
+    if (drill) onDrillMove(played);
+  }
+}
+
+window.addEventListener("pointerup", (e) => {
+  endRepDrag(e);
+});
+
+window.addEventListener("pointercancel", (e) => {
+  endRepDrag(e, true);
+});
+
+window.addEventListener("pointermove", (e) => {
+  if (!repDrag) return;
+
+  if (!repDrag.moved) {
+    const distance = Math.hypot(
+      e.clientX - repDrag.startX,
+      e.clientY - repDrag.startY,
+    );
+
+    if (distance < DRAG_THRESHOLD) return;
+
+    startRepDrag();
+  }
+
+  moveRepGhost(e.clientX, e.clientY);
+  updateRepHover(repSquareFromPoint(e.clientX, e.clientY));
+});
+
+repBoardEl.addEventListener("click", (event) => {
+  if (repSuppressClick) {
+    repSuppressClick = false;
+    return;
+  }
+
+  if (repDrag) return;
+
+  const square = event.target.closest(".square");
+  if (!square) return;
+
+  const name = square.dataset.square;
+  const currentGame = drill ? drillGame : repertoireGame;
+  const piece = currentGame.get(name);
+
+  if (repSelectedSquare) {
+    const move = repLegalMoves.find((m) => m.to === name);
+
+    if (move) {
+      const played = currentGame.move({
+        from: repSelectedSquare,
+        to: name,
+        promotion: "q",
+      });
+
+      if (played) {
+        playSound(played.captured ? "capture" : "move");
+        repSelectedSquare = null;
+        repLegalMoves = [];
+        updateRepertoirePage();
+
+        if (drill) onDrillMove(played);
+        return;
+      }
+    }
+  }
+
+  if (piece && piece.color === currentGame.turn()) {
+    repSelectedSquare = name;
+    repLegalMoves = currentGame.moves({
       square: name,
       verbose: true,
     });
@@ -288,8 +514,19 @@ repBackBtn.addEventListener("click", () => {
   updateRepertoirePage();
 });
 
-repNextBtn.addEventListener("click", () => {
-  // Sonraki hamle gezinme özelliğini PGN geçmişi üzerinden ekleyeceğiz.
+repResetBtn.addEventListener("click", () => {
+  repertoireGame.reset();
+  repViewPly = null;
+  repSelectedSquare = null;
+  repLegalMoves = [];
+  updateRepertoirePage();
+});
+
+repMovesEl.addEventListener("click", (e) => {
+  const moveEl = e.target.closest(".move");
+  if (!moveEl || drill) return;
+
+  goToRepPly(Number(moveEl.dataset.ply));
 });
 
 repFlipBtn.addEventListener("click", () => {
@@ -298,27 +535,52 @@ repFlipBtn.addEventListener("click", () => {
 });
 /* ---------- View (history navigation) ---------- */
 
-function syncView() {
-  const moves = game.history();
+function syncRepView() {
+  const moves = repertoireGame.history();
+  const total = moves.length;
 
-  if (viewPly === null || viewPly >= moves.length) {
-    viewPly = null;
-    view = game;
-    return;
+  if (repViewPly === null || repViewPly >= total) {
+    repViewPly = null;
+    return repertoireGame;
   }
 
-  view = new Chess();
-  for (let i = 0; i < viewPly; i++) {
+  const view = new Chess();
+
+  for (let i = 0; i < repViewPly; i++) {
     view.move(moves[i]);
   }
+
+  return view;
+}
+
+function goToRepPly(ply) {
+  const total = repertoireGame.history().length;
+
+  repViewPly = Math.max(0, Math.min(ply, total));
+
+  if (repViewPly >= total) {
+    repViewPly = null;
+  }
+
+  repSelectedSquare = null;
+  repLegalMoves = [];
+
+  updateRepertoirePage(false);
 }
 
 function goToPly(ply) {
   const total = game.history().length;
-  const clamped = Math.max(0, Math.min(ply, total));
-  viewPly = clamped >= total ? null : clamped;
-  clearSelection();
-  update();
+
+  viewPly = Math.max(0, Math.min(ply, total));
+
+  if (viewPly >= total) {
+    viewPly = null;
+  }
+
+  selectedSquare = null;
+  legalMoves = [];
+
+  update(false);
 }
 
 /* ---------- Stockfish evaluation ---------- */
@@ -333,6 +595,7 @@ let activeEngineFen = null;
 let requestedEngineFen = null;
 
 const ENGINE_DEPTH = 13;
+let requestedEvaluationTarget = "play";
 
 function initStockfish() {
   try {
@@ -396,8 +659,11 @@ function initStockfish() {
   }
 }
 
-function requestEngineEvaluation(fen) {
+function requestEngineEvaluation(fen, target = "play") {
   if (!stockfishWorker) return;
+
+  // Sonucun hangi Eva bar'a yazılacağını belirle.
+  requestedEvaluationTarget = target;
 
   // Aynı pozisyonu tekrar tekrar analiz etme.
   if (fen === requestedEngineFen) return;
@@ -471,39 +737,66 @@ function parseEngineInfo(message) {
     scoreText = (pawns > 0 ? "+" : "") + pawns.toFixed(1);
   }
 
-  renderEvaluation(whiteScore, scoreText);
+  if (requestedEvaluationTarget === "repertoire") {
+    renderRepertoireEvaluation(whiteScore, scoreText);
+  } else {
+    renderEvaluation(whiteScore, scoreText);
+  }
 }
 
 function renderEvaluation(whiteScore, scoreText) {
-  if (!evaluationWhiteEl || !evaluationBlackEl) return;
-
-  // Skoru görsel olarak yüzdeye dönüştür.
   const clamped = Math.max(-1000, Math.min(1000, whiteScore));
-
   const whitePercent = 100 / (1 + Math.exp(-clamped / 300));
-
   const safePercent = Math.max(5, Math.min(95, whitePercent));
 
-  evaluationWhiteEl.style.height = `${safePercent}%`;
-  evaluationBlackEl.style.height = `${100 - safePercent}%`;
+  // Play evaluation bar
+  if (
+    evaluationBarEl &&
+    evaluationWhiteEl &&
+    evaluationBlackEl &&
+    evaluationScoreEl
+  ) {
+    evaluationWhiteEl.style.height = `${safePercent}%`;
+    evaluationBlackEl.style.height = `${100 - safePercent}%`;
 
-  // Beyaz altta, siyah üstte; tahta siyah yönüne çevrilince ters çevir.
-  evaluationBarEl.style.flexDirection =
-    orientation === "w" ? "column-reverse" : "column";
+    evaluationBarEl.style.flexDirection =
+      orientation === "w" ? "column-reverse" : "column";
 
-  evaluationScoreEl.textContent = scoreText;
+    evaluationScoreEl.textContent = scoreText;
+  }
+}
+
+function renderRepertoireEvaluation(whiteScore, scoreText) {
+  const clamped = Math.max(-1000, Math.min(1000, whiteScore));
+  const whitePercent = 100 / (1 + Math.exp(-clamped / 300));
+  const safePercent = Math.max(5, Math.min(95, whitePercent));
+
+  if (
+    repEvaluationBarEl &&
+    repEvaluationWhiteEl &&
+    repEvaluationBlackEl &&
+    repEvaluationScoreEl
+  ) {
+    repEvaluationWhiteEl.style.height = `${safePercent}%`;
+    repEvaluationBlackEl.style.height = `${100 - safePercent}%`;
+
+    repEvaluationBarEl.style.flexDirection =
+      orientation === "w" ? "column-reverse" : "column";
+
+    repEvaluationScoreEl.textContent = scoreText;
+  }
 }
 
 /* ---------- Rendering ---------- */
 
-function renderBoard() {
+function renderBoard(animate = true) {
   const history = view.history({ verbose: true });
   const lastMove = history[history.length - 1];
 
   // Animasyondan önce taşın eski konumunu kaydet.
   let oldPieceRect = null;
 
-  if (lastMove) {
+  if (animate && lastMove) {
     const fromSquare = boardEl.querySelector(
       `[data-square="${lastMove.from}"]`,
     );
@@ -568,7 +861,7 @@ function renderBoard() {
   }
 
   // Yeni tahtadaki hedef taşını eski konumundan kaydır.
-  if (oldPieceRect && lastMove) {
+  if (animate && oldPieceRect && lastMove) {
     const toSquare = boardEl.querySelector(`[data-square="${lastMove.to}"]`);
     const newPiece = toSquare?.querySelector(".piece");
 
@@ -714,10 +1007,26 @@ function renderStrips() {
   renderStrip(stripTopEl, topColor, material);
 }
 
-function update() {
-  syncView();
-  requestEngineEvaluation(view.fen());
-  renderBoard();
+function syncView() {
+  const moves = game.history();
+  const total = moves.length;
+
+  if (viewPly === null || viewPly >= total) {
+    viewPly = null;
+    return game;
+  }
+
+  const currentView = new Chess();
+  for (let i = 0; i < viewPly; i++) {
+    currentView.move(moves[i]);
+  }
+  return currentView;
+}
+
+function update(animate = true) {
+  view = syncView();
+  requestEngineEvaluation(view.fen(), "play");
+  renderBoard(animate);
   renderStrips();
   renderStatus();
   renderOpening();
@@ -727,6 +1036,9 @@ function update() {
   renderDrillAlternatives();
   renderDrillCompleteOverlay();
   renderLearnPanel();
+  if (drill) {
+    renderRepertoireBoard(false);
+  }
 }
 /* ---------- Game actions ---------- */
 
@@ -735,7 +1047,7 @@ function clearSelection() {
   legalMoves = [];
 }
 
-function playMove(from, to, promotion = "q", byDrill = false) {
+function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
   const target = game.get(to);
 
   const move = game.move({
@@ -759,7 +1071,7 @@ function playMove(from, to, promotion = "q", byDrill = false) {
   }
 
   clearSelection();
-  update();
+  update(animate);
 
   if (drill) {
     if (byDrill) advanceDrill();
@@ -834,12 +1146,21 @@ window.addEventListener("pointermove", (e) => {
 window.addEventListener("pointerup", (e) => endDrag(e));
 window.addEventListener("pointercancel", (e) => endDrag(e, true));
 drillStopBtn.addEventListener("click", () => {
+  const isRepertoireDrill = !!drill?.rep;
+
   endDrill();
 
-  game.reset();
-  viewPly = null;
-  drillHintSquares = [];
-  clearSelection();
+  if (isRepertoireDrill) {
+    drillGame.reset();
+    repViewPly = null;
+    repSelectedSquare = null;
+    repLegalMoves = [];
+  } else {
+    game.reset();
+    viewPly = null;
+    drillHintSquares = [];
+    clearSelection();
+  }
 
   update();
 });
@@ -863,6 +1184,53 @@ drillContinueBtn.addEventListener("click", () => {
   drillLinePath = nextLine;
   startDrill();
 });
+
+function startRepDrag() {
+  repDrag.moved = true;
+
+  const size = repBoardEl.getBoundingClientRect().width / 8;
+  const ghost = createPieceEl(
+    repDrag.piece.color,
+    repDrag.piece.type,
+    "drag-ghost",
+  );
+
+  ghost.style.width = `${size}px`;
+  ghost.style.height = `${size}px`;
+  document.body.appendChild(ghost);
+
+  repDrag.ghost = ghost;
+  repDrag.size = size;
+
+  const origin = repBoardEl.querySelector(
+    `[data-square="${repDrag.from}"] .piece`,
+  );
+
+  if (origin) origin.classList.add("dragging");
+}
+
+function moveRepGhost(x, y) {
+  if (!repDrag?.ghost) return;
+
+  repDrag.ghost.style.left = `${x - repDrag.size / 2}px`;
+  repDrag.ghost.style.top = `${y - repDrag.size / 2}px`;
+}
+
+function setRepHover(name, active) {
+  if (!name) return;
+
+  const square = repBoardEl.querySelector(`[data-square="${name}"]`);
+
+  if (square) square.classList.toggle("drag-over", active);
+}
+
+function updateRepHover(name) {
+  if (name === repHoverSquare) return;
+
+  setRepHover(repHoverSquare, false);
+  repHoverSquare = name;
+  setRepHover(name, true);
+}
 
 function startDrag() {
   drag.moved = true;
@@ -917,7 +1285,7 @@ function endDrag(e, cancelled = false) {
   // Dropped after a drag
   const target = cancelled ? null : squareFromPoint(e.clientX, e.clientY);
   if (target && legalMoves.some((m) => m.to === target)) {
-    playMove(from, target);
+    playMove(from, target, "q", false, false);
     return;
   }
 
@@ -935,20 +1303,43 @@ movesEl.addEventListener("click", (e) => {
 });
 
 window.addEventListener("keydown", (e) => {
-  if (drag) return;
+  if (
+    drag ||
+    repDrag ||
+    drill ||
+    lesson ||
+    ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)
+  ) {
+    return;
+  }
 
-  const total = game.history().length;
-  const current = viewPly ?? total;
+  const isRepPage = !pages.repertoire.hidden;
+  const isPlayPage = !pages.play.hidden;
 
-  if (e.key === "ArrowLeft") goToPly(current - 1);
-  else if (e.key === "ArrowRight") goToPly(current + 1);
-  else if (e.key === "Home") goToPly(0);
-  else if (e.key === "End") goToPly(total);
+  if (!isRepPage && !isPlayPage) return;
+
+  const total = isRepPage
+    ? repertoireGame.history().length
+    : game.history().length;
+
+  const current = isRepPage ? (repViewPly ?? total) : (viewPly ?? total);
+
+  let nextPly;
+
+  if (e.key === "ArrowLeft") nextPly = current - 1;
+  else if (e.key === "ArrowRight") nextPly = current + 1;
+  else if (e.key === "Home") nextPly = 0;
+  else if (e.key === "End") nextPly = total;
   else return;
 
   e.preventDefault();
-});
 
+  if (isRepPage) {
+    goToRepPly(nextPly);
+  } else {
+    goToPly(nextPly);
+  }
+});
 /* ---------- Buttons ---------- */
 
 undoBtnEl.addEventListener("click", () => {
@@ -1255,7 +1646,6 @@ function renderRepertoire() {
     repertoireGame.turn() === repertoire.color
       ? "Your move"
       : "Opponent's options";
-  view.turn() === repertoire.color ? "Your move" : "Opponent's options";
 
   let first = true;
   for (const edge of node.edges.values()) {
@@ -1401,27 +1791,29 @@ function startDrill() {
     completedDrillLines = new Set();
   }
 
-  game.reset();
+  // Drill artık kendi oyun nesnesini kullanacak.
+  drillGame.reset();
+
   drillHintSquares = [];
-  viewPly = null;
-  clearSelection();
+  repSelectedSquare = null;
+  repLegalMoves = [];
+  repViewPly = null;
   orientation = rep.color;
 
   drill = {
     rep,
+    source: "repertoire",
     phase: "your-move",
     mistake: null,
-
     mistakeCount: 0,
     hintShown: false,
     alternatives: [],
-
     correctMoves: 0,
     mistakes: 0,
   };
+
   advanceDrill();
 }
-
 // Decides what happens next at the live position: finish, wait for the player,
 // or let the opponent answer with a random repertoire move.
 function advanceDrill() {
@@ -1429,12 +1821,12 @@ function advanceDrill() {
 
   const { rep } = drill;
 
-  if (lineEnded(rep, game.fen())) {
+  if (lineEnded(rep, drillGame.fen())) {
     drill.phase = "complete";
 
     playSound("promote");
 
-    drill.empty = game.history().length === 0;
+    drill.empty = drillGame.history().length === 0;
 
     if (drillCompleteTimer) {
       clearTimeout(drillCompleteTimer);
@@ -1452,7 +1844,7 @@ function advanceDrill() {
     return;
   }
 
-  if (game.turn() === rep.color) {
+  if (drillGame.turn() === rep.color) {
     drill.phase = "your-move";
     update();
     return;
@@ -1463,13 +1855,19 @@ function advanceDrill() {
   drill.timer = setTimeout(() => {
     if (!drill) return;
     drill.timer = null;
-    const edge = pickReply(rep, game.fen());
+    const edge = pickReply(rep, drillGame.fen());
     if (!edge) {
       advanceDrill();
       return;
     }
     const { from, to, promotion } = parseUci(edge.uci);
-    playMove(from, to, promotion, true);
+    const played = drillGame.move({ from, to, promotion });
+
+    if (played) {
+      playSound(played.captured ? "capture" : "move");
+      update(false);
+      advanceDrill();
+    }
   }, OPPONENT_DELAY_MS);
 }
 
@@ -1531,7 +1929,7 @@ function onDrillMove(move) {
   drillMistakeTimer = setTimeout(() => {
     if (!drill || drill.phase !== "mistake") return;
 
-    game.undo();
+    drillGame.undo();
     viewPly = null;
     clearSelection();
 
@@ -1555,7 +1953,7 @@ function retryDrill() {
   clearTimeout(drillMistakeTimer);
   drillMistakeTimer = null;
 
-  game.undo();
+  drillGame.undo();
   viewPly = null;
   clearSelection();
 
@@ -1774,6 +2172,8 @@ function showPage(pageName) {
       link.getAttribute("href") === `#${pageName}`,
     );
   });
+
+  if (pageName === "repertoire") updateRepertoirePage();
 }
 
 navLinks.forEach((link) => {

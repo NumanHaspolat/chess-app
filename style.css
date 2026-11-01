@@ -515,14 +515,13 @@ button:disabled {
   width: min(1480px, calc(100% - 48px));
   margin: 0 auto 40px;
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(220px, 0.7fr) minmax(
-      220px,
-      0.75fr
+  grid-template-columns: minmax(0, 1.35fr) minmax(176px, 0.56fr) minmax(
+      176px,
+      0.6fr
     );
-  gap: 28px;
+  gap: 16px;
   align-items: start;
 }
-
 .repertoire-board-section,
 .repertoire-moves-section,
 .repertoire-management-section {
@@ -532,9 +531,8 @@ button:disabled {
 .repertoire-board-section .board-wrap {
   --size: min(100%, 560px);
   width: min(100%, 594px);
-  margin: 0 auto;
+  margin: 0 0 0 auto;
 }
-
 #rep-board {
   width: var(--size);
   height: var(--size);

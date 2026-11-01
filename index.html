@@ -39,21 +39,6 @@
             <div id="board" class="board"></div>
           </div>
           <div id="strip-bottom" class="strip"></div>
-
-          <div
-            id="drill-complete-overlay"
-            class="drill-complete-overlay"
-            hidden
-          >
-            <div class="drill-complete-card">
-              <h2>Line Complete!</h2>
-              <p id="drill-complete-stats"></p>
-              <div class="drill-complete-buttons">
-                <button id="btn-drill-continue">Continue</button>
-                <button id="btn-drill-stop">Stop Drill</button>
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -62,7 +47,7 @@
         <div id="status" class="status"></div>
         <div id="opening" class="opening"></div>
         <div class="buttons">
-          <button id="btn-undo">Undo</button>
+          <button id="btn-undo">Back</button>
           <button id="btn-flip">Flip</button>
           <button id="btn-reset">Reset</button>
         </div>
@@ -96,21 +81,43 @@
           <div class="board-wrap">
             <div id="rep-strip-top" class="strip"></div>
             <div class="board-row">
+              <div class="evaluation">
+                <div id="rep-evaluation-bar" class="evaluation-bar">
+                  <div id="rep-evaluation-white" class="evaluation-white"></div>
+                  <div id="rep-evaluation-black" class="evaluation-black"></div>
+                </div>
+                <div id="rep-evaluation-score" class="evaluation-score">
+                  0.0
+                </div>
+              </div>
               <div id="rep-board" class="board"></div>
             </div>
             <div id="rep-strip-bottom" class="strip"></div>
+            <div
+              id="drill-complete-overlay"
+              class="drill-complete-overlay"
+              hidden
+            >
+              <div class="drill-complete-card">
+                <h2>Line Complete!</h2>
+                <p id="drill-complete-stats"></p>
+                <div class="drill-complete-buttons">
+                  <button id="btn-drill-continue">Continue</button>
+                  <button id="btn-drill-stop">Stop Drill</button>
+                </div>
+              </div>
+            </div>
           </div>
-
-          <div class="repertoire-board-controls">
-            <button id="rep-back">Back</button>
-            <button id="rep-next">Next</button>
-            <button id="rep-flip">Flip</button>
-          </div>
-          <div id="rep-move-status" class="status"></div>
         </section>
 
         <section class="repertoire-moves-section">
           <h2>Moves</h2>
+          <div class="buttons">
+            <button id="rep-back">Back</button>
+            <button id="rep-flip">Flip</button>
+            <button id="rep-reset">Reset</button>
+          </div>
+          <div id="rep-move-status" class="status"></div>
           <div id="rep-info" class="rep-info"></div>
           <div id="rep-turn" class="rep-turn"></div>
           <ol id="rep-moves" class="moves"></ol>
@@ -132,7 +139,7 @@
           <input id="pgn-file" type="file" accept=".pgn,.txt" hidden />
           <div id="rep-notice" class="rep-notice"></div>
           <div class="repertoire-drill-section">
-            <h3>Training</h3>
+            <!-- <h3>Training</h3> -->
             <button id="btn-drill" class="drill-btn" hidden>
               Train this repertoire
             </button>

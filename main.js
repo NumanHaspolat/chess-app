@@ -981,6 +981,23 @@ function renderRepLibrary() {
     const card = document.createElement("div");
     card.className = "rep-card";
 
+    card.addEventListener("click", (event) => {
+      if (event.target.closest("button")) return;
+
+      if (library.active?.id === rep.id) return;
+
+      endDrill();
+      library.setActive(rep.id);
+      persist();
+
+      if (library.active) {
+        orientation = library.active.color;
+      }
+
+      setNotice("");
+      update();
+    });
+
     if (library.active?.id === rep.id) {
       card.classList.add("active");
     }

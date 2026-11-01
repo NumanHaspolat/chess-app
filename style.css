@@ -711,3 +711,7 @@ button:disabled:hover {
     transform: translateX(4px);
   }
 }
+
+.rep-card {
+  cursor: pointer;
+}

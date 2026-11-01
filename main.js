@@ -273,8 +273,9 @@ function renderRepertoireBoard(animate = true) {
 function renderRepertoireMoves() {
   if (!repMovesEl) return;
 
-  const history = repertoireGame.history();
-  const activePly = repViewPly ?? history.length;
+  const currentGame = drill ? drillGame : repertoireGame;
+  const history = currentGame.history();
+  const activePly = drill ? history.length : (repViewPly ?? history.length);
 
   repMovesEl.innerHTML = "";
 
@@ -306,12 +307,13 @@ function updateRepertoireBoard(animate = true) {
   renderRepertoireBoard(animate);
   renderRepertoireMoves();
 
+  const displayGame = drill ? drillGame : syncRepView();
+
   if (repStatusEl) {
     repStatusEl.textContent =
-      repertoireGame.turn() === "w" ? "White to move" : "Black to move";
+      displayGame.turn() === "w" ? "White to move" : "Black to move";
   }
 
-  const displayGame = drill ? drillGame : syncRepView();
   renderRepertoireStrips(displayGame);
   renderRepertoireOpening(displayGame);
 
@@ -1158,6 +1160,7 @@ window.addEventListener("pointermove", (e) => {
 
 window.addEventListener("pointerup", (e) => endDrag(e));
 window.addEventListener("pointercancel", (e) => endDrag(e, true));
+
 drillStopBtn.addEventListener("click", () => {
   const isRepertoireDrill = !!drill?.rep;
 
@@ -1165,17 +1168,24 @@ drillStopBtn.addEventListener("click", () => {
 
   if (isRepertoireDrill) {
     drillGame.reset();
+    repertoireGame.reset();
+
     repViewPly = null;
     repSelectedSquare = null;
     repLegalMoves = [];
+    drillHintSquares = [];
+
+    updateRepertoirePage(false);
   } else {
     game.reset();
     viewPly = null;
     drillHintSquares = [];
     clearSelection();
+
+    update();
   }
 
-  update();
+  renderDrillCompleteOverlay();
 });
 
 drillContinueBtn.addEventListener("click", () => {
@@ -1832,8 +1842,8 @@ function startDrill() {
   }
 
   // Drill artık kendi oyun nesnesini kullanacak.
+  repertoireGame.reset();
   drillGame.reset();
-
   drillHintSquares = [];
   repSelectedSquare = null;
   repLegalMoves = [];
@@ -2131,12 +2141,15 @@ function renderRepLibrary() {
       if (drill?.rep.id === rep.id) {
         endDrill();
 
-        game.reset();
-        viewPly = null;
-        drillHintSquares = [];
-        clearSelection();
+        drillGame.reset();
+        repertoireGame.reset();
 
-        update();
+        repViewPly = null;
+        repSelectedSquare = null;
+        repLegalMoves = [];
+        drillHintSquares = [];
+
+        updateRepertoirePage(false);
         return;
       }
 

@@ -1038,3 +1038,36 @@ button:disabled {
 .learn-variations-list[hidden] {
   display: none;
 }
+
+/* LEARN VARIATION SELECT */
+#learn-panel label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+#learn-variation-select {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: var(--control);
+  color: var(--text);
+  font-family: var(--font-pixel);
+  font-size: 1rem;
+  cursor: pointer;
+  outline: none;
+}
+
+#learn-variation-select:hover,
+#learn-variation-select:focus {
+  border-color: var(--accent);
+  background: var(--control-hover);
+}
+
+#learn-variation-select option {
+  background: var(--panel);
+  color: var(--text);
+  font-family: var(--font-pixel);
+}

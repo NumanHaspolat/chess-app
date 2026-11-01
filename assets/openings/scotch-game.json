@@ -5,17 +5,77 @@
   "description": "An active opening that opens the center early and develops pieces quickly.",
   "variations": [
     {
-      "id": "scotch-main",
-      "name": "Main Line",
-      "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4",
+      "id": "scotch-schmidt",
+      "name": "Schmidt Variation",
+      "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Nf6 5. Nxc6 bxc6 6. Bd3 d5 7. exd5 cxd5 8. O-O Be7 9. c4 O-O 10. Nc3 Bb7",
       "explanations": {
-        "e4": "Take control of the center and open lines for your pieces.",
-        "e5": "Black challenges your central control.",
+        "e4": "Control the center and open lines for development.",
+        "e5": "Black contests the center.",
         "Nf3": "Develop your knight and attack the e5 pawn.",
-        "Nc6": "Black develops a knight and defends the e5 pawn.",
-        "d4": "Challenge Black's central pawn immediately. This is the defining idea of the Scotch Game.",
+        "Nc6": "Black develops and protects e5.",
+        "d4": "Open the center with the defining Scotch pawn break.",
+        "exd4": "Black captures the d4 pawn.",
+        "Nxd4": "Recapture with your knight and centralize it.",
+        "Nf6": "Black develops and attacks your e4 pawn.",
+        "Nxc6": "Exchange your knight for Black's c6 knight.",
+        "bxc6": "Black recaptures with the b-pawn, accepting doubled c-pawns.",
+        "Bd3": "Develop your bishop toward the kingside.",
+        "d5": "Black challenges the center.",
+        "exd5": "Capture the advanced pawn.",
+        "cxd5": "Black recaptures with the c-pawn.",
+        "O-O": "Castle and secure your king.",
+        "Be7": "Black develops the bishop and prepares to castle.",
+        "c4": "Challenge Black's central pawn structure.",
+        "O-O": "Black castles to safety.",
+        "Nc3": "Develop your remaining knight.",
+        "Bb7": "Black develops the bishop along the long diagonal."
+      }
+    },
+    {
+      "id": "scotch-classical",
+      "name": "Classical Variation",
+      "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Bc5 5. Be3 Qf6 6. c3 Nge7 7. Bc4 Ne5 8. Be2 Qg6",
+      "explanations": {
+        "e4": "Take control of the center.",
+        "e5": "Black contests the center.",
+        "Nf3": "Develop your knight and attack e5.",
+        "Nc6": "Black develops and defends the e5 pawn.",
+        "d4": "Open the center immediately.",
         "exd4": "Black captures your central pawn.",
-        "Nxd4": "Recapture with your knight, placing it actively in the center."
+        "Nxd4": "Recapture with your knight.",
+        "Bc5": "Black develops the bishop and pressures your knight on d4.",
+        "Be3": "Defend your knight and challenge the bishop.",
+        "Qf6": "Black develops the queen actively and creates pressure.",
+        "c3": "Support the center and prepare to develop.",
+        "Nge7": "Black develops the other knight toward the center.",
+        "Bc4": "Develop your bishop toward the kingside.",
+        "Ne5": "Black centralizes the knight.",
+        "Be2": "Retreat the bishop to a flexible defensive square.",
+        "Qg6": "Black places the queen actively on the kingside."
+      }
+    },
+    {
+      "id": "scotch-mieses",
+      "name": "Mieses Variation",
+      "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Nf6 5. Nxc6 bxc6 6. e5 Qe7 7. Qe2 Nd5 8. c4 Ba6 9. b3",
+      "explanations": {
+        "e4": "Occupy the center.",
+        "e5": "Black challenges your central pawn.",
+        "Nf3": "Develop your knight.",
+        "Nc6": "Black develops and supports e5.",
+        "d4": "Open the center with the Scotch pawn break.",
+        "exd4": "Black captures your pawn.",
+        "Nxd4": "Recapture with your knight.",
+        "Nf6": "Black attacks your e4 pawn.",
+        "Nxc6": "Exchange your knight for Black's knight.",
+        "bxc6": "Black recaptures and accepts doubled c-pawns.",
+        "e5": "Gain space and attack the knight on f6.",
+        "Qe7": "Black pins the advanced pawn against your king.",
+        "Qe2": "Break the pin and support your e5 pawn.",
+        "Nd5": "Black moves the knight to a strong central square.",
+        "c4": "Challenge the knight and gain more space.",
+        "Ba6": "Black develops the bishop and pressures c4.",
+        "b3": "Support c4 and prepare to maintain your central space."
       }
     }
   ]

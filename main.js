@@ -1408,7 +1408,7 @@ async function initCuratedOpenings() {
   }
 }
 
-function startLearn(variation) {
+function startLearn(opening) {
   if (drill) endDrill();
 
   savedPlayState = {
@@ -1416,23 +1416,71 @@ function startLearn(variation) {
     orientation,
   };
 
+  curatedOpening = opening;
+
   game.reset();
   viewPly = null;
   clearSelection();
 
   lesson = {
-    variation,
+    opening,
+    variation: null,
     index: 0,
   };
 
-  orientation = curatedOpening.color === "black" ? "b" : "w";
+  orientation = opening.color === "black" ? "b" : "w";
+
+  const select = document.getElementById("learn-variation-select");
+
+  select.innerHTML = "";
+
+  opening.variations.forEach((variation) => {
+    const option = document.createElement("option");
+    option.value = variation.id;
+    option.textContent = variation.name;
+    select.appendChild(option);
+  });
+
+  const firstVariation = opening.variations[0];
+
+  if (firstVariation) {
+    select.value = firstVariation.id;
+
+    lesson.variation = firstVariation;
+    lesson.index = 0;
+  }
+
+  showPage("play");
+  update();
 
   showPage("play");
   update();
 }
 
-function nextLessonMove() {
+function selectLearnVariation() {
   if (!lesson) return;
+
+  const select = document.getElementById("learn-variation-select");
+  const variationId = select.value;
+
+  const variation = lesson.opening.variations.find(
+    (item) => item.id === variationId,
+  );
+
+  if (!variation) return;
+
+  game.reset();
+  viewPly = null;
+  clearSelection();
+
+  lesson.variation = variation;
+  lesson.index = 0;
+
+  update();
+}
+
+function nextLessonMove() {
+  if (!lesson || !lesson.variation) return;
 
   const moves = lesson.variation.moves;
 
@@ -1460,7 +1508,7 @@ function nextLessonMove() {
 }
 
 function previousLessonMove() {
-  if (!lesson || lesson.index === 0) return;
+  if (!lesson || !lesson.variation || lesson.index === 0) return;
 
   game.undo();
   lesson.index--;
@@ -1493,18 +1541,34 @@ function exitLearn() {
 
 function renderLearnPanel() {
   const panel = document.getElementById("learn-panel");
-
   if (!panel) return;
 
   panel.hidden = !lesson;
-
   if (!lesson) return;
+
+  document.getElementById("learn-title").textContent =
+    `${lesson.opening.name} · Learn`;
+
+  const select = document.getElementById("learn-variation-select");
+
+  if (!lesson.variation) {
+    document.getElementById("learn-progress").textContent =
+      "Choose a variation to begin.";
+
+    document.getElementById("learn-explanation").textContent =
+      "Starting position. Press Next to begin.";
+
+    document.getElementById("learn-back").disabled = true;
+    document.getElementById("learn-next").disabled = true;
+
+    return;
+  }
 
   const moves = lesson.variation.moves;
   const currentMove = moves[lesson.index - 1];
 
   document.getElementById("learn-title").textContent =
-    `${curatedOpening.name} · ${lesson.variation.name}`;
+    `${lesson.opening.name} · ${lesson.variation.name}`;
 
   document.getElementById("learn-progress").textContent =
     `Move ${lesson.index} / ${moves.length}`;
@@ -1547,7 +1611,7 @@ function renderOpenings() {
   trainButton.textContent = "Train";
 
   learnButton.addEventListener("click", () => {
-    startLearn(curatedOpening.variations[0]);
+    startLearn(curatedOpening);
   });
 
   trainButton.addEventListener("click", () => {
@@ -2243,6 +2307,10 @@ brandLink.addEventListener("click", (event) => {
   showPage("play");
   history.replaceState(null, "", "#play");
 });
+
+document
+  .getElementById("learn-variation-select")
+  .addEventListener("change", selectLearnVariation);
 
 document.getElementById("learn-next").addEventListener("click", nextLessonMove);
 

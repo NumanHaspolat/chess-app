@@ -11,6 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Tiny5+Duo&display=swap"
       rel="stylesheet"
     />
+    <link rel="icon" href="./assets/frost icon.jpg" />
   </head>
   <body>
     <main class="app">
@@ -19,6 +20,21 @@
           <div id="strip-top" class="strip"></div>
           <div id="board" class="board"></div>
           <div id="strip-bottom" class="strip"></div>
+
+          <div
+            id="drill-complete-overlay"
+            class="drill-complete-overlay"
+            hidden
+          >
+            <div class="drill-complete-card">
+              <h2>Line Complete!</h2>
+              <p id="drill-complete-stats"></p>
+              <div class="drill-complete-buttons">
+                <button id="btn-drill-continue">Continue</button>
+                <button id="btn-drill-stop">Stop Drill</button>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

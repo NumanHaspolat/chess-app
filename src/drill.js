@@ -1,9 +1,5 @@
-// Drill logic (no DOM): is the player's move in the repertoire, and what does
-// the opponent answer? Positions are matched through the repertoire's position
-// nodes, so a transposed move order is still accepted when the move itself
-// exists in that position.
+import { playPromoteSound } from "../main.js";
 
-// True when `san` is a repertoire move in the position `fenBefore`.
 export function judgeMove(rep, fenBefore, san) {
   const node = rep.getNode(fenBefore);
   return !!node && node.edges.has(san);
@@ -18,7 +14,6 @@ export function pickReply(rep, fen, rng = Math.random) {
   return edges[Math.floor(rng() * edges.length)];
 }
 
-// True when the repertoire has no more moves from `fen`.
 export function lineEnded(rep, fen) {
   const node = rep.getNode(fen);
   return !node || node.edges.size === 0;

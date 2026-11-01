@@ -8,13 +8,13 @@
   --control-hover: #1f5865;
   --text: #d6eeee;
   --text-muted: #7fa9ae;
-  --accent: #2dd4bf;
-  --accent-strong: #14b8a6;
+  --accent: rgb(45, 192, 212);
+  --accent-strong: #14a5b8;
 
   /* Board */
-  --light: #bfe3df;
-  --dark: #3f8896;
-  --selected: rgba(250, 226, 110, 0.65);
+  --light: #bfdee3;
+  --dark: #348aa0;
+  --selected: rgba(149, 204, 255, 0.65);
   --last-move: rgba(45, 212, 191, 0.4);
   --legal-dot: rgba(6, 38, 48, 0.42);
   --check: rgba(255, 70, 70, 0.6);
@@ -714,4 +714,129 @@ button:disabled:hover {
 
 .rep-card {
   cursor: pointer;
+}
+.board-wrap {
+  position: relative;
+}
+
+.drill-complete-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.65);
+  border-radius: 8px;
+  padding: 20px;
+}
+
+.drill-complete-overlay[hidden] {
+  display: none;
+}
+
+.drill-complete-card {
+  width: 100%;
+  max-width: 340px;
+  padding: 28px 22px;
+  text-align: center;
+  background: #202a35;
+  color: #fff;
+  border: 1px solid #607080;
+  border-radius: 12px;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.4);
+}
+
+.drill-complete-card h2 {
+  margin: 0 0 12px;
+}
+
+.drill-complete-card p {
+  margin: 0 0 22px;
+  line-height: 1.6;
+}
+
+.drill-complete-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+}
+
+.drill-complete-buttons button {
+  padding: 10px 16px;
+  cursor: pointer;
+}
+
+.drill-complete-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.65);
+  border-radius: 8px;
+  padding: 20px;
+  animation: overlayFadeIn 250ms ease-out;
+}
+
+.drill-complete-overlay[hidden] {
+  display: none;
+}
+
+.drill-complete-card {
+  width: 100%;
+  max-width: 340px;
+  padding: 28px 22px;
+  text-align: center;
+  background: #202a35;
+  color: #fff;
+  border: 1px solid #607080;
+  border-radius: 12px;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.4);
+  animation: cardPopIn 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.drill-accuracy {
+  color: #00f7ff;
+}
+
+.drill-mistakes {
+  color: #f87171;
+  font-weight: 700;
+}
+@keyframes overlayFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes cardPopIn {
+  from {
+    opacity: 0;
+    transform: scale(0.88) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.rep-card-drill {
+  background: #315b48;
+  color: white;
+  font-weight: 600;
+}
+
+.rep-card.drilling {
+  background: #203b32;
+  box-shadow: 0 0 12px rgba(74, 222, 128, 0.2);
+}
+
+.rep-card.drilling .rep-card-drill {
+  background: #c1f6fffd;
+  color: #14251b;
+  border-color: #008fa8;
 }

@@ -40,6 +40,10 @@ const repNoticeEl = document.getElementById("rep-notice");
 const repTurnEl = document.getElementById("rep-turn");
 const repNextEl = document.getElementById("rep-next");
 const repCommentEl = document.getElementById("rep-comment");
+const drillCompleteOverlay = document.getElementById("drill-complete-overlay");
+const drillCompleteStats = document.getElementById("drill-complete-stats");
+const drillContinueBtn = document.getElementById("btn-drill-continue");
+const drillStopBtn = document.getElementById("btn-drill-stop");
 
 let orientation = "w";
 let selectedSquare = null;
@@ -48,7 +52,7 @@ let drillHintSquares = [];
 let drag = null; // active press/drag state
 let hoverSquare = null;
 let drillMistakeTimer = null;
-
+let drillCompleteTimer = null;
 let viewPly = null; // null = live position, otherwise number of plies being viewed
 let view = game; // the position currently displayed on the board
 
@@ -62,9 +66,43 @@ function playSound(name) {
   sound.pause();
   sound.currentTime = 0;
 
+  sound.playbackRate = name === "promote" ? 0.5 : 1;
   sound.play().catch(() => {});
 }
 
+function renderDrillCompleteOverlay() {
+  if (!drillCompleteOverlay) return;
+
+  const completed = !!drill && drill.phase === "complete";
+  drillCompleteOverlay.hidden = !completed;
+
+  if (completed) {
+    const correct = drill.correctMoves ?? 0;
+    const mistakes = drill.mistakes ?? 0;
+    const total = correct + mistakes;
+    const accuracy = total > 0 ? Math.round((correct / total) * 100) : 100;
+
+    drillCompleteStats.innerHTML = `
+  Accuracy: <span class="drill-accuracy">${accuracy}%</span>
+  · Mistakes: <span class="drill-mistakes">${mistakes}</span>
+`;
+  }
+}
+
+let promoteSoundTimer = null;
+
+export function playPromoteSound() {
+  clearTimeout(promoteSoundTimer);
+
+  promoteSoundTimer = setTimeout(() => {
+    const audio = new Audio("./assets/audio/promote.wav");
+    audio.volume = 0.6;
+
+    audio.play().catch((error) => {
+      console.warn("Promote sound could not play:", error);
+    });
+  }, 500);
+}
 function squareName(row, col) {
   // row/col are screen positions (0 = top-left)
   if (orientation === "w") {
@@ -345,6 +383,7 @@ function update() {
   renderMoves();
   renderRepLibrary();
   renderDrillAlternatives();
+  renderDrillCompleteOverlay();
 }
 
 /* ---------- Game actions ---------- */
@@ -451,6 +490,36 @@ window.addEventListener("pointermove", (e) => {
 
 window.addEventListener("pointerup", (e) => endDrag(e));
 window.addEventListener("pointercancel", (e) => endDrag(e, true));
+drillStopBtn.addEventListener("click", () => {
+  endDrill();
+
+  game.reset();
+  viewPly = null;
+  drillHintSquares = [];
+  clearSelection();
+
+  update();
+});
+
+drillContinueBtn.addEventListener("click", () => {
+  if (!drill) return;
+
+  const rep = drill.rep;
+  const availableLines = getAvailableDrillLines(rep);
+
+  const nextLine = availableLines.find(
+    (line) => !completedDrillLines.has(getLineId(line)),
+  );
+
+  if (!nextLine) {
+    drillCompleteStats.textContent = "All lines completed! Great work.";
+    drillContinueBtn.hidden = true;
+    return;
+  }
+
+  drillLinePath = nextLine;
+  startDrill();
+});
 
 function startDrag() {
   drag.moved = true;
@@ -607,7 +676,9 @@ importRepBtnEl.addEventListener("click", () => {
 
 const library = Library.load();
 let repNotice = { text: "", isError: false };
-let drill = null; // null = not drilling, otherwise see startDrill()
+let drill = null;
+let completedDrillLines = new Set();
+let drillLinePath = []; // null = not drilling, otherwise see startDrill()
 
 if (library.active) orientation = library.active.color;
 
@@ -628,9 +699,7 @@ function colorName(color) {
 function renderRepertoire() {
   const repertoire = library.active;
   undoBtnEl.disabled = !!drill;
-  drillBtnEl.hidden = !repertoire;
-  drillBtnEl.textContent = drill ? "Stop drill" : "Drill";
-  drillBtnEl.classList.toggle("active", !!drill);
+  drillBtnEl.hidden = true;
 
   repNoticeEl.textContent = repNotice.text;
   repNoticeEl.classList.toggle("error", repNotice.isError);
@@ -756,12 +825,57 @@ function endDrill() {
   drillHintSquares = [];
   if (drill && drill.timer) clearTimeout(drill.timer);
   drill = null;
+  clearTimeout(drillCompleteTimer);
+  drillCompleteTimer = null;
+}
+
+function getAvailableDrillLines(rep) {
+  const startFen = new Chess().fen();
+  const lines = [];
+
+  function walk(fen, path, visited) {
+    const node = rep.getNode(fen);
+
+    if (!node || node.edges.size === 0) {
+      if (path.length > 0) {
+        lines.push([...path]);
+      }
+      return;
+    }
+
+    for (const edge of node.edges.values()) {
+      const nextPath = [...path, edge.uci];
+      const nextVisited = new Set(visited);
+      nextVisited.add(node.key);
+
+      // Döngüye girilmesini önle.
+      if (nextVisited.has(edge.to)) {
+        lines.push(nextPath);
+        continue;
+      }
+
+      walk(edge.to, nextPath, nextVisited);
+    }
+  }
+
+  walk(startFen, [], new Set());
+
+  return lines;
+}
+
+function getLineId(line) {
+  return line.join(" ");
 }
 
 function startDrill() {
   const rep = library.active;
   if (!rep) return;
+
   endDrill();
+
+  if (!completedDrillLines) {
+    completedDrillLines = new Set();
+  }
 
   game.reset();
   drillHintSquares = [];
@@ -774,12 +888,12 @@ function startDrill() {
     phase: "your-move",
     mistake: null,
 
-    // Hata ve ipucu takibi
     mistakeCount: 0,
     hintShown: false,
-
-    // Alternatif doğru hamleler
     alternatives: [],
+
+    correctMoves: 0,
+    mistakes: 0,
   };
   advanceDrill();
 }
@@ -787,12 +901,29 @@ function startDrill() {
 // Decides what happens next at the live position: finish, wait for the player,
 // or let the opponent answer with a random repertoire move.
 function advanceDrill() {
-  if (!drill) return;
+  if (!drill || drill.phase === "complete") return;
+
   const { rep } = drill;
 
   if (lineEnded(rep, game.fen())) {
     drill.phase = "complete";
+
+    playSound("promote");
+
     drill.empty = game.history().length === 0;
+
+    if (drillCompleteTimer) {
+      clearTimeout(drillCompleteTimer);
+    }
+
+    drillCompleteOverlay.hidden = true;
+
+    drillCompleteTimer = setTimeout(() => {
+      if (drill?.phase === "complete") {
+        update();
+      }
+    }, 400);
+
     update();
     return;
   }
@@ -820,31 +951,41 @@ function advanceDrill() {
 
 // Called after the player moved during a drill
 function onDrillMove(move) {
+  if (!drill) return;
+
+  // Doğru hamle
   if (judgeMove(drill.rep, move.before, move.san)) {
+    clearTimeout(drillMistakeTimer);
+    drillMistakeTimer = null;
+
+    drill.correctMoves++;
     drill.mistakeCount = 0;
     drill.hintShown = false;
     drillHintSquares = [];
     drill.alternatives = [];
 
+    drill.mistake = null;
     renderDrillAlternatives();
+
     advanceDrill();
     return;
   }
 
+  // Yanlış hamle
+  drill.mistakes++;
   drill.mistakeCount++;
 
   const node = drill.rep.getNode(move.before);
-
   const correctEdges = node ? [...node.edges.values()] : [];
 
-  // İlk hatada mor kareyi göster.
+  // İlk hatada doğru hamlenin çıkış karesini göster.
   if (drill.mistakeCount >= 1) {
     drillHintSquares = correctEdges.length
       ? [parseUci(correctEdges[0].uci).from]
       : [];
   }
 
-  // İkinci hatada panelde doğru hamleleri göster.
+  // İkinci hatada doğru hamleleri göster.
   if (drill.mistakeCount >= 2) {
     drill.hintShown = true;
     drill.alternatives = correctEdges.slice(0, 2);
@@ -878,13 +1019,17 @@ function onDrillMove(move) {
     if (boardWrap) {
       boardWrap.classList.remove("board-shake");
     }
+
+    drillMistakeTimer = null;
   }, 1000);
 
   update();
-  renderDrillAlternatives();
 }
 function retryDrill() {
   if (!drill || drill.phase !== "mistake") return;
+
+  clearTimeout(drillMistakeTimer);
+  drillMistakeTimer = null;
 
   game.undo();
   viewPly = null;
@@ -909,13 +1054,20 @@ function renderDrillStatus() {
       drillActionEl.textContent = "Try again";
       drillActionEl.hidden = false;
       break;
-    case "complete":
+    case "complete": {
+      const total = drill.correctMoves + drill.mistakes;
+      const accuracy = total
+        ? Math.round((drill.correctMoves / total) * 100)
+        : 100;
+
       repTurnEl.textContent = drill.empty
         ? "This repertoire has no moves."
-        : "Line complete. Well done!";
+        : `Line complete! ${accuracy}% accuracy`;
+
       drillActionEl.textContent = "Restart";
       drillActionEl.hidden = drill.empty;
       break;
+    }
   }
 }
 
@@ -936,11 +1088,7 @@ drillActionEl.addEventListener("click", () => {
 
 function renderDrillAlternatives() {
   const panel = document.getElementById("drill-alternatives");
-
-  if (!panel) {
-    console.error("drill-alternatives HTML elementi bulunamadı!");
-    return;
-  }
+  if (!panel) return;
 
   panel.innerHTML = "";
 
@@ -1001,6 +1149,9 @@ function renderRepLibrary() {
     if (library.active?.id === rep.id) {
       card.classList.add("active");
     }
+    if (drill?.rep.id === rep.id) {
+      card.classList.add("drilling");
+    }
 
     const title = document.createElement("h3");
     title.textContent = rep.name;
@@ -1008,21 +1159,34 @@ function renderRepLibrary() {
     positionCount.className = "rep-card-position-count";
     positionCount.textContent = `${rep.stats().positions} positions, as ${rep.color === "w" ? "White" : "Black"}`;
 
-    const selectButton = document.createElement("button");
-    selectButton.textContent =
-      library.active?.id === rep.id ? "Selected" : "Select";
+    const cardDrillButton = document.createElement("button");
+    const isDrillingThisRep = drill?.rep.id === rep.id;
 
-    selectButton.addEventListener("click", () => {
+    cardDrillButton.textContent = isDrillingThisRep ? "Stop" : "Drill";
+    cardDrillButton.className = "rep-card-drill";
+
+    cardDrillButton.addEventListener("click", () => {
+      if (drill?.rep.id === rep.id) {
+        endDrill();
+
+        game.reset();
+        viewPly = null;
+        drillHintSquares = [];
+        clearSelection();
+
+        update();
+        return;
+      }
+
       endDrill();
+
       library.setActive(rep.id);
       persist();
 
-      if (library.active) {
-        orientation = library.active.color;
-      }
-
+      orientation = rep.color;
       setNotice("");
-      update();
+
+      startDrill();
     });
 
     const renameButton = document.createElement("button");
@@ -1062,7 +1226,7 @@ function renderRepLibrary() {
 
     const actions = document.createElement("div");
     actions.className = "rep-card-actions";
-    actions.append(selectButton, renameButton, deleteButton);
+    actions.append(cardDrillButton, renameButton, deleteButton);
 
     card.append(title, positionCount, actions);
     container.appendChild(card);

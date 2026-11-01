@@ -26,6 +26,10 @@ const SOUNDS = {
 
 const boardEl = document.getElementById("board");
 const statusEl = document.getElementById("status");
+const evaluationBarEl = document.getElementById("evaluation-bar");
+const evaluationWhiteEl = document.getElementById("evaluation-white");
+const evaluationBlackEl = document.getElementById("evaluation-black");
+const evaluationScoreEl = document.getElementById("evaluation-score");
 const movesEl = document.getElementById("moves");
 const stripTopEl = document.getElementById("strip-top");
 const stripBottomEl = document.getElementById("strip-bottom");
@@ -151,6 +155,179 @@ function goToPly(ply) {
   viewPly = clamped >= total ? null : clamped;
   clearSelection();
   update();
+}
+
+/* ---------- Stockfish evaluation ---------- */
+
+let stockfishWorker = null;
+let engineReady = false;
+let engineBusy = false;
+let engineStopping = false;
+
+let pendingEngineFen = null;
+let activeEngineFen = null;
+let requestedEngineFen = null;
+
+const ENGINE_DEPTH = 13;
+
+function initStockfish() {
+  try {
+    stockfishWorker = new Worker(
+      "./assets/stockfish/stockfish-19-lite-single.js",
+    );
+
+    stockfishWorker.onmessage = (event) => {
+      const message = String(event.data).trim();
+
+      // Motor başlangıcı
+      if (message === "uciok") {
+        stockfishWorker.postMessage("isready");
+        return;
+      }
+
+      if (message === "readyok") {
+        engineReady = true;
+
+        if (pendingEngineFen) {
+          startEngineAnalysis(pendingEngineFen);
+        }
+        return;
+      }
+
+      // Analiz sonuçları
+      if (message.startsWith("info ")) {
+        if (
+          engineStopping ||
+          !engineBusy ||
+          activeEngineFen !== requestedEngineFen
+        ) {
+          return;
+        }
+
+        parseEngineInfo(message);
+        return;
+      }
+
+      // Mevcut analiz tamamlandı
+      if (message.startsWith("bestmove")) {
+        engineBusy = false;
+        engineStopping = false;
+        activeEngineFen = null;
+
+        if (pendingEngineFen && engineReady) {
+          startEngineAnalysis(pendingEngineFen);
+        }
+      }
+    };
+
+    stockfishWorker.onerror = (error) => {
+      console.error("Stockfish error:", error);
+      evaluationScoreEl.textContent = "Engine error";
+    };
+
+    stockfishWorker.postMessage("uci");
+  } catch (error) {
+    console.error("Could not start Stockfish:", error);
+    evaluationScoreEl.textContent = "Engine unavailable";
+  }
+}
+
+function requestEngineEvaluation(fen) {
+  if (!stockfishWorker) return;
+
+  // Aynı pozisyonu tekrar tekrar analiz etme.
+  if (fen === requestedEngineFen) return;
+
+  requestedEngineFen = fen;
+  pendingEngineFen = fen;
+
+  if (!engineReady) return;
+
+  if (engineBusy) {
+    engineStopping = true;
+    stockfishWorker.postMessage("stop");
+    return;
+  }
+
+  startEngineAnalysis(fen);
+}
+
+function startEngineAnalysis(fen) {
+  if (!stockfishWorker || !engineReady) return;
+
+  pendingEngineFen = null;
+  activeEngineFen = fen;
+
+  engineBusy = true;
+  engineStopping = false;
+
+  stockfishWorker.postMessage(`position fen ${fen}`);
+  stockfishWorker.postMessage(`go depth ${ENGINE_DEPTH}`);
+}
+
+function parseEngineInfo(message) {
+  // Derinlik bilgisi
+  const depthMatch = message.match(/\bdepth (\d+)/);
+  const depth = depthMatch ? Number(depthMatch[1]) : 0;
+
+  // Daha önceki derinlikteki sonuçları kullanma.
+  if (depth < 1) return;
+
+  // Alt/üst sınır tahminlerini atla.
+  if (/\b(lowerbound|upperbound)\b/.test(message)) return;
+
+  const cpMatch = message.match(/\bscore cp (-?\d+)/);
+  const mateMatch = message.match(/\bscore mate (-?\d+)/);
+
+  if (!cpMatch && !mateMatch) return;
+
+  let whiteScore;
+  let scoreText;
+
+  const sideToMove = activeEngineFen.split(" ")[1];
+
+  if (mateMatch) {
+    let mate = Number(mateMatch[1]);
+
+    // Stockfish skoru hamle sırasındaki oyuncuya göre verir.
+    if (sideToMove === "b") mate = -mate;
+
+    whiteScore = mate > 0 ? 1000 : -1000;
+
+    scoreText = mate > 0 ? `+M${mate}` : `-M${Math.abs(mate)}`;
+  } else {
+    let cp = Number(cpMatch[1]);
+
+    // Centipawn skorunu beyazın bakış açısına çevir.
+    if (sideToMove === "b") cp = -cp;
+
+    whiteScore = cp;
+
+    const pawns = cp / 100;
+    scoreText = (pawns > 0 ? "+" : "") + pawns.toFixed(1);
+  }
+
+  renderEvaluation(whiteScore, scoreText);
+}
+
+function renderEvaluation(whiteScore, scoreText) {
+  if (!evaluationWhiteEl || !evaluationBlackEl) return;
+
+  // Skoru görsel olarak yüzdeye dönüştür.
+  const clamped = Math.max(-1000, Math.min(1000, whiteScore));
+
+  const whitePercent = 100 / (1 + Math.exp(-clamped / 300));
+
+  const safePercent = Math.max(5, Math.min(95, whitePercent));
+
+  evaluationWhiteEl.style.height = `${safePercent}%`;
+  evaluationBlackEl.style.height = `${100 - safePercent}%`;
+
+  // Beyaz altta, siyah üstte; tahta siyah yönüne çevrilince ters çevir.
+  evaluationBarEl.style.flexDirection =
+    orientation === "w" ? "column-reverse" : "column";
+
+  evaluationScoreEl.textContent = scoreText;
 }
 
 /* ---------- Rendering ---------- */
@@ -375,6 +552,7 @@ function renderStrips() {
 
 function update() {
   syncView();
+  requestEngineEvaluation(view.fen());
   renderBoard();
   renderStrips();
   renderStatus();
@@ -1232,5 +1410,7 @@ function renderRepLibrary() {
     container.appendChild(card);
   });
 }
+
+initStockfish();
 
 update();

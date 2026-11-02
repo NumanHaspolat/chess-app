@@ -9,36 +9,36 @@
       "name": "Scotch Gambit",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Bc4 Bc5 5. c3 dxc3 6. Bxf7+ Kxf7 7. Qd5+ Kf8 8. Qxc5+ Qe7 9. Qxe7+ Ngxe7 10. Nxc3 d5 11. exd5 Nb4",
       "explanations": {
-        "Bc4": "Fil c4'e gelişir ve f7 karesini hedefler.",
-        "c3": "Beyaz merkezde gambit fikrini uygular.",
-        "dxc3": "Siyah c3 piyonunu alır.",
-        "Bxf7+": "Beyaz şah çekerek siyah şahı açığa çıkarır.",
-        "Kxf7": "Siyah şah fili alır.",
-        "Qd5+": "Vezir şah çekerek tempo kazanır."
+        "Bc4": "The bishop develops to c4 and targets f7.",
+        "c3": "White offers a pawn to accelerate development and open lines.",
+        "dxc3": "Black captures the pawn on c3.",
+        "Bxf7+": "White gives check and exposes the black king.",
+        "Kxf7": "Black's king captures the bishop.",
+        "Qd5+": "The queen gives check and gains a tempo."
       }
     },
     {
       "id": "scotch-gambit-e5-line",
-      "name": "Scotch Gambit – 5.e5 Devamı",
+      "name": "Scotch Gambit – 5.e5 Continuation",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Bc4 Nf6 5. e5 d5 6. Bb5 Ne4 7. Nxd4 Bd7 8. Bxc6 bxc6 9. O-O Bc5 10. f3 Ng5 11. f4 Ne4 12. Be3 Bb6",
       "explanations": {
-        "e5": "Beyaz piyonu ileri sürerek siyah atı sıkıştırır.",
-        "d5": "Siyah merkezden karşılık verir.",
-        "Bb5": "Fil gelişerek at üzerinde baskı kurar.",
-        "Ne4": "Siyah at merkezde aktif bir kareye yerleşir.",
-        "Bd7": "Siyah fil gelişir ve taş değişimini hazırlar."
+        "e5": "White advances the pawn to drive back the black knight.",
+        "d5": "Black counters in the center.",
+        "Bb5": "The bishop develops and puts pressure on the knight.",
+        "Ne4": "The black knight occupies an active central square.",
+        "Bd7": "The bishop develops and prepares a possible exchange."
       }
     },
     {
       "id": "knight-sacrifice-trap",
-      "name": "4.Ng5 – At Fedası ve Mat Tuzağı",
+      "name": "4.Ng5 – Knight Sacrifice and Checkmate Trap",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Ng5 h6 5. Nxf7 Kxf7 6. Bc4+ Ke8 7. Qh5+ g6 8. Qxg6+ Ke7 9. Qf7+ Kd6 10. Bf4+ Kc5 11. Qd5+ Kb4 12. Qb5#",
       "explanations": {
-        "Ng5": "At f7 karesine baskı kurar; bu saldırı siyahın doğru savunmasına karşı risklidir.",
-        "h6": "Siyah atı kovmaya çalışır ancak ciddi taktik tehlikeye girer.",
-        "Nxf7": "Beyaz at f7 piyonunu alır.",
-        "Bc4+": "Fil şah çekerek saldırıyı sürdürür.",
-        "Qh5+": "Vezir şah kanadında mat ağı kurar."
+        "Ng5": "The knight puts pressure on f7, but this attack is risky if Black defends accurately.",
+        "h6": "Black tries to drive the knight away but allows a serious tactical threat.",
+        "Nxf7": "White's knight captures the pawn on f7.",
+        "Bc4+": "The bishop continues the attack with check.",
+        "Qh5+": "The queen builds a mating net around the black king."
       }
     },
     {
@@ -46,11 +46,11 @@
       "name": "Göring Gambit",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. c3 dxc3 5. Bc4 d6 6. Nxc3 Nf6 7. Qb3 Qd7 8. Ng5 Ne5",
       "explanations": {
-        "c3": "Beyaz merkez piyonunu feda ederek hızlı gelişim hedefler.",
-        "dxc3": "Siyah gambit piyonunu alır.",
-        "Bc4": "Fil f7 karesine yönelir.",
-        "Nxc3": "Beyaz at geri alır ve gelişimini tamamlar.",
-        "Qb3": "Vezir b7 ve f7 üzerinde baskı kurar."
+        "c3": "White sacrifices a central pawn for rapid development and open lines.",
+        "dxc3": "Black accepts the gambit pawn.",
+        "Bc4": "The bishop aims at the f7 square.",
+        "Nxc3": "White recaptures with the knight and continues development.",
+        "Qb3": "The queen targets the b7 and f7 squares."
       }
     },
     {
@@ -58,11 +58,11 @@
       "name": "Schmidt Variation",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Nf6 5. Nc3 Bb4 6. Nxc6 bxc6 7. Bd3 d5 8. exd5 cxd5 9. O-O O-O 10. Bg5 c6 11. Qf3 Be7 12. Rae1 Re8 13. Ne2 Bg4 14. Qf4 Bd7 15. Nd4 h6 16. Bxh6 gxh6 17. Qxh6 Ne4 18. Rxe4 dxe4 19. Bxe4 Bg5 20. Qh7+ Kf8 21. Qh8+ Ke7",
       "explanations": {
-        "Nf6": "Siyah atını geliştirir ve e4 karesine baskı yapar.",
-        "Nc3": "Beyaz ikinci atını geliştirir.",
-        "Bb4": "Siyah fil gelişerek ata baskı kurar.",
-        "Nxc6": "Beyaz at siyah atı alır.",
-        "bxc6": "Siyah b piyonu ile geri alır."
+        "Nf6": "Black develops the knight and puts pressure on e4.",
+        "Nc3": "White develops the second knight.",
+        "Bb4": "Black develops the bishop and puts pressure on the knight.",
+        "Nxc6": "White's knight captures the black knight.",
+        "bxc6": "Black recaptures with the b-pawn."
       }
     },
     {
@@ -70,11 +70,11 @@
       "name": "Regular Scotch Game",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Nge7 5. Nc3 Nxd4 6. Qxd4 Nc6 7. Qe3 Nb4 8. Bd3 Be7 9. Nd5",
       "explanations": {
-        "Nge7": "Siyah atını geliştirir ve merkezde farklı bir düzen kurar.",
-        "Nc3": "Beyaz atını geliştirir.",
-        "Nxd4": "Siyah at beyaz atı alır.",
-        "Qxd4": "Beyaz vezirle geri alır.",
-        "Nd5": "Beyaz at ileri bir merkez karesine yerleşir."
+        "Nge7": "Black develops the knight and adopts a different central setup.",
+        "Nc3": "White develops the knight.",
+        "Nxd4": "Black's knight captures the white knight.",
+        "Qxd4": "White recaptures with the queen.",
+        "Nd5": "White's knight occupies an advanced central square."
       }
     },
     {
@@ -82,11 +82,11 @@
       "name": "Horwitz Attack",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Qh4 5. Nb5 Bb4+ 6. Bd2 Qxe4+ 7. Be2 Kd8 8. O-O Bxd2 9. Nxd2 Qf4 10. g3 Qh6 11. Nc4 Nge7",
       "explanations": {
-        "Qh4": "Siyah vezir erken çıkarak e4 piyonuna baskı yapar.",
-        "Nb5": "Beyaz at c7 ve d6 karelerine baskı kurar.",
-        "Bb4+": "Siyah fil şah çekerek gelişim temposu kazanır.",
-        "Bd2": "Beyaz fil şah çekişini karşılar.",
-        "Qxe4+": "Siyah vezir piyonu alırken şah çeker."
+        "Qh4": "Black brings the queen out early and puts pressure on the e4-pawn.",
+        "Nb5": "White's knight puts pressure on the c7 and d6 squares.",
+        "Bb4+": "Black gives check with the bishop and gains a tempo for development.",
+        "Bd2": "White blocks the bishop's check.",
+        "Qxe4+": "Black's queen captures the pawn with check."
       }
     },
     {
@@ -94,11 +94,11 @@
       "name": "Millennium Variation",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Bc5 5. Nxc6 Qf6 6. c3 Nge7 7. Bc4 Qg6 8. O-O d6",
       "explanations": {
-        "Bc5": "Siyah fil gelişir ve d4 atına baskı kurar.",
-        "Nxc6": "Beyaz at c6'daki atı alır.",
-        "Qf6": "Siyah vezir aktif bir kareye çıkar.",
-        "c3": "Beyaz merkezde alan kazanır ve gelişimi destekler.",
-        "Qg6": "Siyah vezir şah kanadına yönelir."
+        "Bc5": "Black develops the bishop and puts pressure on the knight on d4.",
+        "Nxc6": "White's knight captures the knight on c6.",
+        "Qf6": "Black develops the queen to an active square.",
+        "c3": "White gains central space and supports development.",
+        "Qg6": "Black's queen moves toward the kingside."
       }
     },
     {
@@ -106,11 +106,11 @@
       "name": "Blumenfeld Attack",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Bc5 5. Be3 Qf6 6. Nb5 Bxe3 7. fxe3 Qh4+ 8. g3 Qd8 9. Qg4 Kf8 10. Qf4 d6",
       "explanations": {
-        "Be3": "Beyaz fil gelişir ve d4 atını destekler.",
-        "Qf6": "Siyah vezir merkez ve şah kanadına baskı kurar.",
-        "Nb5": "Beyaz at c7 ve d6 karelerini hedefler.",
-        "Bxe3": "Siyah fil d4 karesi boşaldıktan sonra beyaz fili alır.",
-        "fxe3": "Beyaz f piyonu ile geri alır."
+        "Be3": "White develops the bishop and supports the knight on d4.",
+        "Qf6": "Black's queen puts pressure on the center and kingside.",
+        "Nb5": "White's knight targets the c7 and d6 squares.",
+        "Bxe3": "After the knight leaves d4, Black's bishop captures the white bishop.",
+        "fxe3": "White recaptures with the f-pawn."
       }
     },
     {
@@ -118,11 +118,11 @@
       "name": "Romanishin Variation",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Bc5 5. Nb3 Bb4+ 6. c3 Be7 7. c4 Nf6 8. Nc3 O-O 9. Be2 Re8 10. O-O a5 11. a4 d6 12. Be3 Nd7 13. Nb5 Bf6 14. Qc2 Nb4",
       "explanations": {
-        "Bc5": "Siyah fil gelişir ve atı hedef alır.",
-        "Nb3": "Beyaz at saldırıdan çekilir.",
-        "Bb4+": "Siyah fil şah çekerek gelişim temposu kazanır.",
-        "c3": "Beyaz fili karar vermeye zorlar.",
-        "Be7": "Siyah fil geri çekilip güvenli gelişimi sürdürür."
+        "Bc5": "Black develops the bishop and targets the knight.",
+        "Nb3": "White moves the knight out of attack.",
+        "Bb4+": "Black gives check with the bishop and gains a tempo for development.",
+        "c3": "White challenges the bishop and forces it to choose a square.",
+        "Be7": "Black retreats the bishop and continues development safely."
       }
     }
   ]

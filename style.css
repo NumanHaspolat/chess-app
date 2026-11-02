@@ -1137,3 +1137,45 @@ button:disabled {
     background: #75c98b;
   }
 }
+
+.openings-filters {
+  width: min(1480px, calc(100% - 48px));
+  margin: 0 auto 20px;
+  display: flex;
+  gap: 10px;
+}
+
+.opening-filter.active {
+  background: var(--accent-strong);
+  color: #062b2b;
+  border-color: var(--accent);
+}
+
+.opening-card {
+  position: relative;
+}
+
+.opening-favorite {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  outline: none;
+  font-size: 20px;
+  line-height: 1;
+  color: var(--accent-strong);
+  cursor: pointer;
+}
+
+.opening-favorite:hover {
+  background: transparent;
+  transform: none;
+}
+
+.opening-favorite:focus {
+  outline: none;
+  box-shadow: none;
+}

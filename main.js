@@ -98,6 +98,9 @@ let trainTotalMistakes = 0;
 let trainCorrectSquares = [];
 let trainCorrectTimer = null;
 
+let favoriteOpenings = new Set(
+  JSON.parse(localStorage.getItem("azurite-favorites") || "[]"),
+);
 /* ---------- Coordinates helpers ---------- */
 
 function playSound(name, speed = 1) {
@@ -1991,9 +1994,37 @@ function renderOpenings() {
 
   const card = document.createElement("article");
   card.className = "opening-card";
+  card.appendChild(createFavoriteButton(curatedOpening));
 
   const title = document.createElement("h2");
   title.textContent = curatedOpening.name;
+
+  const favoriteButton = document.createElement("button");
+  favoriteButton.className = "opening-favorite";
+  favoriteButton.type = "button";
+
+  favoriteButton.textContent = favoriteOpenings.has(curatedOpening.name)
+    ? "★"
+    : "☆";
+
+  favoriteButton.title = "Toggle favorite";
+
+  favoriteButton.addEventListener("click", () => {
+    const name = curatedOpening.name;
+
+    if (favoriteOpenings.has(name)) {
+      favoriteOpenings.delete(name);
+    } else {
+      favoriteOpenings.add(name);
+    }
+
+    localStorage.setItem(
+      "azurite-favorites",
+      JSON.stringify([...favoriteOpenings]),
+    );
+
+    renderOpenings();
+  });
 
   const description = document.createElement("p");
   description.textContent = curatedOpening.description;
@@ -2020,8 +2051,32 @@ function renderOpenings() {
   });
 
   actions.append(learnButton, trainButton);
-  card.append(title, description, color, actions);
+  card.append(title, favoriteButton, description, color, actions);
   list.append(card);
+}
+
+function createFavoriteButton(opening) {
+  const button = document.createElement("button");
+  button.className = "opening-favorite";
+  button.type = "button";
+  button.textContent = favoriteOpenings.has(opening.name) ? "★" : "☆";
+
+  button.addEventListener("click", () => {
+    if (favoriteOpenings.has(opening.name)) {
+      favoriteOpenings.delete(opening.name);
+    } else {
+      favoriteOpenings.add(opening.name);
+    }
+
+    localStorage.setItem(
+      "azurite-favorites",
+      JSON.stringify([...favoriteOpenings]),
+    );
+
+    renderOpenings();
+  });
+
+  return button;
 }
 
 function renderRepertoireOpening(position) {

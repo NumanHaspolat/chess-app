@@ -69,6 +69,7 @@ const repNextEl = document.getElementById("rep-next-info");
 const repOpeningEl = document.getElementById("rep-opening");
 const repResetBtn = document.getElementById("rep-reset");
 const repFlipBtn = document.getElementById("rep-flip");
+const learnCompleteStats = document.getElementById("learn-complete-stats");
 
 let orientation = "w";
 let selectedSquare = null;
@@ -92,6 +93,8 @@ let trainMistakeTimer = null;
 let trainOpponentTimer = null;
 let trainPhase = "your-move";
 let trainMistakeCount = 0;
+let trainCorrectMoves = 0;
+let trainTotalMistakes = 0;
 
 /* ---------- Coordinates helpers ---------- */
 
@@ -124,6 +127,20 @@ function renderDrillCompleteOverlay() {
   · Mistakes: <span class="drill-mistakes">${mistakes}</span>
 `;
   }
+}
+
+function renderLearnTrainCompleteStats() {
+  if (!learnCompleteStats) return;
+
+  const correct = trainCorrectMoves;
+  const mistakes = trainTotalMistakes;
+  const total = correct + mistakes;
+  const accuracy = total > 0 ? Math.round((correct / total) * 100) : 100;
+
+  learnCompleteStats.innerHTML = `
+    Accuracy: <span class="drill-accuracy">${accuracy}%</span>
+    · Mistakes: <span class="drill-mistakes">${mistakes}</span>
+  `;
 }
 
 let promoteSoundTimer = null;
@@ -1181,6 +1198,7 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
       // Doğru hamle
       // Doğru hamle
       lesson.index++;
+      trainCorrectMoves++;
       trainMistakeCount = 0;
       trainHintShown = false;
       trainHintSquares = [];
@@ -1233,7 +1251,7 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
   clearSelection();
   update(animate);
 
-  if (lesson && !trainMode && lesson.index >= lesson.variation.moves.length) {
+  if (lesson && lesson.index >= lesson.variation.moves.length) {
     const message = document.getElementById("learn-complete-message");
     message.innerHTML = `You've completed <span class="completed-variation">${lesson.variation.name}</span>!`;
 
@@ -1244,6 +1262,10 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
 
     learnCompleteTimer = setTimeout(() => {
       if (lesson && lesson.index >= lesson.variation.moves.length) {
+        if (trainMode) {
+          renderLearnTrainCompleteStats();
+        }
+
         overlay.hidden = false;
       }
     }, 400);
@@ -1258,6 +1280,7 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
 function handleTrainMistake(expectedMove, playedMove) {
   trainPhase = "mistake";
   trainMistakeCount++;
+  trainTotalMistakes++;
 
   // İlk hata: taşın bulunduğu kare.
   // İkinci ve sonraki hatalar: hedef kare.
@@ -1316,10 +1339,10 @@ function continueTrain() {
     clearTimeout(learnCompleteTimer);
     learnCompleteTimer = setTimeout(() => {
       if (trainMode && trainPhase === "complete") {
+        renderLearnTrainCompleteStats();
         overlay.hidden = false;
       }
     }, 400);
-
     renderLearnPanel();
     return;
   }
@@ -1703,6 +1726,8 @@ function startTrain(opening) {
   trainHintSquares = [];
   trainPhase = "your-move";
   trainMistakeCount = 0;
+  trainCorrectMoves = 0;
+  trainTotalMistakes = 0;
 
   lesson.mode = "train";
 
@@ -1733,6 +1758,8 @@ function startCurrentLearnTrain() {
   trainPhase = "your-move";
   trainMistakeCount = 0;
   learnHintMove = null;
+  trainCorrectMoves = 0;
+  trainTotalMistakes = 0;
 
   document.getElementById("learn-complete-overlay").hidden = true;
   document.getElementById("train-hint").hidden = false;
@@ -2681,7 +2708,25 @@ document
   .getElementById("learn-complete-close")
   .addEventListener("click", () => {
     document.getElementById("learn-complete-overlay").hidden = true;
+
     clearTimeout(learnCompleteTimer);
+    clearTimeout(trainMistakeTimer);
+    clearTimeout(trainOpponentTimer);
+
+    trainMode = false;
+    trainHintShown = false;
+    trainHintSquares = [];
+    trainMistakeCount = 0;
+    trainCorrectMoves = 0;
+    trainTotalMistakes = 0;
+    trainPhase = "your-move";
+
+    game.reset();
+    viewPly = null;
+    lesson.index = 0;
+
+    clearSelection();
+    update();
   });
 
 document

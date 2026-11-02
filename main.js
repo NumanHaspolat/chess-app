@@ -91,6 +91,7 @@ let trainHintSquares = [];
 let trainMistakeTimer = null;
 let trainOpponentTimer = null;
 let trainPhase = "your-move";
+let trainMistakeCount = 0;
 
 /* ---------- Coordinates helpers ---------- */
 
@@ -1178,7 +1179,9 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
       }
 
       // Doğru hamle
+      // Doğru hamle
       lesson.index++;
+      trainMistakeCount = 0;
       trainHintShown = false;
       trainHintSquares = [];
 
@@ -1254,9 +1257,14 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
 
 function handleTrainMistake(expectedMove, playedMove) {
   trainPhase = "mistake";
+  trainMistakeCount++;
 
-  // Doğru hamlenin hem başlangıç hem hedef karesi mavi.
-  trainHintSquares = [expectedMove.from, expectedMove.to];
+  // İlk hata: taşın bulunduğu kare.
+  // İkinci ve sonraki hatalar: hedef kare.
+  trainHintSquares =
+    trainMistakeCount === 1
+      ? [expectedMove.from]
+      : [expectedMove.from, expectedMove.to];
 
   const boardWrap = boardEl.closest(".board-wrap");
 
@@ -1278,7 +1286,6 @@ function handleTrainMistake(expectedMove, playedMove) {
     trainPhase = "your-move";
     clearSelection();
 
-    // İki karelik hata ipucu ekranda kalmaya devam eder.
     update(false);
 
     if (boardWrap) {
@@ -1695,6 +1702,7 @@ function startTrain(opening) {
   trainHintShown = false;
   trainHintSquares = [];
   trainPhase = "your-move";
+  trainMistakeCount = 0;
 
   lesson.mode = "train";
 
@@ -1723,6 +1731,7 @@ function startCurrentLearnTrain() {
   trainHintShown = false;
   trainHintSquares = [];
   trainPhase = "your-move";
+  trainMistakeCount = 0;
   learnHintMove = null;
 
   document.getElementById("learn-complete-overlay").hidden = true;
@@ -2687,7 +2696,9 @@ document.getElementById("train-hint").addEventListener("click", () => {
   if (!move) return;
 
   trainHintShown = true;
-  trainHintSquares = [move.from];
+
+  trainHintSquares =
+    trainMistakeCount <= 1 ? [move.from] : [move.from, move.to];
 
   update(false);
 });

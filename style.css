@@ -827,22 +827,21 @@ button:disabled {
 @keyframes boardShake {
   0%,
   100% {
-    transform: translateX(0);
+    transform: translateX(0) translateY(-38px);
   }
   20% {
-    transform: translateX(-5px);
+    transform: translateX(-5px) translateY(-38px);
   }
   40% {
-    transform: translateX(5px);
+    transform: translateX(5px) translateY(-38px);
   }
   60% {
-    transform: translateX(-4px);
+    transform: translateX(-4px) translateY(-38px);
   }
   80% {
-    transform: translateX(4px);
+    transform: translateX(4px) translateY(-38px);
   }
 }
-
 /* OPENINGS */
 .openings-list {
   width: min(1480px, calc(100% - 48px));

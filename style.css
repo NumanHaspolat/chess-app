@@ -873,7 +873,7 @@ button:disabled {
 
 .opening-card p {
   color: var(--text-muted);
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .opening-card-actions {
@@ -1178,4 +1178,28 @@ button:disabled {
 .opening-favorite:focus {
   outline: none;
   box-shadow: none;
+}
+
+.opening-card {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 20px;
+}
+
+.opening-color {
+  width: fit-content;
+  font-size: 12px;
+  padding: 5px 13px;
+  margin-bottom: 15px;
+}
+
+.opening-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.opening-card p {
+  margin-bottom: 6px;
 }

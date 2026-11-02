@@ -1,0 +1,27 @@
+{
+  "id": "italian-game",
+  "name": "Italian Game",
+  "color": "white",
+  "description": "A classical opening focused on quick development and control of the center.",
+  "variations": [
+    {
+      "id": "italian-main",
+      "name": "Giuoco Piano",
+      "moves": "1. e4 e5 2. Nf3 Nc6 3. Bc4 Bc5 4. c3 Nf6 5. d4 exd4 6. cxd4 Bb4+",
+      "explanations": {
+        "e4": "Control the center and open lines for your pieces.",
+        "e5": "Black contests the center.",
+        "Nf3": "Develop your knight and attack e5.",
+        "Nc6": "Black develops and protects the e5 pawn.",
+        "Bc4": "Develop your bishop toward the vulnerable f7 square.",
+        "Bc5": "Black develops the bishop and mirrors your setup.",
+        "c3": "Prepare to build a strong pawn center with d4.",
+        "Nf6": "Black develops and attacks your e4 pawn.",
+        "d4": "Establish a strong central pawn presence.",
+        "exd4": "Black captures your central pawn.",
+        "cxd4": "Recapture and occupy the center.",
+        "Bb4+": "Black gives check with the bishop."
+      }
+    }
+  ]
+}

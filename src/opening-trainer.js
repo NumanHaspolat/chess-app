@@ -1,6 +1,4 @@
-const OPENING_FILES = {
-  "scotch-game": "./assets/openings/scotch-game.json",
-};
+const OPENING_BASE_PATH = "./assets/openings/";
 
 function parseMoveText(moveText) {
   return moveText
@@ -54,11 +52,7 @@ export function validateVariation(variation, Chess) {
 }
 
 export async function loadOpening(id, Chess) {
-  const file = OPENING_FILES[id];
-
-  if (!file) {
-    throw new Error(`Unknown opening: ${id}`);
-  }
+  const file = `${OPENING_BASE_PATH}${id}.json`;
 
   const response = await fetch(file);
 

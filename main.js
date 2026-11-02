@@ -97,6 +97,7 @@ let trainCorrectMoves = 0;
 let trainTotalMistakes = 0;
 let trainCorrectSquares = [];
 let trainCorrectTimer = null;
+let openingFilter = "all";
 
 let favoriteOpenings = new Set(
   JSON.parse(localStorage.getItem("azurite-favorites") || "[]"),
@@ -1718,18 +1719,31 @@ document.getElementById("btn-reset").addEventListener("click", () => {
 
 let openingBook = null;
 let curatedOpening = null;
+let openingLibrary = curatedOpening ? [curatedOpening] : [];
 let lesson = null;
 let savedPlayState = null;
 
 async function initCuratedOpenings() {
   try {
-    curatedOpening = await loadOpening("scotch-game", Chess);
-    console.log("Curated opening loaded:", curatedOpening);
-    console.log("Validated variations:", curatedOpening.variations.length);
+    const response = await fetch("assets/openings/index.json");
+
+    if (!response.ok) {
+      throw new Error("Could not load opening index.");
+    }
+
+    const files = await response.json();
+
+    openingLibrary = await Promise.all(
+      files.map((file) => loadOpening(file.replace(".json", ""), Chess)),
+    );
+
+    curatedOpening = openingLibrary[0] || null;
+
+    console.log("Loaded openings:", openingLibrary);
 
     renderOpenings();
   } catch (error) {
-    console.error("Could not load curated openings:", error);
+    console.error("Could not load openings:", error);
   }
 }
 
@@ -1985,76 +1999,100 @@ function renderLearnPanel() {
   document.getElementById("learn-next").disabled = lesson.index >= moves.length;
 }
 
+async function loadOpenings() {
+  try {
+    const response = await fetch("assets/openings/index.json");
+
+    if (!response.ok) {
+      throw new Error("Opening index could not be loaded.");
+    }
+
+    const files = await response.json();
+
+    const openings = await Promise.all(
+      files.map(async (file) => {
+        const openingResponse = await fetch(`assets/openings/${file}`);
+
+        if (!openingResponse.ok) {
+          throw new Error(`Could not load ${file}`);
+        }
+
+        return openingResponse.json();
+      }),
+    );
+
+    openingLibrary = openings;
+    curatedOpening = openingLibrary[0] || null;
+
+    renderOpenings();
+  } catch (error) {
+    console.error("Opening loading failed:", error);
+  }
+}
 function renderOpenings() {
   const list = document.querySelector("#openings-list");
 
-  if (!list || !curatedOpening) return;
+  if (!list) return;
 
   list.innerHTML = "";
 
-  const card = document.createElement("article");
-  card.className = "opening-card";
-  card.appendChild(createFavoriteButton(curatedOpening));
-
-  const title = document.createElement("h2");
-  title.textContent = curatedOpening.name;
-
-  const favoriteButton = document.createElement("button");
-  favoriteButton.className = "opening-favorite";
-  favoriteButton.type = "button";
-
-  favoriteButton.textContent = favoriteOpenings.has(curatedOpening.name)
-    ? "★"
-    : "☆";
-
-  favoriteButton.title = "Toggle favorite";
-
-  favoriteButton.addEventListener("click", () => {
-    const name = curatedOpening.name;
-
-    if (favoriteOpenings.has(name)) {
-      favoriteOpenings.delete(name);
-    } else {
-      favoriteOpenings.add(name);
+  const visibleOpenings = openingLibrary.filter((opening) => {
+    if (openingFilter === "favorites") {
+      return favoriteOpenings.has(opening.name);
     }
 
-    localStorage.setItem(
-      "azurite-favorites",
-      JSON.stringify([...favoriteOpenings]),
+    return true;
+  });
+
+  if (visibleOpenings.length === 0) {
+    list.innerHTML = "<p class='empty-favorites'>No openings found.</p>";
+    return;
+  }
+
+  visibleOpenings.forEach((opening) => {
+    const card = document.createElement("article");
+    card.className = "opening-card";
+
+    const title = document.createElement("h2");
+    title.textContent = opening.name;
+
+    const description = document.createElement("p");
+    description.textContent = opening.description;
+
+    const color = document.createElement("span");
+    color.className = `opening-color ${opening.color}`;
+    color.textContent = opening.color === "white" ? "White" : "Black";
+
+    const actions = document.createElement("div");
+    actions.className = "opening-card-actions";
+
+    const learnButton = document.createElement("button");
+    learnButton.textContent = "Learn";
+
+    const trainButton = document.createElement("button");
+    trainButton.textContent = "Train";
+
+    learnButton.addEventListener("click", () => {
+      startLearn(opening);
+    });
+
+    trainButton.addEventListener("click", () => {
+      startTrain(opening);
+    });
+
+    actions.append(learnButton, trainButton);
+
+    card.append(
+      title,
+      createFavoriteButton(opening),
+      description,
+      color,
+      actions,
     );
 
-    renderOpenings();
+    list.append(card);
   });
-
-  const description = document.createElement("p");
-  description.textContent = curatedOpening.description;
-
-  const color = document.createElement("span");
-  color.className = `opening-color ${curatedOpening.color}`;
-  color.textContent = curatedOpening.color === "white" ? "White" : "Black";
-
-  const actions = document.createElement("div");
-  actions.className = "opening-card-actions";
-
-  const learnButton = document.createElement("button");
-  learnButton.textContent = "Learn";
-
-  const trainButton = document.createElement("button");
-  trainButton.textContent = "Train";
-
-  learnButton.addEventListener("click", () => {
-    startLearn(curatedOpening);
-  });
-
-  trainButton.addEventListener("click", () => {
-    startTrain(curatedOpening);
-  });
-
-  actions.append(learnButton, trainButton);
-  card.append(title, favoriteButton, description, color, actions);
-  list.append(card);
 }
-
 function createFavoriteButton(opening) {
   const button = document.createElement("button");
   button.className = "opening-favorite";
@@ -2775,6 +2813,24 @@ document
   .addEventListener("click", previousLessonMove);
 
 document.getElementById("learn-exit").addEventListener("click", exitLearn);
+
+document.getElementById("filter-all").addEventListener("click", () => {
+  openingFilter = "all";
+
+  document.getElementById("filter-all").classList.add("active");
+  document.getElementById("filter-favorites").classList.remove("active");
+
+  renderOpenings();
+});
+
+document.getElementById("filter-favorites").addEventListener("click", () => {
+  openingFilter = "favorites";
+
+  document.getElementById("filter-favorites").classList.add("active");
+  document.getElementById("filter-all").classList.remove("active");
+
+  renderOpenings();
+});
 
 document
   .getElementById("learn-complete-close")

@@ -1107,3 +1107,18 @@ button:disabled {
 .drill-complete-stats {
   padding-bottom: 12px;
 }
+
+.train-hint {
+  margin: 10px 0 10px 0;
+}
+
+.train-hint.active {
+  background: #b9e5ff !important;
+  color: #173b52 !important;
+  border-color: #8acdf5 !important;
+}
+.train-hint {
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}

@@ -1928,7 +1928,8 @@ function renderLearnPanel() {
   const hintButton = document.getElementById("train-hint");
   hintButton.hidden = !isTrain;
   hintButton.disabled = !isTrain || trainPhase !== "your-move";
-  hintButton.textContent = trainHintShown ? "Hint shown" : "Hint";
+  hintButton.textContent = "Hint";
+  hintButton.classList.toggle("active", trainHintShown);
 
   document.getElementById("learn-title").textContent =
     `${lesson.opening.name} · ${lesson.variation.name} · ${isTrain ? "Train" : "Learn"}`;
@@ -2733,18 +2734,27 @@ document
   .getElementById("learn-complete-train")
   .addEventListener("click", startCurrentLearnTrain);
 
-document.getElementById("train-hint").addEventListener("click", () => {
+const hintButton = document.getElementById("train-hint");
+
+hintButton.addEventListener("click", () => {
   if (!trainMode || trainPhase !== "your-move") return;
 
-  const move = lesson.variation.moves[lesson.index];
+  trainHintShown = !trainHintShown;
 
-  if (!move) return;
+  if (trainHintShown) {
+    const move = lesson.variation.moves[lesson.index];
+    if (!move) {
+      trainHintShown = false;
+      return;
+    }
 
-  trainHintShown = true;
+    trainHintSquares =
+      trainMistakeCount <= 1 ? [move.from] : [move.from, move.to];
+  } else {
+    trainHintSquares = [];
+  }
 
-  trainHintSquares =
-    trainMistakeCount <= 1 ? [move.from] : [move.from, move.to];
-
+  hintButton.classList.toggle("active", trainHintShown);
   update(false);
 });
 

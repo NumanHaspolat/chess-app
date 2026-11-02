@@ -204,14 +204,36 @@
           ★ Favorites
         </button>
       </div>
-      
+
       <div id="openings-list" class="openings-list"></div>
     </section>
 
     <section id="profile" class="page-section" hidden>
       <div class="page-heading">
         <h1>Profile</h1>
-        <p>Your training progress and statistics will appear here.</p>
+        <p>Your training progress and statistics.</p>
+      </div>
+
+      <div class="profile-overview">
+        <div class="profile-stat-card">
+          <span class="profile-stat-label">Studied Openings</span>
+          <strong id="profile-openings-count">0</strong>
+        </div>
+
+        <div class="profile-stat-card">
+          <span class="profile-stat-label">Mastered Variations</span>
+          <strong id="profile-mastered-count">0</strong>
+        </div>
+
+        <div class="profile-stat-card">
+          <span class="profile-stat-label">Perfect Trainings</span>
+          <strong id="profile-perfect-count">0</strong>
+        </div>
+      </div>
+
+      <div class="profile-progress-section">
+        <h2>Opening Progress</h2>
+        <div id="profile-opening-progress"></div>
       </div>
     </section>
 

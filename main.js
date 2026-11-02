@@ -1271,6 +1271,11 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
   update(animate);
 
   if (lesson && lesson.index >= lesson.variation.moves.length) {
+    if (!trainMode && !lesson.learnSessionRecorded) {
+      recordLearn(lesson.opening, lesson.variation);
+      lesson.learnSessionRecorded = true;
+      renderProfileProgress();
+    }
     const message = document.getElementById("learn-complete-message");
     message.innerHTML = `You've completed <span class="completed-variation">${lesson.variation.name}</span>!`;
 
@@ -1347,6 +1352,16 @@ function continueTrain() {
   // Varyant tamamlandı.
   if (lesson.index >= moves.length) {
     trainPhase = "complete";
+
+    if (!lesson.trainSessionRecorded) {
+      const total = trainCorrectMoves + trainTotalMistakes;
+      const accuracy = total > 0 ? (trainCorrectMoves / total) * 100 : 100;
+
+      recordTrain(lesson.opening, lesson.variation, accuracy);
+
+      lesson.trainSessionRecorded = true;
+      renderProfileProgress();
+    }
 
     const message = document.getElementById("learn-complete-message");
     message.innerHTML = `You've completed <span class="completed-variation">${lesson.variation.name}</span>!`;
@@ -1723,6 +1738,198 @@ let openingLibrary = curatedOpening ? [curatedOpening] : [];
 let lesson = null;
 let savedPlayState = null;
 
+/* ---------- Opening learning progress ---------- */
+
+const OPENING_PROGRESS_KEY = "azurite-opening-progress";
+
+function loadOpeningProgress() {
+  try {
+    return JSON.parse(localStorage.getItem(OPENING_PROGRESS_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+let openingProgress = loadOpeningProgress();
+
+function getOpeningProgress(opening, variation) {
+  const openingId = opening.id || opening.name;
+  const variationId = variation.id || variation.name;
+
+  openingProgress[openingId] ??= {
+    name: opening.name,
+    studied: false,
+    learnCount: 0,
+    variations: {},
+  };
+
+  const data = openingProgress[openingId];
+
+  data.variations[variationId] ??= {
+    name: variation.name,
+    studied: false,
+    learnCount: 0,
+    trainCount: 0,
+    progress: 0,
+  };
+
+  // Eski kayıtları yeni yüzde sistemine uyarla.
+  const variationData = data.variations[variationId];
+
+  if (variationData.progress === undefined) {
+    variationData.progress = Math.min(
+      100,
+      (variationData.perfectTrainCount || 0) * 25,
+    );
+  }
+
+  return variationData;
+}
+function saveOpeningProgress() {
+  localStorage.setItem(OPENING_PROGRESS_KEY, JSON.stringify(openingProgress));
+}
+
+function recordLearn(opening, variation) {
+  const variationData = getOpeningProgress(opening, variation);
+  const openingData = openingProgress[opening.id || opening.name];
+
+  openingData.name = opening.name;
+  openingData.studied = true;
+
+  variationData.studied = true;
+  variationData.learnCount++;
+  variationData.progress = Math.min(100, (variationData.progress || 0) + 2);
+
+  saveOpeningProgress();
+}
+
+function recordTrain(opening, variation, accuracy) {
+  const variationData = getOpeningProgress(opening, variation);
+
+  variationData.trainCount++;
+
+  const earnedProgress = accuracy * 0.25;
+
+  variationData.progress = Math.min(
+    100,
+    (variationData.progress || 0) + earnedProgress,
+  );
+
+  saveOpeningProgress();
+}
+
+function getVariationProgress(variationData) {
+  return Math.round(variationData.progress || 0);
+}
+
+function renderProfileProgress() {
+  const container = document.getElementById("profile-opening-progress");
+  if (!container) return;
+
+  const openings = Object.values(openingProgress).filter(
+    (opening) => opening.studied,
+  );
+
+  const mastered = openings.reduce((total, opening) => {
+    return (
+      total +
+      Object.values(opening.variations).filter(
+        (variation) => variation.perfectTrainCount >= 4,
+      ).length
+    );
+  }, 0);
+
+  const perfectTrainings = openings.reduce((total, opening) => {
+    return (
+      total +
+      Object.values(opening.variations).reduce((sum, variation) => {
+        return sum + (variation.trainCount || 0);
+      }, 0)
+    );
+  }, 0);
+
+  document.getElementById("profile-openings-count").textContent =
+    openings.length;
+
+  document.getElementById("profile-mastered-count").textContent = mastered;
+
+  document.getElementById("profile-perfect-count").textContent =
+    perfectTrainings;
+
+  container.innerHTML = "";
+
+  if (!openings.length) {
+    container.innerHTML =
+      '<p class="profile-empty">No opening progress yet. Start learning an opening!</p>';
+    return;
+  }
+
+  openings.forEach((opening) => {
+    const variations = Object.values(opening.variations);
+    const openingPercent = variations.length
+      ? Math.round(
+          variations.reduce(
+            (sum, variation) => sum + getVariationProgress(variation),
+            0,
+          ) / variations.length,
+        )
+      : 0;
+
+    const card = document.createElement("article");
+    card.className = "profile-opening-card";
+
+    const header = document.createElement("div");
+    header.className = "profile-opening-header";
+
+    const title = document.createElement("h3");
+    title.textContent = opening.name;
+
+    const percent = document.createElement("strong");
+    percent.textContent = `${openingPercent}%`;
+
+    header.append(title, percent);
+
+    const track = document.createElement("div");
+    track.className = "profile-progress-track";
+
+    const fill = document.createElement("div");
+    fill.className = "profile-progress-fill";
+    fill.style.width = `${openingPercent}%`;
+
+    track.appendChild(fill);
+    card.append(header, track);
+
+    variations.forEach((variation) => {
+      const row = document.createElement("div");
+      row.className = "profile-variation-row";
+
+      const rowHeader = document.createElement("div");
+      rowHeader.className = "profile-variation-header";
+
+      const name = document.createElement("span");
+      name.textContent = variation.name;
+
+      const value = document.createElement("strong");
+      value.textContent = `${getVariationProgress(variation)}%`;
+
+      rowHeader.append(name, value);
+
+      const rowTrack = document.createElement("div");
+      rowTrack.className = "profile-progress-track";
+
+      const rowFill = document.createElement("div");
+      rowFill.className = "profile-progress-fill";
+      rowFill.style.width = `${getVariationProgress(variation)}%`;
+
+      rowTrack.appendChild(rowFill);
+      row.append(rowHeader, rowTrack);
+      card.appendChild(row);
+    });
+
+    container.appendChild(card);
+  });
+}
+
 async function initCuratedOpenings() {
   try {
     const response = await fetch("assets/openings/index.json");
@@ -1752,7 +1959,7 @@ function startTrain(opening) {
 
   if (lesson) exitLearn();
 
-  startLearn(opening);
+  startLearn(opening, false);
 
   trainMode = true;
   trainHintShown = false;
@@ -1784,6 +1991,8 @@ function startCurrentLearnTrain() {
   clearSelection();
 
   lesson.index = 0;
+  lesson.trainSessionRecorded = false;
+  lesson.sessionRecorded = false;
 
   trainMode = true;
   trainHintShown = false;
@@ -1803,7 +2012,7 @@ function startCurrentLearnTrain() {
   continueTrain();
 }
 
-function startLearn(opening) {
+function startLearn(opening, recordStudy = true) {
   if (drill) endDrill();
 
   savedPlayState = {
@@ -1843,6 +2052,9 @@ function startLearn(opening) {
 
     lesson.variation = firstVariation;
     lesson.index = 0;
+  }
+  if (recordStudy && firstVariation) {
+    recordLearn(opening, firstVariation);
   }
 
   showPage("play");
@@ -2785,6 +2997,7 @@ function showPage(pageName) {
   });
 
   if (pageName === "repertoire") updateRepertoirePage();
+  if (pageName === "profile") renderProfileProgress();
 }
 
 navLinks.forEach((link) => {

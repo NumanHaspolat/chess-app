@@ -1203,3 +1203,131 @@ button:disabled {
 .opening-card p {
   margin-bottom: 6px;
 }
+
+/* PROFILE PROGRESS */
+
+.profile-overview {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+  margin: 20px 0 32px;
+}
+
+.profile-stat-card,
+.profile-opening-card,
+.profile-variation-row {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+}
+
+.profile-stat-card {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.profile-stat-label {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.profile-stat-card strong {
+  color: var(--accent-strong);
+  font-size: 2rem;
+}
+
+.profile-progress-section {
+  margin-top: 24px;
+}
+
+.profile-progress-section h2 {
+  color: var(--accent);
+  margin-bottom: 16px;
+}
+
+#profile-opening-progress {
+  display: grid;
+  gap: 14px;
+}
+
+.profile-opening-card {
+  padding: 18px;
+}
+
+.profile-opening-header,
+.profile-variation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.profile-opening-header h3 {
+  margin: 0;
+  color: var(--text);
+}
+
+.profile-progress-track {
+  width: 100%;
+  height: 9px;
+  margin: 12px 0 16px;
+  overflow: hidden;
+  border-radius: 20px;
+  background: var(--control);
+}
+
+.profile-progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent-strong);
+  transition: width 250ms ease;
+}
+
+.profile-variation-row {
+  padding: 12px;
+  margin-top: 9px;
+  background: rgba(23, 65, 77, 0.55);
+}
+
+.profile-variation-header {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.profile-variation-row .profile-progress-track {
+  height: 6px;
+  margin: 8px 0 0;
+}
+
+.profile-empty {
+  color: var(--text-muted);
+  padding: 18px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+}
+
+@media (max-width: 700px) {
+  .profile-overview {
+    grid-template-columns: 1fr;
+  }
+}
+
+#profile .page-heading,
+#profile .profile-overview,
+#profile .profile-progress-section {
+  width: 78%;
+  max-width: 78%;
+  margin-inline: auto;
+  box-sizing: border-box;
+}
+
+#profile .profile-overview {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+#profile .profile-progress-section {
+  margin-top: 24px;
+}

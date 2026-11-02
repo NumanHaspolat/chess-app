@@ -39,6 +39,21 @@
             <div id="board" class="board"></div>
           </div>
           <div id="strip-bottom" class="strip"></div>
+          <div
+            id="learn-complete-overlay"
+            class="drill-complete-overlay"
+            hidden
+          >
+            <div class="drill-complete-card">
+              <h2>Line Complete!</h2>
+              <p id="learn-complete-message"></p>
+
+              <div class="drill-complete-buttons">
+                <button id="learn-complete-close">Close</button>
+                <button id="learn-complete-train">Train</button>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -79,6 +94,7 @@
             id="learn-variation-select"
             aria-label="Opening variation"
           ></select>
+          <button id="train-hint" class="train-hint" hidden>Hint</button>
 
           <p id="learn-progress"></p>
 

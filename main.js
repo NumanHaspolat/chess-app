@@ -81,9 +81,16 @@ let repDrag = null;
 let repHoverSquare = null;
 let drillMistakeTimer = null;
 let drillCompleteTimer = null;
+let learnCompleteTimer = null;
 let viewPly = null; // null = live position, otherwise number of plies being viewed
 let view = game; // the position currently displayed on the board
 let learnHintMove = null;
+let trainMode = false;
+let trainHintShown = false;
+let trainHintSquares = [];
+let trainMistakeTimer = null;
+let trainOpponentTimer = null;
+let trainPhase = "your-move";
 
 /* ---------- Coordinates helpers ---------- */
 
@@ -846,6 +853,9 @@ function renderBoard(animate = true) {
       if (drillHintSquares.includes(name)) {
         squareEl.classList.add("drill-hint");
       }
+      if (trainMode && trainHintSquares.includes(name)) {
+        squareEl.classList.add("drill-hint");
+      }
 
       if (learnHintMove) {
         if (name === learnHintMove.from) {
@@ -951,8 +961,6 @@ function renderBoard(animate = true) {
       arrowLayer.appendChild(arrow);
     }
   }
-
-  boardEl.appendChild(arrowLayer);
   // Yeni tahtadaki hedef taşını eski konumundan kaydır.
   if (animate && oldPieceRect && lastMove) {
     const toSquare = boardEl.querySelector(`[data-square="${lastMove.to}"]`);
@@ -1149,12 +1157,37 @@ function clearSelection() {
 }
 
 function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
-  // Learn modu: kullanıcının hamlesini kontrol et
   if (lesson && !byDrill) {
     const expectedMove = lesson.variation.moves[lesson.index];
 
     if (!expectedMove) return;
 
+    // Train: hamleyi önce tahtada oynat, sonra doğruluğunu kontrol et.
+    if (trainMode) {
+      if (trainPhase !== "your-move") return;
+
+      const move = game.move({ from, to, promotion });
+      if (!move) return;
+
+      playSound(move.captured ? "capture" : "move");
+      clearSelection();
+
+      if (move.from !== expectedMove.from || move.to !== expectedMove.to) {
+        handleTrainMistake(expectedMove, move);
+        return;
+      }
+
+      // Doğru hamle
+      lesson.index++;
+      trainHintShown = false;
+      trainHintSquares = [];
+
+      update(animate);
+      continueTrain();
+      return;
+    }
+
+    // Learn: mevcut doğrulama davranışı aynen korunur.
     const expected = game.move(expectedMove.san, { sloppy: true });
 
     if (expected) {
@@ -1162,7 +1195,6 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
 
       if (expected.from !== from || expected.to !== to) {
         playSound("move");
-        console.log("Wrong Learn move. Try again.");
         return;
       }
     } else {
@@ -1172,12 +1204,7 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
 
   const target = game.get(to);
 
-  const move = game.move({
-    from,
-    to,
-    promotion,
-  });
-
+  const move = game.move({ from, to, promotion });
   if (!move) return;
 
   if (game.isCheckmate()) {
@@ -1194,26 +1221,145 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
     playSound("move");
   }
 
-  if (lesson) {
+  if (lesson && !trainMode) {
     lesson.index++;
-
     const nextMove = lesson.variation.moves[lesson.index];
-
     learnHintMove = nextMove ? { from: nextMove.from, to: nextMove.to } : null;
   }
 
   clearSelection();
   update(animate);
 
+  if (lesson && !trainMode && lesson.index >= lesson.variation.moves.length) {
+    const message = document.getElementById("learn-complete-message");
+    message.innerHTML = `You've completed <span class="completed-variation">${lesson.variation.name}</span>!`;
+
+    const overlay = document.getElementById("learn-complete-overlay");
+    playSound("promote");
+    overlay.hidden = true;
+    clearTimeout(learnCompleteTimer);
+
+    learnCompleteTimer = setTimeout(() => {
+      if (lesson && lesson.index >= lesson.variation.moves.length) {
+        overlay.hidden = false;
+      }
+    }, 400);
+  }
+
   if (drill) {
     if (byDrill) advanceDrill();
     else onDrillMove(move);
   }
 }
+
+function handleTrainMistake(expectedMove, playedMove) {
+  trainPhase = "mistake";
+
+  // Doğru hamlenin hem başlangıç hem hedef karesi mavi.
+  trainHintSquares = [expectedMove.from, expectedMove.to];
+
+  const boardWrap = boardEl.closest(".board-wrap");
+
+  if (boardWrap) {
+    boardWrap.classList.remove("board-shake");
+    void boardWrap.offsetWidth;
+    boardWrap.classList.add("board-shake");
+  }
+
+  update(false);
+
+  clearTimeout(trainMistakeTimer);
+
+  trainMistakeTimer = setTimeout(() => {
+    if (!trainMode || trainPhase !== "mistake") return;
+
+    game.undo();
+
+    trainPhase = "your-move";
+    clearSelection();
+
+    // İki karelik hata ipucu ekranda kalmaya devam eder.
+    update(false);
+
+    if (boardWrap) {
+      boardWrap.classList.remove("board-shake");
+    }
+
+    trainMistakeTimer = null;
+  }, 650);
+}
+
+function continueTrain() {
+  if (!trainMode || !lesson || !lesson.variation) return;
+
+  const moves = lesson.variation.moves;
+
+  // Varyant tamamlandı.
+  if (lesson.index >= moves.length) {
+    trainPhase = "complete";
+
+    const message = document.getElementById("learn-complete-message");
+    message.innerHTML = `You've completed <span class="completed-variation">${lesson.variation.name}</span>!`;
+
+    playSound("promote");
+
+    const overlay = document.getElementById("learn-complete-overlay");
+    overlay.hidden = true;
+
+    clearTimeout(learnCompleteTimer);
+    learnCompleteTimer = setTimeout(() => {
+      if (trainMode && trainPhase === "complete") {
+        overlay.hidden = false;
+      }
+    }, 400);
+
+    renderLearnPanel();
+    return;
+  }
+
+  // Sıradaki hamle rakibinse otomatik oynat.
+  if (game.turn() !== lesson.opening.color[0]) {
+    trainPhase = "opponent";
+
+    clearTimeout(trainOpponentTimer);
+
+    trainOpponentTimer = setTimeout(() => {
+      if (!trainMode || !lesson || trainPhase !== "opponent") return;
+
+      const moveData = moves[lesson.index];
+      if (!moveData) return;
+
+      const move = game.move({
+        from: moveData.from,
+        to: moveData.to,
+        promotion: moveData.promotion || "q",
+      });
+
+      if (!move) return;
+
+      lesson.index++;
+      playSound(move.captured ? "capture" : "move");
+
+      trainPhase = "your-move";
+      trainHintShown = false;
+      trainHintSquares = [];
+
+      update(false);
+      continueTrain();
+    }, 500);
+
+    renderLearnPanel();
+    return;
+  }
+
+  trainPhase = "your-move";
+  renderLearnPanel();
+}
 /* ---------- Pointer input (click + drag) ---------- */
 
 boardEl.addEventListener("pointerdown", (e) => {
-  if (lesson) return;
+  if (lesson && !trainMode) return;
+  if (trainMode && trainPhase !== "your-move") return;
   if (e.button !== 0 || drag) return;
 
   // Moves can only be played on the live position
@@ -1406,6 +1552,7 @@ function updateHover(name) {
 }
 
 function endDrag(e, cancelled = false) {
+  if (trainMode && trainPhase !== "your-move") return;
   if (!drag) return;
 
   const { from, moved, wasSelected, ghost } = drag;
@@ -1446,9 +1593,22 @@ window.addEventListener("keydown", (e) => {
     drag ||
     repDrag ||
     drill ||
-    lesson ||
     ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)
   ) {
+    return;
+  }
+
+  // Learn mode keyboard navigation
+  if (lesson && !trainMode) {
+    if (trainMode) return;
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      previousLessonMove();
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault();
+      nextLessonMove();
+    }
+
     return;
   }
 
@@ -1524,6 +1684,56 @@ async function initCuratedOpenings() {
   }
 }
 
+function startTrain(opening) {
+  if (drill) endDrill();
+
+  if (lesson) exitLearn();
+
+  startLearn(opening);
+
+  trainMode = true;
+  trainHintShown = false;
+  trainHintSquares = [];
+  trainPhase = "your-move";
+
+  lesson.mode = "train";
+
+  document.getElementById("learn-title").textContent =
+    `${opening.name} · Train`;
+
+  document.getElementById("train-hint").hidden = false;
+
+  renderLearnPanel();
+  update();
+}
+function startCurrentLearnTrain() {
+  if (!lesson || !lesson.variation) return;
+
+  clearTimeout(learnCompleteTimer);
+  clearTimeout(trainMistakeTimer);
+  clearTimeout(trainOpponentTimer);
+
+  game.reset();
+  viewPly = null;
+  clearSelection();
+
+  lesson.index = 0;
+
+  trainMode = true;
+  trainHintShown = false;
+  trainHintSquares = [];
+  trainPhase = "your-move";
+  learnHintMove = null;
+
+  document.getElementById("learn-complete-overlay").hidden = true;
+  document.getElementById("train-hint").hidden = false;
+
+  showPage("play");
+  update();
+
+  continueTrain();
+}
+
 function startLearn(opening) {
   if (drill) endDrill();
 
@@ -1592,15 +1802,29 @@ function selectLearnVariation() {
   lesson.variation = variation;
   lesson.index = 0;
 
+  trainHintShown = false;
+  trainHintSquares = [];
+  trainPhase = "your-move";
+
+  clearTimeout(trainMistakeTimer);
+  clearTimeout(trainOpponentTimer);
+
+  learnHintMove = null;
+
+  const overlay = document.getElementById("learn-complete-overlay");
+  overlay.hidden = true;
+
   update();
 }
 
 function nextLessonMove() {
   if (!lesson || !lesson.variation) return;
 
-  const moveData = lesson.variation.moves[lesson.index];
+  const moves = lesson.variation.moves;
 
-  if (!moveData) return;
+  if (lesson.index >= moves.length) return;
+
+  const moveData = moves[lesson.index];
 
   playMove(moveData.from, moveData.to, "q", false);
 }
@@ -1616,6 +1840,19 @@ function previousLessonMove() {
 
 function exitLearn() {
   if (!lesson) return;
+  trainMode = false;
+  trainHintShown = false;
+  trainHintSquares = [];
+  trainPhase = "your-move";
+
+  clearTimeout(trainMistakeTimer);
+  clearTimeout(trainOpponentTimer);
+
+  document.getElementById("train-hint").hidden = true;
+  document.getElementById("learn-progress").hidden = false;
+  document.getElementById("learn-explanation").hidden = false;
+  document.getElementById("learn-back").hidden = false;
+  document.getElementById("learn-next").hidden = false;
 
   game.reset();
 
@@ -1642,9 +1879,23 @@ function renderLearnPanel() {
 
   panel.hidden = !lesson;
   if (!lesson) return;
+  const isTrain = trainMode;
+
+  document.getElementById("learn-progress").hidden = isTrain;
+  document.getElementById("learn-explanation").hidden = isTrain;
+
+  document.getElementById("learn-back").hidden = isTrain;
+  document.getElementById("learn-next").hidden = isTrain;
+
+  document.getElementById("learn-exit").hidden = false;
+
+  const hintButton = document.getElementById("train-hint");
+  hintButton.hidden = !isTrain;
+  hintButton.disabled = !isTrain || trainPhase !== "your-move";
+  hintButton.textContent = trainHintShown ? "Hint shown" : "Hint";
 
   document.getElementById("learn-title").textContent =
-    `${lesson.opening.name} · Learn`;
+    `${lesson.opening.name} · ${lesson.variation.name} · ${isTrain ? "Train" : "Learn"}`;
 
   const select = document.getElementById("learn-variation-select");
 
@@ -1712,7 +1963,7 @@ function renderOpenings() {
   });
 
   trainButton.addEventListener("click", () => {
-    console.log("Train opening:", curatedOpening.id);
+    startTrain(curatedOpening);
   });
 
   actions.append(learnButton, trainButton);
@@ -2416,6 +2667,30 @@ document
   .addEventListener("click", previousLessonMove);
 
 document.getElementById("learn-exit").addEventListener("click", exitLearn);
+
+document
+  .getElementById("learn-complete-close")
+  .addEventListener("click", () => {
+    document.getElementById("learn-complete-overlay").hidden = true;
+    clearTimeout(learnCompleteTimer);
+  });
+
+document
+  .getElementById("learn-complete-train")
+  .addEventListener("click", startCurrentLearnTrain);
+
+document.getElementById("train-hint").addEventListener("click", () => {
+  if (!trainMode || trainPhase !== "your-move") return;
+
+  const move = lesson.variation.moves[lesson.index];
+
+  if (!move) return;
+
+  trainHintShown = true;
+  trainHintSquares = [move.from];
+
+  update(false);
+});
 
 initStockfish();
 initCuratedOpenings();

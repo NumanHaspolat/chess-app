@@ -1122,3 +1122,18 @@ button:disabled {
     background-color 0.2s ease,
     color 0.2s ease;
 }
+
+.square.train-correct {
+  background: #75c98b !important;
+  animation: train-correct-flash 350ms ease;
+}
+
+@keyframes train-correct-flash {
+  0% {
+    background: #b7f7c5;
+  }
+
+  100% {
+    background: #75c98b;
+  }
+}

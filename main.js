@@ -95,18 +95,20 @@ let trainPhase = "your-move";
 let trainMistakeCount = 0;
 let trainCorrectMoves = 0;
 let trainTotalMistakes = 0;
+let trainCorrectSquares = [];
+let trainCorrectTimer = null;
 
 /* ---------- Coordinates helpers ---------- */
 
-function playSound(name) {
+function playSound(name, speed = 1) {
   const sound = SOUNDS[name];
 
   if (!sound) return;
 
   sound.pause();
   sound.currentTime = 0;
+  sound.playbackRate = speed;
 
-  sound.playbackRate = name === "promote" ? 0.5 : 1;
   sound.play().catch(() => {});
 }
 
@@ -889,6 +891,10 @@ function renderBoard(animate = true) {
         squareEl.classList.add("last-move");
       }
 
+      if (trainMode && trainCorrectSquares.includes(name)) {
+        squareEl.classList.add("train-correct");
+      }
+
       if (name === selectedSquare) {
         squareEl.classList.add("selected");
       }
@@ -1187,17 +1193,26 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
       const move = game.move({ from, to, promotion });
       if (!move) return;
 
-      playSound(move.captured ? "capture" : "move");
       clearSelection();
 
       if (move.from !== expectedMove.from || move.to !== expectedMove.to) {
         handleTrainMistake(expectedMove, move);
         return;
       }
+      playSound("promote", 2);
 
       // Doğru hamle
       // Doğru hamle
       lesson.index++;
+
+      trainCorrectSquares = [move.from, move.to];
+
+      clearTimeout(trainCorrectTimer);
+
+      trainCorrectTimer = setTimeout(() => {
+        trainCorrectSquares = [];
+        update(false);
+      }, 350);
       trainCorrectMoves++;
       trainMistakeCount = 0;
       trainHintShown = false;
@@ -1281,6 +1296,7 @@ function handleTrainMistake(expectedMove, playedMove) {
   trainPhase = "mistake";
   trainMistakeCount++;
   trainTotalMistakes++;
+  playSound("gameover", 2);
 
   // İlk hata: taşın bulunduğu kare.
   // İkinci ve sonraki hatalar: hedef kare.
@@ -1331,7 +1347,7 @@ function continueTrain() {
     const message = document.getElementById("learn-complete-message");
     message.innerHTML = `You've completed <span class="completed-variation">${lesson.variation.name}</span>!`;
 
-    playSound("promote");
+    playSound("promote", 0.5);
 
     const overlay = document.getElementById("learn-complete-overlay");
     overlay.hidden = true;

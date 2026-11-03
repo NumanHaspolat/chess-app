@@ -254,19 +254,7 @@ function renderAnalyseAnalysisLines(lines) {
       const to = formatted.uci.slice(2, 4);
       const promotion = formatted.uci[4] || "q";
 
-      const moveResult = analyseGame.move({
-        from,
-        to,
-        promotion,
-      });
-
-      if (!moveResult) return;
-
-      analyseCurrentPly++;
-
-      renderAnalyseBoard();
-      renderAnalyseMoves();
-      requestEngineEvaluation(analyseGame.fen(), "analyse");
+      makeAnalyseMove(from, to, promotion);
     });
 
     analyseAnalysisLinesEl.appendChild(row);
@@ -762,7 +750,7 @@ repBackBtn.addEventListener("click", () => {
   repertoireGame.undo();
   repSelectedSquare = null;
   repLegalMoves = [];
-  updateRepertoirePage();
+  updateRepertoirePage(false);
 });
 
 repResetBtn.addEventListener("click", () => {
@@ -1526,80 +1514,6 @@ function renderAnalyseBoard() {
   }
 }
 
-function playAnalyseMove(from, to, promotion = "q") {
-  const target = analyseGame.get(to);
-
-  const move = analyseGame.move({ from, to, promotion });
-  if (!move) return;
-
-  analyseCurrentPly = analyseGame.history().length;
-
-  analyseSelectedSquare = null;
-  analyseLegalMoves = [];
-
-  if (analyseGame.isCheckmate()) {
-    playSound("gameover");
-  } else if (analyseGame.inCheck()) {
-    playSound("check");
-  } else if (move.flags.includes("k") || move.flags.includes("q")) {
-    playSound("castle");
-  } else if (move.flags.includes("p")) {
-    playSound("promote");
-  } else if (target || move.flags.includes("e")) {
-    playSound("capture");
-  } else {
-    playSound("move");
-  }
-
-  renderAnalyseBoard();
-  renderAnalyseMoves();
-
-  const statusEl = document.getElementById("analyse-status");
-  if (statusEl) {
-    statusEl.textContent = `Move ${Math.ceil(analyseCurrentPly / 2)} · ${
-      analyseCurrentPly % 2 ? "White" : "Black"
-    } played`;
-  }
-
-  requestEngineEvaluation(analyseGame.fen(), "analyse");
-}
-
-analyseBoardEl.addEventListener("click", (e) => {
-  const squareEl = e.target.closest(".square");
-  if (!squareEl) return;
-
-  const name = squareEl.dataset.square;
-  if (!name) return;
-
-  // Seçili taşın legal hedefine tıklandıysa hamleyi yap.
-  if (
-    analyseSelectedSquare &&
-    analyseLegalMoves.some((move) => move.to === name)
-  ) {
-    playAnalyseMove(analyseSelectedSquare, name);
-    return;
-  }
-
-  const piece = analyseGame.get(name);
-
-  // Kendi sırasındaki taşı seç.
-  if (piece && piece.color === analyseGame.turn()) {
-    analyseSelectedSquare = name;
-    analyseLegalMoves = analyseGame.moves({
-      square: name,
-      verbose: true,
-    });
-
-    renderAnalyseBoard();
-    return;
-  }
-
-  // Boş veya rakip kareye tıklanınca seçimi kaldır.
-  analyseSelectedSquare = null;
-  analyseLegalMoves = [];
-  renderAnalyseBoard();
-});
-
 function addCoord(squareEl, type, text) {
   const el = document.createElement("span");
   el.className = `coord ${type}`;
@@ -1740,24 +1654,34 @@ document.getElementById("analyse-btn-flip")?.addEventListener("click", () => {
   renderAnalyseBoard();
 });
 
+window.addEventListener("keydown", (e) => {
+  // Sadece Analyse sayfası açıkken çalışsın
+  if (document.querySelector("#analyse").hidden) return;
+
+  // Sürükleme sırasında veya input'a yazarken çalışmasın
+  if (analyseDrag) return;
+  if (
+    ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)
+  ) {
+    return;
+  }
+
+  let nextPly;
+
+  if (e.key === "ArrowLeft") nextPly = analyseCurrentPly - 1;
+  else if (e.key === "ArrowRight") nextPly = analyseCurrentPly + 1;
+  else if (e.key === "Home") nextPly = 0;
+  else if (e.key === "End") nextPly = analyseHistory.length;
+  else return;
+
+  e.preventDefault();
+  goToAnalysePly(nextPly);
+});
+
 document.getElementById("analyse-btn-reset")?.addEventListener("click", () => {
   analyseSelectedSquare = null;
   analyseLegalMoves = [];
 
-  goToAnalysePly(0);
-});
-
-document.getElementById("analyse-btn-undo").addEventListener("click", () => {
-  if (analyseCurrentPly <= 0) return;
-  goToAnalysePly(analyseCurrentPly - 1);
-});
-
-document.getElementById("analyse-btn-flip").addEventListener("click", () => {
-  analyseOrientation = analyseOrientation === "w" ? "b" : "w";
-  renderAnalyseBoard();
-});
-
-document.getElementById("analyse-btn-reset").addEventListener("click", () => {
   goToAnalysePly(0);
 });
 
@@ -2422,7 +2346,7 @@ undoBtnEl.addEventListener("click", () => {
   game.undo();
   viewPly = null;
   clearSelection();
-  update();
+  update(false);
 });
 
 document.getElementById("btn-flip").addEventListener("click", () => {
@@ -2838,7 +2762,7 @@ function previousLessonMove() {
   lesson.index--;
 
   clearSelection();
-  update();
+  update(false);
 }
 
 function exitLearn() {
@@ -3859,22 +3783,6 @@ document.getElementById("filter-favorites").addEventListener("click", () => {
   document.getElementById("filter-all").classList.remove("active");
 
   renderOpenings();
-});
-
-document.getElementById("analyse-btn-undo").addEventListener("click", () => {
-  if (analyseCurrentPly <= 0) return;
-
-  goToAnalysePly(analyseCurrentPly - 1);
-});
-
-document.getElementById("analyse-btn-flip").addEventListener("click", () => {
-  analyseOrientation = analyseOrientation === "w" ? "b" : "w";
-
-  renderAnalyseBoard();
-});
-
-document.getElementById("analyse-btn-reset").addEventListener("click", () => {
-  goToAnalysePly(0);
 });
 
 document

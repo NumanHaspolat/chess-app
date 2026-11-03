@@ -1,12 +1,6 @@
-// Pixel-art piece sprites: assets/pieces/{w|b}{P|N|B|R|Q|K}<suffix>.svg
-//
-// File names can be "wB (5).svg" (with a download-number suffix) or plain
-// "wB.svg". Both are tried automatically: the first image that fails to load
-// retries with the other name, and the working name is remembered for the rest.
-
 const SPRITE_DIR = "./assets/pieces/";
 
-let workingSuffix = 0; // index into SUFFIXES that is known (or assumed) to work
+let workingSuffix = 0; 
 
 export const PIECE_TYPES = ["p", "n", "b", "r", "q", "k"];
 

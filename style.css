@@ -1522,3 +1522,100 @@ button:disabled {
   color: var(--accent);
   font-size: 1.3rem;
 }
+
+/* ANALYSE GAME REPORT */
+
+.analyse-game-report {
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid var(--panel-border);
+}
+
+.analyse-game-report h2 {
+  margin: 0 0 16px;
+  color: var(--accent);
+  font-size: 1.2rem;
+}
+
+.analyse-report-total {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px;
+  margin-bottom: 14px;
+  background: var(--control);
+  border-radius: 6px;
+}
+
+.analyse-player-reports {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.analyse-player-report {
+  min-width: 0;
+  padding: 12px;
+  background: var(--control);
+  border-radius: 8px;
+}
+
+.analyse-player-report h3 {
+  margin: 0 0 12px;
+  font-size: 1rem;
+}
+
+.analyse-accuracy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin-bottom: 14px;
+}
+
+.analyse-accuracy strong {
+  font-size: 1.6rem;
+  color: var(--accent);
+}
+
+.analyse-accuracy span {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.analyse-stat-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 0;
+  border-top: 1px solid var(--panel-border);
+  font-size: 0.8rem;
+}
+
+@media (max-width: 450px) {
+  .analyse-player-reports {
+    grid-template-columns: 1fr;
+  }
+}
+
+#analyse-board .analyse-selected {
+  box-shadow: inset 0 0 0 4px rgba(255, 215, 0, 0.8);
+}
+
+#analyse-board .analyse-legal-target {
+  position: relative;
+}
+
+#analyse-board .analyse-legal-target::after {
+  content: "";
+  position: absolute;
+  width: 28%;
+  height: 28%;
+  border-radius: 50%;
+  background: rgba(30, 30, 30, 0.3);
+  top: 36%;
+  left: 36%;
+  pointer-events: none;
+}
+
+#analyse-board .analyse-legal-capture {
+  box-shadow: inset 0 0 0 5px rgba(30, 30, 30, 0.3);
+}

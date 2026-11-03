@@ -4,6 +4,7 @@ import { Repertoire } from "./src/repertoire.js";
 import { Library } from "./src/library.js";
 import { judgeMove, pickReply, lineEnded, parseUci } from "./src/drill.js";
 import { importPgn } from "./src/pgn.js";
+import { splitGames } from "./src/pgn.js";
 import { OpeningBook } from "./src/openings.js";
 import { loadOpening } from "./src/opening-trainer.js";
 
@@ -33,6 +34,13 @@ const SOUNDS = {
 };
 
 const boardEl = document.getElementById("board");
+const analyseBoardEl = document.getElementById("analyse-board");
+const analyseGame = new Chess();
+let analyseOrientation = "w";
+let analyseDrag = null;
+let analyseHoverSquare = null;
+
+const ANALYSE_DRAG_THRESHOLD = 6;
 const statusEl = document.getElementById("status");
 const repEvaluationBarEl = document.getElementById("rep-evaluation-bar");
 const repEvaluationWhiteEl = document.getElementById("rep-evaluation-white");
@@ -46,6 +54,13 @@ const movesEl = document.getElementById("moves");
 const analysisPanel = document.getElementById("analysis-panel");
 const analysisStatusEl = document.getElementById("analysis-status");
 const analysisLinesEl = document.getElementById("analysis-lines");
+const analyseAnalysisLinesEl = document.getElementById(
+  "analyse-analysis-lines",
+);
+
+const analyseAnalysisStatusEl = document.getElementById(
+  "analyse-analysis-status",
+);
 const stripTopEl = document.getElementById("strip-top");
 const stripBottomEl = document.getElementById("strip-bottom");
 const repStripTopEl = document.getElementById("rep-strip-top");
@@ -53,6 +68,9 @@ const repStripBottomEl = document.getElementById("rep-strip-bottom");
 const openingEl = document.getElementById("opening");
 const pgnFileEl = document.getElementById("pgn-file");
 const importRepBtnEl = document.getElementById("btn-import-rep");
+const analysePgnFileEl = document.getElementById("pgn-upload");
+const analyseGamesListEl = document.getElementById("analyse-games-list");
+const analyseGamesStatusEl = document.getElementById("analyse-games-status");
 const drillBtnEl = document.getElementById("btn-drill");
 const drillActionEl = document.getElementById("btn-drill-action");
 const undoBtnEl = document.getElementById("btn-undo");
@@ -78,6 +96,7 @@ let orientation = "w";
 let selectedSquare = null;
 let legalMoves = [];
 let drillHintSquares = [];
+
 let drag = null; // active press/drag state
 let hoverSquare = null;
 let repSuppressClick = false;
@@ -102,6 +121,11 @@ let trainCorrectSquares = [];
 let trainCorrectTimer = null;
 let openingFilter = "all";
 let analysisFen = null;
+let analyseGames = [];
+let analyseHistory = [];
+let analyseSelectedSquare = null;
+let analyseLegalMoves = [];
+let analyseCurrentPly = 0;
 
 function formatAnalysisLine(line) {
   const analysisGame = new Chess(line.fen || analysisFen);
@@ -178,6 +202,74 @@ function renderAnalysisLines(lines) {
     });
 
     analysisLinesEl.appendChild(row);
+  });
+}
+
+function renderAnalyseAnalysisLines(lines) {
+  if (!analyseAnalysisLinesEl) return;
+
+  analyseAnalysisLinesEl.innerHTML = "";
+
+  if (!lines.length) {
+    if (analyseAnalysisStatusEl) {
+      analyseAnalysisStatusEl.textContent = "Analyzing...";
+    }
+    return;
+  }
+
+  if (analyseAnalysisStatusEl) {
+    analyseAnalysisStatusEl.textContent = `Stockfish · Depth ${Math.max(...lines.map((line) => line.depth))}`;
+  }
+
+  lines.forEach((line, index) => {
+    const formatted = formatAnalysisLine(line);
+
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "analysis-line";
+    row.title = "Play this first move";
+
+    const rank = document.createElement("span");
+    rank.className = "analysis-rank";
+    rank.textContent = `#${index + 1}`;
+
+    const score = document.createElement("strong");
+    score.className = "analysis-score";
+    score.textContent = formatted.score || "—";
+
+    const move = document.createElement("strong");
+    move.className = "analysis-best-move";
+    move.textContent = formatted.firstMove;
+
+    const continuation = document.createElement("span");
+    continuation.className = "analysis-continuation";
+    continuation.textContent = formatted.continuation;
+
+    row.append(rank, score, move, continuation);
+
+    row.addEventListener("click", () => {
+      if (!formatted.uci) return;
+
+      const from = formatted.uci.slice(0, 2);
+      const to = formatted.uci.slice(2, 4);
+      const promotion = formatted.uci[4] || "q";
+
+      const moveResult = analyseGame.move({
+        from,
+        to,
+        promotion,
+      });
+
+      if (!moveResult) return;
+
+      analyseCurrentPly++;
+
+      renderAnalyseBoard();
+      renderAnalyseMoves();
+      requestEngineEvaluation(analyseGame.fen(), "analyse");
+    });
+
+    analyseAnalysisLinesEl.appendChild(row);
   });
 }
 
@@ -417,6 +509,44 @@ function renderRepertoireMoves() {
   if (activeEl) activeEl.scrollIntoView({ block: "nearest" });
 }
 
+function endAnalyseDrag(e, cancelled = false) {
+  if (!analyseDrag) return;
+
+  const { from, moved, wasSelected, ghost } = analyseDrag;
+
+  if (ghost) ghost.remove();
+
+  setAnalyseHover(analyseHoverSquare, false);
+  analyseHoverSquare = null;
+
+  analyseDrag = null;
+
+  // Sadece tıklama yapıldıysa
+  if (!moved) {
+    if (wasSelected) {
+      clearAnalyseSelection();
+    }
+
+    renderAnalyseBoard();
+    return;
+  }
+
+  // Sürüklenen taş bırakıldı.
+  const target = cancelled
+    ? null
+    : analyseSquareFromPoint(e.clientX, e.clientY);
+
+  if (target && analyseLegalMoves.some((move) => move.to === target)) {
+    makeAnalyseMove(from, target);
+    return;
+  }
+
+  if (target !== from) {
+    clearAnalyseSelection();
+  }
+
+  renderAnalyseBoard();
+}
 function updateRepertoireBoard(animate = true) {
   renderRepertoireBoard(animate);
   renderRepertoireMoves();
@@ -784,20 +914,34 @@ function initStockfish() {
 function requestEngineEvaluation(fen, target = "play") {
   if (!stockfishWorker) return;
 
+  const targetChanged = target !== requestedEvaluationTarget;
+  const fenChanged = fen !== requestedEngineFen;
+
+  // Aynı pozisyon ve aynı hedef zaten analiz ediliyorsa tekrar başlatma.
+  if (!fenChanged && !targetChanged) return;
+
   requestedEvaluationTarget = target;
-
-  if (fen === requestedEngineFen) return;
-
   requestedEngineFen = fen;
   analysisFen = fen;
+
   analysisLinesByRank.clear();
 
-  if (analysisLinesEl) {
-    analysisLinesEl.textContent = "";
-  }
+  if (target === "analyse") {
+    if (analyseAnalysisLinesEl) {
+      analyseAnalysisLinesEl.innerHTML = "";
+    }
 
-  if (analysisStatusEl) {
-    analysisStatusEl.textContent = "Analyzing 5 lines...";
+    if (analyseAnalysisStatusEl) {
+      analyseAnalysisStatusEl.textContent = "Analyzing 5 lines...";
+    }
+  } else {
+    if (analysisLinesEl) {
+      analysisLinesEl.innerHTML = "";
+    }
+
+    if (analysisStatusEl) {
+      analysisStatusEl.textContent = "Analyzing 5 lines...";
+    }
   }
 
   pendingEngineFen = fen;
@@ -822,13 +966,12 @@ function startEngineAnalysis(fen) {
   engineBusy = true;
   engineStopping = false;
 
-  // En iyi 3 devam yolunu hesapla.
-  stockfishWorker.postMessage("setoption name MultiPV value 5");
+  analysisLinesByRank.clear();
 
+  stockfishWorker.postMessage("setoption name MultiPV value 5");
   stockfishWorker.postMessage(`position fen ${fen}`);
   stockfishWorker.postMessage(`go depth ${ENGINE_DEPTH}`);
 }
-
 function renderAnalysisLine(fen, pv, depth) {
   if (!analysisLinesEl || !analysisStatusEl) return;
   if (!pv || !pv.length) return;
@@ -942,12 +1085,17 @@ function parseEngineInfo(message) {
     .map((rank) => analysisLinesByRank.get(rank))
     .filter(Boolean);
 
-  renderAnalysisLines(lines);
+  if (requestedEvaluationTarget === "analyse") {
+    renderAnalyseAnalysisLines(lines);
+  } else {
+    renderAnalysisLines(lines);
+  }
 
-  // Eva bar yalnızca en iyi varyasyondan güncellensin.
   if (multipv === 1) {
     if (requestedEvaluationTarget === "repertoire") {
       renderRepertoireEvaluation(whiteScore, scoreText);
+    } else if (requestedEvaluationTarget === "analyse") {
+      renderAnalyseEvaluation(whiteScore, scoreText);
     } else {
       renderEvaluation(whiteScore, scoreText);
     }
@@ -974,6 +1122,27 @@ function renderEvaluation(whiteScore, scoreText) {
 
     evaluationScoreEl.textContent = scoreText;
   }
+}
+
+function renderAnalyseEvaluation(whiteScore, scoreText) {
+  const bar = document.getElementById("analyse-evaluation-bar");
+  const white = document.getElementById("analyse-evaluation-white");
+  const black = document.getElementById("analyse-evaluation-black");
+  const score = document.getElementById("analyse-evaluation-score");
+
+  if (!bar || !white || !black || !score) return;
+
+  const clamped = Math.max(-1000, Math.min(1000, whiteScore));
+  const whitePercent = 100 / (1 + Math.exp(-clamped / 300));
+  const safePercent = Math.max(5, Math.min(95, whitePercent));
+
+  white.style.height = `${safePercent}%`;
+  black.style.height = `${100 - safePercent}%`;
+
+  bar.style.flexDirection =
+    analyseOrientation === "w" ? "column-reverse" : "column";
+
+  score.textContent = scoreText;
 }
 
 function renderRepertoireEvaluation(whiteScore, scoreText) {
@@ -1184,6 +1353,253 @@ function renderBoard(animate = true) {
     }
   }
 }
+
+function analyseSquareFromPoint(x, y) {
+  const rect = analyseBoardEl.getBoundingClientRect();
+  const size = rect.width / 8;
+
+  const col = Math.floor((x - rect.left) / size);
+  const row = Math.floor((y - rect.top) / size);
+
+  if (col < 0 || col > 7 || row < 0 || row > 7) return null;
+
+  return analyseOrientation === "w"
+    ? FILES[col] + (8 - row)
+    : FILES[7 - col] + (row + 1);
+}
+
+function clearAnalyseSelection() {
+  analyseSelectedSquare = null;
+  analyseLegalMoves = [];
+}
+
+function startAnalyseDrag() {
+  analyseDrag.moved = true;
+
+  const size = analyseBoardEl.getBoundingClientRect().width / 8;
+
+  const ghost = createPieceEl(
+    analyseDrag.piece.color,
+    analyseDrag.piece.type,
+    "drag-ghost",
+  );
+
+  ghost.style.width = `${size}px`;
+  ghost.style.height = `${size}px`;
+
+  document.body.appendChild(ghost);
+
+  analyseDrag.ghost = ghost;
+  analyseDrag.size = size;
+
+  const origin = analyseBoardEl.querySelector(
+    `[data-square="${analyseDrag.from}"] .piece`,
+  );
+
+  if (origin) origin.classList.add("dragging");
+}
+
+function moveAnalyseGhost(x, y) {
+  if (!analyseDrag?.ghost) return;
+
+  analyseDrag.ghost.style.left = `${x - analyseDrag.size / 2}px`;
+
+  analyseDrag.ghost.style.top = `${y - analyseDrag.size / 2}px`;
+}
+
+function setAnalyseHover(name, on) {
+  if (!name) return;
+
+  const square = analyseBoardEl.querySelector(`[data-square="${name}"]`);
+
+  if (square) {
+    square.classList.toggle("drag-over", on);
+  }
+}
+
+function updateAnalyseHover(name) {
+  if (name === analyseHoverSquare) return;
+
+  setAnalyseHover(analyseHoverSquare, false);
+
+  analyseHoverSquare = name;
+
+  setAnalyseHover(name, true);
+}
+
+function makeAnalyseMove(from, to, promotion = "q") {
+  const target = analyseGame.get(to);
+
+  const move = analyseGame.move({
+    from,
+    to,
+    promotion,
+  });
+
+  if (!move) return false;
+
+  // Geçmişteki bir konumdan yeni hamle yapılırsa
+  // eski devam hamlelerini sil.
+  analyseHistory = analyseHistory.slice(0, analyseCurrentPly);
+  analyseHistory.push(move.san);
+
+  analyseCurrentPly++;
+
+  if (analyseGame.isCheckmate()) {
+    playSound("gameover");
+  } else if (analyseGame.inCheck()) {
+    playSound("check");
+  } else if (move.flags.includes("k") || move.flags.includes("q")) {
+    playSound("castle");
+  } else if (move.flags.includes("p")) {
+    playSound("promote");
+  } else if (target || move.flags.includes("e")) {
+    playSound("capture");
+  } else {
+    playSound("move");
+  }
+
+  clearAnalyseSelection();
+
+  renderAnalyseBoard();
+  renderAnalyseMoves();
+
+  const statusEl = document.getElementById("analyse-status");
+
+  if (statusEl) {
+    statusEl.textContent =
+      `Move ${Math.ceil(analyseCurrentPly / 2)} · ` +
+      `${analyseCurrentPly % 2 ? "White" : "Black"} played`;
+  }
+
+  requestEngineEvaluation(analyseGame.fen(), "analyse");
+
+  return true;
+}
+
+function renderAnalyseBoard() {
+  if (!analyseBoardEl) return;
+
+  analyseBoardEl.innerHTML = "";
+
+  for (let row = 0; row < 8; row++) {
+    for (let col = 0; col < 8; col++) {
+      const name =
+        analyseOrientation === "w"
+          ? FILES[col] + (8 - row)
+          : FILES[7 - col] + (row + 1);
+
+      const fileIndex = FILES.indexOf(name[0]);
+      const rankNumber = Number(name[1]);
+
+      const squareEl = document.createElement("div");
+
+      squareEl.className =
+        "square " + ((fileIndex + rankNumber) % 2 === 0 ? "light" : "dark");
+
+      squareEl.dataset.square = name;
+      if (name === analyseSelectedSquare) {
+        squareEl.classList.add("analyse-selected");
+      }
+
+      const legalMove = analyseLegalMoves.find((move) => move.to === name);
+
+      if (legalMove) {
+        squareEl.classList.add(
+          analyseGame.get(name)
+            ? "analyse-legal-capture"
+            : "analyse-legal-target",
+        );
+      }
+
+      const piece = analyseGame.get(name);
+
+      if (piece) {
+        squareEl.appendChild(createPieceEl(piece.color, piece.type));
+      }
+
+      if (col === 0) addCoord(squareEl, "rank", name[1]);
+      if (row === 7) addCoord(squareEl, "file", name[0]);
+
+      analyseBoardEl.appendChild(squareEl);
+    }
+  }
+}
+
+function playAnalyseMove(from, to, promotion = "q") {
+  const target = analyseGame.get(to);
+
+  const move = analyseGame.move({ from, to, promotion });
+  if (!move) return;
+
+  analyseCurrentPly = analyseGame.history().length;
+
+  analyseSelectedSquare = null;
+  analyseLegalMoves = [];
+
+  if (analyseGame.isCheckmate()) {
+    playSound("gameover");
+  } else if (analyseGame.inCheck()) {
+    playSound("check");
+  } else if (move.flags.includes("k") || move.flags.includes("q")) {
+    playSound("castle");
+  } else if (move.flags.includes("p")) {
+    playSound("promote");
+  } else if (target || move.flags.includes("e")) {
+    playSound("capture");
+  } else {
+    playSound("move");
+  }
+
+  renderAnalyseBoard();
+  renderAnalyseMoves();
+
+  const statusEl = document.getElementById("analyse-status");
+  if (statusEl) {
+    statusEl.textContent = `Move ${Math.ceil(analyseCurrentPly / 2)} · ${
+      analyseCurrentPly % 2 ? "White" : "Black"
+    } played`;
+  }
+
+  requestEngineEvaluation(analyseGame.fen(), "analyse");
+}
+
+analyseBoardEl.addEventListener("click", (e) => {
+  const squareEl = e.target.closest(".square");
+  if (!squareEl) return;
+
+  const name = squareEl.dataset.square;
+  if (!name) return;
+
+  // Seçili taşın legal hedefine tıklandıysa hamleyi yap.
+  if (
+    analyseSelectedSquare &&
+    analyseLegalMoves.some((move) => move.to === name)
+  ) {
+    playAnalyseMove(analyseSelectedSquare, name);
+    return;
+  }
+
+  const piece = analyseGame.get(name);
+
+  // Kendi sırasındaki taşı seç.
+  if (piece && piece.color === analyseGame.turn()) {
+    analyseSelectedSquare = name;
+    analyseLegalMoves = analyseGame.moves({
+      square: name,
+      verbose: true,
+    });
+
+    renderAnalyseBoard();
+    return;
+  }
+
+  // Boş veya rakip kareye tıklanınca seçimi kaldır.
+  analyseSelectedSquare = null;
+  analyseLegalMoves = [];
+  renderAnalyseBoard();
+});
+
 function addCoord(squareEl, type, text) {
   const el = document.createElement("span");
   el.className = `coord ${type}`;
@@ -1242,6 +1658,108 @@ function renderMoves() {
   const activeEl = movesEl.querySelector(".move.active");
   if (activeEl) activeEl.scrollIntoView({ block: "nearest" });
 }
+
+const analyseMovesEl = document.getElementById("analyse-moves");
+
+function renderAnalyseMoves() {
+  if (!analyseMovesEl) return;
+
+  const sanMoves = analyseHistory;
+  analyseMovesEl.innerHTML = "";
+
+  for (let i = 0; i < sanMoves.length; i += 2) {
+    const li = document.createElement("li");
+
+    const whiteMove = createMoveEl(sanMoves[i], i + 1, analyseCurrentPly);
+
+    whiteMove.addEventListener("click", () => {
+      goToAnalysePly(i + 1);
+    });
+
+    li.appendChild(whiteMove);
+
+    if (sanMoves[i + 1]) {
+      const blackMove = createMoveEl(sanMoves[i + 1], i + 2, analyseCurrentPly);
+
+      blackMove.addEventListener("click", () => {
+        goToAnalysePly(i + 2);
+      });
+
+      li.appendChild(blackMove);
+    }
+
+    analyseMovesEl.appendChild(li);
+  }
+
+  const activeEl = analyseMovesEl.querySelector(".move.active");
+
+  if (activeEl) {
+    activeEl.scrollIntoView({ block: "nearest" });
+  }
+}
+
+function goToAnalysePly(ply) {
+  if (ply < 0 || ply > analyseHistory.length) return;
+
+  analyseGame.reset();
+
+  for (let i = 0; i < ply; i++) {
+    analyseGame.move(analyseHistory[i]);
+  }
+
+  analyseCurrentPly = ply;
+
+  clearAnalyseSelection();
+
+  renderAnalyseBoard();
+  renderAnalyseMoves();
+
+  const statusEl = document.getElementById("analyse-status");
+
+  if (statusEl) {
+    statusEl.textContent =
+      ply === 0
+        ? "Starting position"
+        : `Move ${Math.ceil(ply / 2)} · ${ply % 2 ? "White" : "Black"} played`;
+  }
+
+  requestEngineEvaluation(analyseGame.fen(), "analyse");
+}
+
+document.getElementById("analyse-btn-undo")?.addEventListener("click", () => {
+  if (analyseCurrentPly <= 0) return;
+
+  analyseSelectedSquare = null;
+  analyseLegalMoves = [];
+
+  goToAnalysePly(analyseCurrentPly - 1);
+});
+
+document.getElementById("analyse-btn-flip")?.addEventListener("click", () => {
+  analyseOrientation = analyseOrientation === "w" ? "b" : "w";
+  renderAnalyseBoard();
+});
+
+document.getElementById("analyse-btn-reset")?.addEventListener("click", () => {
+  analyseSelectedSquare = null;
+  analyseLegalMoves = [];
+
+  goToAnalysePly(0);
+});
+
+document.getElementById("analyse-btn-undo").addEventListener("click", () => {
+  if (analyseCurrentPly <= 0) return;
+  goToAnalysePly(analyseCurrentPly - 1);
+});
+
+document.getElementById("analyse-btn-flip").addEventListener("click", () => {
+  analyseOrientation = analyseOrientation === "w" ? "b" : "w";
+  renderAnalyseBoard();
+});
+
+document.getElementById("analyse-btn-reset").addEventListener("click", () => {
+  goToAnalysePly(0);
+});
 
 /* ---------- Material ---------- */
 
@@ -3026,6 +3544,84 @@ drillBtnEl.addEventListener("click", () => {
   }
 });
 
+analyseBoardEl.addEventListener("pointerdown", (e) => {
+  if (e.button !== 0 || analyseDrag) return;
+
+  const name = analyseSquareFromPoint(e.clientX, e.clientY);
+  if (!name) return;
+
+  e.preventDefault();
+
+  // Seçili taşın yasal hedefine tıklandı.
+  if (
+    analyseSelectedSquare &&
+    analyseLegalMoves.some((move) => move.to === name)
+  ) {
+    makeAnalyseMove(analyseSelectedSquare, name);
+    return;
+  }
+
+  // Kendi taşımıza tıklandı.
+  const piece = analyseGame.get(name);
+
+  if (piece && piece.color === analyseGame.turn()) {
+    const wasSelected = analyseSelectedSquare === name;
+
+    analyseSelectedSquare = name;
+
+    analyseLegalMoves = analyseGame.moves({
+      square: name,
+      verbose: true,
+    });
+
+    renderAnalyseBoard();
+
+    analyseDrag = {
+      from: name,
+      piece,
+      startX: e.clientX,
+      startY: e.clientY,
+      moved: false,
+      wasSelected,
+      ghost: null,
+      size: 0,
+    };
+
+    return;
+  }
+
+  // Boş veya rakip taş: seçimi kaldır.
+  clearAnalyseSelection();
+  renderAnalyseBoard();
+});
+
+window.addEventListener("pointermove", (e) => {
+  if (!analyseDrag) return;
+
+  if (!analyseDrag.moved) {
+    const distance = Math.hypot(
+      e.clientX - analyseDrag.startX,
+      e.clientY - analyseDrag.startY,
+    );
+
+    if (distance < ANALYSE_DRAG_THRESHOLD) return;
+
+    startAnalyseDrag();
+  }
+
+  moveAnalyseGhost(e.clientX, e.clientY);
+
+  updateAnalyseHover(analyseSquareFromPoint(e.clientX, e.clientY));
+});
+
+window.addEventListener("pointerup", (e) => {
+  endAnalyseDrag(e);
+});
+
+window.addEventListener("pointercancel", (e) => {
+  endAnalyseDrag(e, true);
+});
+
 drillActionEl.addEventListener("click", () => {
   if (!drill) return;
   if (drill.phase === "mistake") retryDrill();
@@ -3212,6 +3808,10 @@ function showPage(pageName) {
     requestEngineEvaluation(currentView.fen(), "play");
   }
 
+  if (pageName === "analyse") {
+    renderAnalyseBoard();
+    requestEngineEvaluation(analyseGame.fen(), "analyse");
+  }
   if (pageName === "repertoire") updateRepertoirePage();
   if (pageName === "profile") renderProfileProgress();
 }
@@ -3259,6 +3859,22 @@ document.getElementById("filter-favorites").addEventListener("click", () => {
   document.getElementById("filter-all").classList.remove("active");
 
   renderOpenings();
+});
+
+document.getElementById("analyse-btn-undo").addEventListener("click", () => {
+  if (analyseCurrentPly <= 0) return;
+
+  goToAnalysePly(analyseCurrentPly - 1);
+});
+
+document.getElementById("analyse-btn-flip").addEventListener("click", () => {
+  analyseOrientation = analyseOrientation === "w" ? "b" : "w";
+
+  renderAnalyseBoard();
+});
+
+document.getElementById("analyse-btn-reset").addEventListener("click", () => {
+  goToAnalysePly(0);
 });
 
 document

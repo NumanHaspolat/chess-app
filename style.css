@@ -372,6 +372,7 @@ button:disabled {
   display: flex;
   gap: 8px;
   margin-bottom: 12px;
+  margin-top: 10px;
 }
 
 .buttons button {
@@ -1330,4 +1331,20 @@ button:disabled {
 
 #profile .profile-progress-section {
   margin-top: 24px;
+}
+
+.analysis-panel {
+  min-width: 0;
+  width: 100%;
+  padding: 18px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+
+.analysis-panel h2 {
+  margin: 0 0 14px;
+  color: var(--accent);
+  font-size: 1.3rem;
 }

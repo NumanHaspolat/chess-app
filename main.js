@@ -6,6 +6,11 @@ import { judgeMove, pickReply, lineEnded, parseUci } from "./src/drill.js";
 import { importPgn } from "./src/pgn.js";
 import { OpeningBook } from "./src/openings.js";
 import { loadOpening } from "./src/opening-trainer.js";
+import {
+  analyzePosition,
+  stopAnalysis,
+  setAnalysisListener,
+} from "./src/engine.js";
 
 const game = new Chess();
 const repertoireGame = new Chess();
@@ -43,6 +48,9 @@ const evaluationWhiteEl = document.getElementById("evaluation-white");
 const evaluationBlackEl = document.getElementById("evaluation-black");
 const evaluationScoreEl = document.getElementById("evaluation-score");
 const movesEl = document.getElementById("moves");
+const analysisLinesEl = document.getElementById("analysis-lines");
+const analysisStatusEl = document.getElementById("analysis-status");
+const analysisPanel = document.getElementById("analysis-panel");
 const stripTopEl = document.getElementById("strip-top");
 const stripBottomEl = document.getElementById("strip-bottom");
 const repStripTopEl = document.getElementById("rep-strip-top");
@@ -98,6 +106,74 @@ let trainTotalMistakes = 0;
 let trainCorrectSquares = [];
 let trainCorrectTimer = null;
 let openingFilter = "all";
+let analysisFen = null;
+
+function formatAnalysisLine(line) {
+  const analysisGame = new Chess(analysisFen);
+  const sanMoves = [];
+
+  for (const uci of line.pv) {
+    const move = analysisGame.move({
+      from: uci.slice(0, 2),
+      to: uci.slice(2, 4),
+      promotion: uci[4] || undefined,
+    });
+
+    if (!move) break;
+
+    sanMoves.push(move.san);
+  }
+
+  const whitePerspective = analysisGame.turn() === "w" ? 1 : -1;
+  const score =
+    line.scoreType === "mate"
+      ? `M${line.score * whitePerspective}`
+      : `${((line.score * whitePerspective) / 100).toFixed(2)}`;
+
+  return {
+    score,
+    firstMove: sanMoves[0] || "—",
+    continuation: sanMoves.slice(1).join(" "),
+  };
+}
+
+function renderAnalysisLines(lines) {
+  analysisLinesEl.innerHTML = "";
+
+  if (!lines.length) {
+    analysisStatusEl.textContent = "Analyzing...";
+    analysisLinesEl.textContent = "Waiting for engine evaluation...";
+    return;
+  }
+
+  analysisStatusEl.textContent = `Depth ${Math.max(...lines.map((line) => line.depth))}`;
+
+  lines.forEach((line, index) => {
+    const formatted = formatAnalysisLine(line);
+
+    const row = document.createElement("div");
+    row.className = "analysis-line";
+
+    const rank = document.createElement("span");
+    rank.className = "analysis-rank";
+    rank.textContent = `#${index + 1}`;
+
+    const score = document.createElement("strong");
+    score.className = "analysis-score";
+    score.textContent = formatted.score;
+
+    const move = document.createElement("strong");
+    move.className = "analysis-best-move";
+    move.textContent = formatted.firstMove;
+
+    const continuation = document.createElement("span");
+    continuation.className = "analysis-continuation";
+    continuation.textContent = formatted.continuation;
+
+    row.append(rank, score, move, continuation);
+    analysisLinesEl.appendChild(row);
+  });
+}
 
 let favoriteOpenings = new Set(
   JSON.parse(localStorage.getItem("azurite-favorites") || "[]"),
@@ -1161,6 +1237,26 @@ function syncView() {
 
 function update(animate = true) {
   view = syncView();
+  const showAnalysis =
+    !document.querySelector("#play").hidden && !lesson && !trainMode;
+
+  analysisPanel.hidden = !showAnalysis;
+
+  if (showAnalysis) {
+    analysisFen = view.fen();
+    analyzePosition(analysisFen, 15);
+  } else {
+    stopAnalysis();
+  }
+
+  analysisPanel.hidden = !showAnalysis;
+
+  if (showAnalysis) {
+    analysisFen = view.fen();
+    analyzePosition(analysisFen, 15);
+  } else {
+    stopAnalysis();
+  }
   requestEngineEvaluation(view.fen(), "play");
   renderBoard(animate);
   renderStrips();
@@ -1704,6 +1800,7 @@ window.addEventListener("keydown", (e) => {
     goToPly(nextPly);
   }
 });
+
 /* ---------- Buttons ---------- */
 
 undoBtnEl.addEventListener("click", () => {
@@ -2996,10 +3093,22 @@ function showPage(pageName) {
     );
   });
 
+  // Stockfish analysis is only available on normal Play.
+  const isNormalPlay = pageName === "play" && !lesson && !trainMode;
+
+  analysisPanel.hidden = !isNormalPlay;
+
+  if (!isNormalPlay) {
+    stopAnalysis();
+  } else {
+    const currentView = syncView();
+    analysisFen = currentView.fen();
+    analyzePosition(analysisFen, 15);
+  }
+
   if (pageName === "repertoire") updateRepertoirePage();
   if (pageName === "profile") renderProfileProgress();
 }
-
 navLinks.forEach((link) => {
   link.addEventListener("click", (event) => {
     event.preventDefault();

@@ -1410,3 +1410,115 @@ button:disabled {
     padding-left: 36px;
   }
 }
+
+/* ANALYSE PAGE */
+
+.analyse-games-section {
+  min-width: 0;
+  width: 100%;
+  padding: 18px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+
+.analyse-games-section h2 {
+  margin: 0 0 16px;
+  color: var(--accent);
+  font-size: 1.3rem;
+}
+
+.analyse-import {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.analyse-username {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.analyse-username input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: var(--control);
+  color: var(--text);
+  font-family: var(--font-pixel);
+  font-size: 0.95rem;
+}
+
+.analyse-username input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.analyse-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--panel-border);
+}
+
+.analyse-upload label {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+#pgn-upload {
+  width: 100%;
+  min-width: 0;
+  color: var(--text-muted);
+  font-family: var(--font-pixel);
+  font-size: 0.85rem;
+}
+
+#analyse-games-status {
+  margin-top: 14px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+#analyse-games-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+/* ANALYSE PAGE LAYOUT */
+
+#analyse.app {
+  grid-template-columns:
+    minmax(0, 1.35fr)
+    minmax(176px, 0.56fr)
+    minmax(176px, 0.6fr);
+  align-items: start;
+}
+
+#analyse .board-wrap {
+  transform: translateY(-38px);
+}
+
+#analyse .analyse-games-section {
+  margin-top: -20px;
+  min-width: 0;
+  width: 100%;
+  padding: 18px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+
+#analyse .analyse-games-section h2 {
+  margin: 0 0 16px;
+  color: var(--accent);
+  font-size: 1.3rem;
+}

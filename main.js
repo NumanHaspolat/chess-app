@@ -3183,6 +3183,7 @@ const brandLink = document.querySelector(".nav-brand");
 
 const pages = {
   play: document.querySelector("#play"),
+  analyse: document.querySelector("#analyse"),
   openings: document.querySelector("#openings"),
   repertoire: document.querySelector("#repertoire"),
   profile: document.querySelector("#profile"),
@@ -3200,7 +3201,6 @@ function showPage(pageName) {
     );
   });
 
-  // Stockfish analysis is only available on normal Play.
   const isNormalPlay = pageName === "play" && !lesson && !trainMode;
 
   if (analysisPanel) {
@@ -3210,14 +3210,6 @@ function showPage(pageName) {
   if (isNormalPlay) {
     const currentView = syncView();
     requestEngineEvaluation(currentView.fen(), "play");
-  } else {
-    if (analysisLinesEl) {
-      analysisLinesEl.textContent = "";
-    }
-
-    if (analysisStatusEl) {
-      analysisStatusEl.textContent = "Analysis is available in normal Play.";
-    }
   }
 
   if (pageName === "repertoire") updateRepertoirePage();

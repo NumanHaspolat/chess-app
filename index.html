@@ -18,6 +18,7 @@
       <a href="#play" class="nav-brand">AZURITE</a>
       <nav class="nav-links">
         <a href="#play" class="nav-link active">Play</a>
+        <a href="#analyse" class="nav-link">Analyse</a>
         <a href="#openings" class="nav-link">Openings</a>
         <a href="#repertoire" class="nav-link">My Repertoire</a>
         <a href="#profile" class="nav-link">Profile</a>
@@ -114,6 +115,87 @@
             <button id="learn-exit">Exit</button>
           </div>
         </div>
+      </section>
+    </main>
+
+    <main class="app" id="analyse" hidden>
+      <!-- SOL SÜTUN: BOARD + CHESS.COM IMPORT -->
+      <section class="board-section">
+        <div class="board-wrap">
+          <div id="analyse-strip-top" class="strip"></div>
+
+          <div class="board-row">
+            <div class="evaluation">
+              <div id="analyse-evaluation-bar" class="evaluation-bar">
+                <div
+                  id="analyse-evaluation-white"
+                  class="evaluation-white"
+                ></div>
+                <div
+                  id="analyse-evaluation-black"
+                  class="evaluation-black"
+                ></div>
+              </div>
+              <div id="analyse-evaluation-score" class="evaluation-score">
+                0.0
+              </div>
+            </div>
+
+            <div id="analyse-board" class="board"></div>
+          </div>
+
+          <div id="analyse-strip-bottom" class="strip"></div>
+        </div>
+
+        <!-- BOARD'UN HEMEN ALTINDA CHESS.COM IMPORT -->
+        <section class="analyse-games-section">
+          <h2>Analyse your chess.com games</h2>
+
+          <div class="analyse-import">
+            <div class="analyse-username">
+              <input
+                type="text"
+                id="chesscom-username"
+                placeholder="Chess.com username"
+              />
+              <button id="fetch-chesscom-games">Fetch games</button>
+            </div>
+
+            <div class="analyse-upload">
+              <label for="pgn-upload">Or upload PGN</label>
+              <input type="file" id="pgn-upload" accept=".pgn" />
+            </div>
+          </div>
+
+          <div id="analyse-games-status"></div>
+          <div id="analyse-games-list"></div>
+        </section>
+      </section>
+
+      <!-- ORTA SÜTUN: MOVES -->
+      <section class="moves-section">
+        <h2>Moves</h2>
+
+        <div id="analyse-status" class="status"></div>
+
+        <div class="buttons">
+          <button id="analyse-btn-undo">Back</button>
+          <button id="analyse-btn-flip">Flip</button>
+          <button id="analyse-btn-reset">Reset</button>
+        </div>
+
+        <div id="analyse-opening" class="opening"></div>
+
+        <ol id="analyse-moves" class="moves"></ol>
+      </section>
+
+      <!-- SAĞ SÜTUN: STOCKFISH ANALYSIS -->
+      <section id="analyse-analysis-panel" class="analysis-panel">
+        <h2>Analysis</h2>
+
+        <div id="analyse-analysis-status">Waiting for analysis...</div>
+
+        <div id="analyse-analysis-lines"></div>
       </section>
     </main>
 

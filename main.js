@@ -48,9 +48,9 @@ const evaluationWhiteEl = document.getElementById("evaluation-white");
 const evaluationBlackEl = document.getElementById("evaluation-black");
 const evaluationScoreEl = document.getElementById("evaluation-score");
 const movesEl = document.getElementById("moves");
-const analysisLinesEl = document.getElementById("analysis-lines");
-const analysisStatusEl = document.getElementById("analysis-status");
 const analysisPanel = document.getElementById("analysis-panel");
+const analysisStatusEl = document.getElementById("analysis-status");
+const analysisLinesEl = document.getElementById("analysis-lines");
 const stripTopEl = document.getElementById("strip-top");
 const stripBottomEl = document.getElementById("strip-bottom");
 const repStripTopEl = document.getElementById("rep-strip-top");
@@ -808,6 +808,56 @@ function startEngineAnalysis(fen) {
 
   stockfishWorker.postMessage(`position fen ${fen}`);
   stockfishWorker.postMessage(`go depth ${ENGINE_DEPTH}`);
+}
+
+function renderAnalysisLine(fen, pv, depth) {
+  if (!analysisLinesEl || !analysisStatusEl) return;
+
+  if (!pv || !pv.length) return;
+
+  const analysisGame = new Chess(fen);
+  const moves = [];
+
+  for (const uci of pv.slice(0, 10)) {
+    const from = uci.slice(0, 2);
+    const to = uci.slice(2, 4);
+    const promotion = uci[4];
+
+    try {
+      const move = analysisGame.move({
+        from,
+        to,
+        promotion: promotion || "q",
+      });
+
+      if (!move) break;
+
+      moves.push({
+        number: Math.ceil(moves.length / 2) + 1,
+        color: move.color,
+        san: move.san,
+      });
+    } catch {
+      break;
+    }
+  }
+
+  let output = "";
+
+  for (let i = 0; i < moves.length; i += 2) {
+    const white = moves[i];
+    const black = moves[i + 1];
+
+    output += `<span class="analysis-move-number">${white.number}.</span> `;
+    output += `<span class="analysis-move">${white.san}</span> `;
+
+    if (black) {
+      output += `<span class="analysis-move">${black.san}</span> `;
+    }
+  }
+
+  analysisLinesEl.innerHTML = output;
+  analysisStatusEl.textContent = `Stockfish · Depth ${depth}`;
 }
 
 function parseEngineInfo(message) {

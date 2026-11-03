@@ -168,23 +168,13 @@ function renderAnalysisLines(lines) {
     row.append(rank, score, move, continuation);
 
     row.addEventListener("click", () => {
-      if (!formatted.uci) return;
+      if (!formatted.uci || lesson || trainMode || drill) return;
 
-      const move = {
-        from: formatted.uci.slice(0, 2),
-        to: formatted.uci.slice(2, 4),
-        promotion: formatted.uci[4] || "q",
-      };
+      const from = formatted.uci.slice(0, 2);
+      const to = formatted.uci.slice(2, 4);
+      const promotion = formatted.uci[4] || "q";
 
-      try {
-        const played = game.move(move);
-
-        if (!played) return;
-
-        update();
-      } catch (error) {
-        console.error("Analysis move could not be played:", error);
-      }
+      playMove(from, to, promotion, false, true);
     });
 
     analysisLinesEl.appendChild(row);
@@ -807,7 +797,7 @@ function requestEngineEvaluation(fen, target = "play") {
   }
 
   if (analysisStatusEl) {
-    analysisStatusEl.textContent = "Analyzing 3 lines...";
+    analysisStatusEl.textContent = "Analyzing 5 lines...";
   }
 
   pendingEngineFen = fen;
@@ -833,7 +823,7 @@ function startEngineAnalysis(fen) {
   engineStopping = false;
 
   // En iyi 3 devam yolunu hesapla.
-  stockfishWorker.postMessage("setoption name MultiPV value 3");
+  stockfishWorker.postMessage("setoption name MultiPV value 5");
 
   stockfishWorker.postMessage(`position fen ${fen}`);
   stockfishWorker.postMessage(`go depth ${ENGINE_DEPTH}`);
@@ -904,7 +894,7 @@ function parseEngineInfo(message) {
   const multipvMatch = message.match(/\bmultipv (\d+)/);
   const multipv = multipvMatch ? Number(multipvMatch[1]) : 1;
 
-  if (multipv < 1 || multipv > 3) return;
+  if (multipv < 1 || multipv > 5) return;
 
   const pvMatch = message.match(/\bpv (.+)$/);
   const cpMatch = message.match(/\bscore cp (-?\d+)/);
@@ -947,8 +937,8 @@ function parseEngineInfo(message) {
     scoreText,
   });
 
-  // Üç varyasyonu sıralı şekilde göster.
-  const lines = [1, 2, 3]
+  // Bes varyasyonu sıralı şekilde göster.
+  const lines = [1, 2, 3, 4, 5]
     .map((rank) => analysisLinesByRank.get(rank))
     .filter(Boolean);
 
@@ -1396,6 +1386,7 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
 
       const move = game.move({ from, to, promotion });
       if (!move) return;
+      viewPly = null;
 
       clearSelection();
 
@@ -1446,6 +1437,7 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
 
   const move = game.move({ from, to, promotion });
   if (!move) return;
+  viewPly = null;
 
   if (game.isCheckmate()) {
     playSound("gameover");
@@ -2302,6 +2294,12 @@ function selectLearnVariation() {
 function nextLessonMove() {
   if (!lesson || !lesson.variation) return;
 
+  // Geçmiş bir konum görüntüleniyorsa önce güncel konuma dön.
+  if (viewPly !== null) {
+    viewPly = null;
+    update(false);
+  }
+
   const moves = lesson.variation.moves;
 
   if (lesson.index >= moves.length) return;
@@ -2312,6 +2310,11 @@ function nextLessonMove() {
 }
 function previousLessonMove() {
   if (!lesson || !lesson.variation || lesson.index === 0) return;
+
+  // Geçmiş bir konum görüntüleniyorsa önce güncel konuma dön.
+  if (viewPly !== null) {
+    viewPly = null;
+  }
 
   game.undo();
   lesson.index--;

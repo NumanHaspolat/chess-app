@@ -6,11 +6,6 @@ import { judgeMove, pickReply, lineEnded, parseUci } from "./src/drill.js";
 import { importPgn } from "./src/pgn.js";
 import { OpeningBook } from "./src/openings.js";
 import { loadOpening } from "./src/opening-trainer.js";
-import {
-  analyzePosition,
-  stopAnalysis,
-  setAnalysisListener,
-} from "./src/engine.js";
 
 const game = new Chess();
 const repertoireGame = new Chess();
@@ -109,34 +104,32 @@ let openingFilter = "all";
 let analysisFen = null;
 
 function formatAnalysisLine(line) {
-  const analysisGame = new Chess(analysisFen);
+  const analysisGame = new Chess(line.fen || analysisFen);
   const sanMoves = [];
 
-  for (const uci of line.pv) {
-    const move = analysisGame.move({
-      from: uci.slice(0, 2),
-      to: uci.slice(2, 4),
-      promotion: uci[4] || undefined,
-    });
+  for (const uci of line.pv.slice(0, 4)) {
+    try {
+      const move = analysisGame.move({
+        from: uci.slice(0, 2),
+        to: uci.slice(2, 4),
+        promotion: uci[4] || "q",
+      });
 
-    if (!move) break;
+      if (!move) break;
 
-    sanMoves.push(move.san);
+      sanMoves.push(move.san);
+    } catch {
+      break;
+    }
   }
 
-  const whitePerspective = analysisGame.turn() === "w" ? 1 : -1;
-  const score =
-    line.scoreType === "mate"
-      ? `M${line.score * whitePerspective}`
-      : `${((line.score * whitePerspective) / 100).toFixed(2)}`;
-
   return {
-    score,
+    score: line.scoreText,
     firstMove: sanMoves[0] || "—",
     continuation: sanMoves.slice(1).join(" "),
+    uci: line.pv[0],
   };
 }
-
 function renderAnalysisLines(lines) {
   analysisLinesEl.innerHTML = "";
 
@@ -146,13 +139,15 @@ function renderAnalysisLines(lines) {
     return;
   }
 
-  analysisStatusEl.textContent = `Depth ${Math.max(...lines.map((line) => line.depth))}`;
+  analysisStatusEl.textContent = `Stockfish · Depth ${Math.max(...lines.map((line) => line.depth))}`;
 
   lines.forEach((line, index) => {
     const formatted = formatAnalysisLine(line);
 
-    const row = document.createElement("div");
+    const row = document.createElement("button");
+    row.type = "button";
     row.className = "analysis-line";
+    row.title = "Play this first move";
 
     const rank = document.createElement("span");
     rank.className = "analysis-rank";
@@ -160,7 +155,7 @@ function renderAnalysisLines(lines) {
 
     const score = document.createElement("strong");
     score.className = "analysis-score";
-    score.textContent = formatted.score;
+    score.textContent = formatted.score || "—";
 
     const move = document.createElement("strong");
     move.className = "analysis-best-move";
@@ -171,6 +166,27 @@ function renderAnalysisLines(lines) {
     continuation.textContent = formatted.continuation;
 
     row.append(rank, score, move, continuation);
+
+    row.addEventListener("click", () => {
+      if (!formatted.uci) return;
+
+      const move = {
+        from: formatted.uci.slice(0, 2),
+        to: formatted.uci.slice(2, 4),
+        promotion: formatted.uci[4] || "q",
+      };
+
+      try {
+        const played = game.move(move);
+
+        if (!played) return;
+
+        update();
+      } catch (error) {
+        console.error("Analysis move could not be played:", error);
+      }
+    });
+
     analysisLinesEl.appendChild(row);
   });
 }
@@ -708,6 +724,7 @@ let engineStopping = false;
 let pendingEngineFen = null;
 let activeEngineFen = null;
 let requestedEngineFen = null;
+let analysisLinesByRank = new Map();
 
 const ENGINE_DEPTH = 13;
 let requestedEvaluationTarget = "play";
@@ -777,13 +794,22 @@ function initStockfish() {
 function requestEngineEvaluation(fen, target = "play") {
   if (!stockfishWorker) return;
 
-  // Sonucun hangi Eva bar'a yazılacağını belirle.
   requestedEvaluationTarget = target;
 
-  // Aynı pozisyonu tekrar tekrar analiz etme.
   if (fen === requestedEngineFen) return;
 
   requestedEngineFen = fen;
+  analysisFen = fen;
+  analysisLinesByRank.clear();
+
+  if (analysisLinesEl) {
+    analysisLinesEl.textContent = "";
+  }
+
+  if (analysisStatusEl) {
+    analysisStatusEl.textContent = "Analyzing 3 lines...";
+  }
+
   pendingEngineFen = fen;
 
   if (!engineReady) return;
@@ -806,13 +832,15 @@ function startEngineAnalysis(fen) {
   engineBusy = true;
   engineStopping = false;
 
+  // En iyi 3 devam yolunu hesapla.
+  stockfishWorker.postMessage("setoption name MultiPV value 3");
+
   stockfishWorker.postMessage(`position fen ${fen}`);
   stockfishWorker.postMessage(`go depth ${ENGINE_DEPTH}`);
 }
 
 function renderAnalysisLine(fen, pv, depth) {
   if (!analysisLinesEl || !analysisStatusEl) return;
-
   if (!pv || !pv.length) return;
 
   const analysisGame = new Chess(fen);
@@ -822,6 +850,9 @@ function renderAnalysisLine(fen, pv, depth) {
     const from = uci.slice(0, 2);
     const to = uci.slice(2, 4);
     const promotion = uci[4];
+
+    const number = analysisGame.moveNumber();
+    const color = analysisGame.turn();
 
     try {
       const move = analysisGame.move({
@@ -833,8 +864,8 @@ function renderAnalysisLine(fen, pv, depth) {
       if (!move) break;
 
       moves.push({
-        number: Math.ceil(moves.length / 2) + 1,
-        color: move.color,
+        number,
+        color,
         san: move.san,
       });
     } catch {
@@ -844,16 +875,17 @@ function renderAnalysisLine(fen, pv, depth) {
 
   let output = "";
 
-  for (let i = 0; i < moves.length; i += 2) {
-    const white = moves[i];
-    const black = moves[i + 1];
-
-    output += `<span class="analysis-move-number">${white.number}.</span> `;
-    output += `<span class="analysis-move">${white.san}</span> `;
-
-    if (black) {
-      output += `<span class="analysis-move">${black.san}</span> `;
+  for (const move of moves) {
+    if (move.color === "w") {
+      output += `<span class="analysis-move-number">${move.number}.</span> `;
+    } else if (
+      moves[0]?.color === "b" ||
+      moves[moves.indexOf(move) - 1]?.color !== "w"
+    ) {
+      output += `<span class="analysis-move-number">${move.number}...</span> `;
     }
+
+    output += `<span class="analysis-move">${move.san}</span> `;
   }
 
   analysisLinesEl.innerHTML = output;
@@ -861,51 +893,74 @@ function renderAnalysisLine(fen, pv, depth) {
 }
 
 function parseEngineInfo(message) {
-  // Derinlik bilgisi
   const depthMatch = message.match(/\bdepth (\d+)/);
   const depth = depthMatch ? Number(depthMatch[1]) : 0;
 
-  // Daha önceki derinlikteki sonuçları kullanma.
   if (depth < 1) return;
-
-  // Alt/üst sınır tahminlerini atla.
   if (/\b(lowerbound|upperbound)\b/.test(message)) return;
 
+  if (!activeEngineFen || activeEngineFen !== requestedEngineFen) return;
+
+  const multipvMatch = message.match(/\bmultipv (\d+)/);
+  const multipv = multipvMatch ? Number(multipvMatch[1]) : 1;
+
+  if (multipv < 1 || multipv > 3) return;
+
+  const pvMatch = message.match(/\bpv (.+)$/);
   const cpMatch = message.match(/\bscore cp (-?\d+)/);
   const mateMatch = message.match(/\bscore mate (-?\d+)/);
 
-  if (!cpMatch && !mateMatch) return;
-
-  let whiteScore;
-  let scoreText;
+  if (!pvMatch || (!cpMatch && !mateMatch)) return;
 
   const sideToMove = activeEngineFen.split(" ")[1];
+  let score;
+  let scoreType;
+  let scoreText;
+  let whiteScore;
 
   if (mateMatch) {
-    let mate = Number(mateMatch[1]);
+    scoreType = "mate";
+    score = Number(mateMatch[1]);
 
-    // Stockfish skoru hamle sırasındaki oyuncuya göre verir.
-    if (sideToMove === "b") mate = -mate;
+    if (sideToMove === "b") score = -score;
 
-    whiteScore = mate > 0 ? 1000 : -1000;
-
-    scoreText = mate > 0 ? `+M${mate}` : `-M${Math.abs(mate)}`;
+    whiteScore = score > 0 ? 1000 : -1000;
+    scoreText = score > 0 ? `+M${score}` : `-M${Math.abs(score)}`;
   } else {
-    let cp = Number(cpMatch[1]);
+    scoreType = "cp";
+    score = Number(cpMatch[1]);
 
-    // Centipawn skorunu beyazın bakış açısına çevir.
-    if (sideToMove === "b") cp = -cp;
+    if (sideToMove === "b") score = -score;
 
-    whiteScore = cp;
-
-    const pawns = cp / 100;
-    scoreText = (pawns > 0 ? "+" : "") + pawns.toFixed(1);
+    whiteScore = score;
+    const pawns = score / 100;
+    scoreText = `${pawns > 0 ? "+" : ""}${pawns.toFixed(1)}`;
   }
 
-  if (requestedEvaluationTarget === "repertoire") {
-    renderRepertoireEvaluation(whiteScore, scoreText);
-  } else {
-    renderEvaluation(whiteScore, scoreText);
+  // Varyasyonu sırasına göre kaydet.
+  analysisLinesByRank.set(multipv, {
+    fen: activeEngineFen,
+    pv: pvMatch[1].trim().split(/\s+/).slice(0, 4),
+    depth,
+    score,
+    scoreType,
+    scoreText,
+  });
+
+  // Üç varyasyonu sıralı şekilde göster.
+  const lines = [1, 2, 3]
+    .map((rank) => analysisLinesByRank.get(rank))
+    .filter(Boolean);
+
+  renderAnalysisLines(lines);
+
+  // Eva bar yalnızca en iyi varyasyondan güncellensin.
+  if (multipv === 1) {
+    if (requestedEvaluationTarget === "repertoire") {
+      renderRepertoireEvaluation(whiteScore, scoreText);
+    } else {
+      renderEvaluation(whiteScore, scoreText);
+    }
   }
 }
 
@@ -1287,27 +1342,26 @@ function syncView() {
 
 function update(animate = true) {
   view = syncView();
+
   const showAnalysis =
     !document.querySelector("#play").hidden && !lesson && !trainMode;
 
-  analysisPanel.hidden = !showAnalysis;
-
-  if (showAnalysis) {
-    analysisFen = view.fen();
-    analyzePosition(analysisFen, 15);
-  } else {
-    stopAnalysis();
+  if (analysisPanel) {
+    analysisPanel.hidden = !showAnalysis;
   }
 
-  analysisPanel.hidden = !showAnalysis;
-
   if (showAnalysis) {
-    analysisFen = view.fen();
-    analyzePosition(analysisFen, 15);
+    requestEngineEvaluation(view.fen(), "play");
   } else {
-    stopAnalysis();
+    if (analysisLinesEl) {
+      analysisLinesEl.textContent = "";
+    }
+
+    if (analysisStatusEl) {
+      analysisStatusEl.textContent = "Analysis is available in normal Play.";
+    }
   }
-  requestEngineEvaluation(view.fen(), "play");
+
   renderBoard(animate);
   renderStrips();
   renderStatus();
@@ -1318,11 +1372,11 @@ function update(animate = true) {
   renderDrillAlternatives();
   renderDrillCompleteOverlay();
   renderLearnPanel();
+
   if (drill) {
     renderRepertoireBoard(false);
   }
 }
-
 /* ---------- Game actions ---------- */
 
 function clearSelection() {
@@ -3146,19 +3200,27 @@ function showPage(pageName) {
   // Stockfish analysis is only available on normal Play.
   const isNormalPlay = pageName === "play" && !lesson && !trainMode;
 
-  analysisPanel.hidden = !isNormalPlay;
+  if (analysisPanel) {
+    analysisPanel.hidden = !isNormalPlay;
+  }
 
-  if (!isNormalPlay) {
-    stopAnalysis();
-  } else {
+  if (isNormalPlay) {
     const currentView = syncView();
-    analysisFen = currentView.fen();
-    analyzePosition(analysisFen, 15);
+    requestEngineEvaluation(currentView.fen(), "play");
+  } else {
+    if (analysisLinesEl) {
+      analysisLinesEl.textContent = "";
+    }
+
+    if (analysisStatusEl) {
+      analysisStatusEl.textContent = "Analysis is available in normal Play.";
+    }
   }
 
   if (pageName === "repertoire") updateRepertoirePage();
   if (pageName === "profile") renderProfileProgress();
 }
+
 navLinks.forEach((link) => {
   link.addEventListener("click", (event) => {
     event.preventDefault();

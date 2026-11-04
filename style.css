@@ -2024,3 +2024,48 @@ css .analysis-rank,
     font-size: 0.85rem;
   }
 }
+/* TAHTA ALTI NAVİGASYON BUTONLARI */
+.mobile-board-nav {
+  display: flex;
+  gap: 8px;
+  width: min(100%, 594px);
+  margin: 12px 0 16px auto; /* Negatif margin kaldırıldı, üst ve altta temiz boşluk bırakıldı */
+}
+
+.mobile-board-nav button {
+  flex: 1;
+  padding: 12px 0;
+  margin-bottom: 2rem;
+  font-size: 1.3rem;
+  font-weight: bold;
+  background: var(--control);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  color: var(--accent-strong);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    background 0.15s,
+    transform 0.1s;
+}
+
+.mobile-board-nav button:hover {
+  background: var(--control-hover);
+  border-color: var(--accent-strong);
+}
+
+.mobile-board-nav button:active {
+  background: var(--control-hover);
+  transform: scale(0.96);
+}
+
+/* TABLET VE MOBİL UYUMU */
+@media (max-width: 1050px) {
+  .mobile-board-nav button {
+    margin-bottom: 0;
+  }
+  .mobile-board-nav {
+    width: 100%;
+    margin: 14px 0 16px 0; /* Mobilde de temiz 14px üst boşluk */
+  }
+}

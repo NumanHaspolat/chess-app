@@ -4493,6 +4493,27 @@ document
 
 const hintButton = document.getElementById("train-hint");
 
+// Mobil hamle navigasyon butonları işlevleri
+document.getElementById("analyse-nav-first")?.addEventListener("click", () => {
+  goToAnalysePly(0);
+});
+
+document.getElementById("analyse-nav-prev")?.addEventListener("click", () => {
+  if (analyseCurrentPly > 0) {
+    goToAnalysePly(analyseCurrentPly - 1);
+  }
+});
+
+document.getElementById("analyse-nav-next")?.addEventListener("click", () => {
+  if (analyseCurrentPly < analyseHistory.length) {
+    goToAnalysePly(analyseCurrentPly + 1);
+  }
+});
+
+document.getElementById("analyse-nav-last")?.addEventListener("click", () => {
+  goToAnalysePly(analyseHistory.length);
+});
+
 hintButton.addEventListener("click", () => {
   if (!trainMode || trainPhase !== "your-move") return;
 

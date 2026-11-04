@@ -525,7 +525,7 @@ function endAnalyseDrag(e, cancelled = false) {
     : analyseSquareFromPoint(e.clientX, e.clientY);
 
   if (target && analyseLegalMoves.some((move) => move.to === target)) {
-    makeAnalyseMove(from, target);
+    makeAnalyseMove(from, target, "q", false);
     return;
   }
 
@@ -1415,7 +1415,7 @@ function updateAnalyseHover(name) {
   setAnalyseHover(name, true);
 }
 
-function makeAnalyseMove(from, to, promotion = "q") {
+function makeAnalyseMove(from, to, promotion = "q", animate = true) {
   const target = analyseGame.get(to);
 
   const move = analyseGame.move({
@@ -1428,6 +1428,12 @@ function makeAnalyseMove(from, to, promotion = "q") {
 
   // Geçmişteki bir konumdan yeni hamle yapılırsa
   // eski devam hamlelerini sil.
+
+  if (analyseCurrentPly < analyseHistory.length) {
+    reviewRunId++; // devam eden incelemeyi iptal et
+    analyseMoveClasses = analyseMoveClasses.slice(0, analyseCurrentPly + 1);
+    document.getElementById("analyse-game-report").hidden = true;
+  }
   analyseHistory = analyseHistory.slice(0, analyseCurrentPly);
   analyseHistory.push(move.san);
 
@@ -1449,7 +1455,7 @@ function makeAnalyseMove(from, to, promotion = "q") {
 
   clearAnalyseSelection();
 
-  renderAnalyseBoard();
+  renderAnalyseBoard(animate);
   renderAnalyseMoves();
 
   const statusEl = document.getElementById("analyse-status");
@@ -1465,8 +1471,21 @@ function makeAnalyseMove(from, to, promotion = "q") {
   return true;
 }
 
-function renderAnalyseBoard() {
+function renderAnalyseBoard(animate = false) {
   if (!analyseBoardEl) return;
+
+  const lastMove =
+    animate === true
+      ? analyseGame.history({ verbose: true }).at(-1)
+      : animate || null;
+  let oldPieceRect = null;
+
+  if (animate && lastMove) {
+    const oldPiece = analyseBoardEl.querySelector(
+      `[data-square="${lastMove.from}"] .piece`,
+    );
+    if (oldPiece) oldPieceRect = oldPiece.getBoundingClientRect();
+  }
 
   analyseBoardEl.innerHTML = "";
 
@@ -1510,6 +1529,25 @@ function renderAnalyseBoard() {
       if (row === 7) addCoord(squareEl, "file", name[0]);
 
       analyseBoardEl.appendChild(squareEl);
+    }
+  }
+
+  if (animate && oldPieceRect && lastMove) {
+    const newPiece = analyseBoardEl.querySelector(
+      `[data-square="${lastMove.to}"] .piece`,
+    );
+
+    if (newPiece) {
+      const newRect = newPiece.getBoundingClientRect();
+
+      newPiece.style.transition = "none";
+      newPiece.style.transform = `translate(${oldPieceRect.left - newRect.left}px, ${oldPieceRect.top - newRect.top}px)`;
+      newPiece.offsetHeight;
+
+      requestAnimationFrame(() => {
+        newPiece.style.transition = "transform 180ms ease";
+        newPiece.style.transform = "translate(0, 0)";
+      });
     }
   }
 }
@@ -1578,54 +1616,74 @@ const analyseMovesEl = document.getElementById("analyse-moves");
 function renderAnalyseMoves() {
   if (!analyseMovesEl) return;
 
-  const sanMoves = analyseHistory;
   analyseMovesEl.innerHTML = "";
 
-  for (let i = 0; i < sanMoves.length; i += 2) {
+  for (let i = 0; i < analyseHistory.length; i += 2) {
     const li = document.createElement("li");
 
-    const whiteMove = createMoveEl(sanMoves[i], i + 1, analyseCurrentPly);
+    for (const ply of [i + 1, i + 2]) {
+      const san = analyseHistory[ply - 1];
+      if (!san) break;
 
-    whiteMove.addEventListener("click", () => {
-      goToAnalysePly(i + 1);
-    });
+      const el = createMoveEl(san, ply, analyseCurrentPly);
 
-    li.appendChild(whiteMove);
+      // İnceleme bittiyse hamlenin yanına renkli nokta ekle
+      if (analyseMoveClasses[ply]) {
+        el.dataset.cls = analyseMoveClasses[ply];
+      }
 
-    if (sanMoves[i + 1]) {
-      const blackMove = createMoveEl(sanMoves[i + 1], i + 2, analyseCurrentPly);
-
-      blackMove.addEventListener("click", () => {
-        goToAnalysePly(i + 2);
-      });
-
-      li.appendChild(blackMove);
+      el.addEventListener("click", () => goToAnalysePly(ply));
+      li.appendChild(el);
     }
 
     analyseMovesEl.appendChild(li);
   }
 
-  const activeEl = analyseMovesEl.querySelector(".move.active");
-
-  if (activeEl) {
-    activeEl.scrollIntoView({ block: "nearest" });
-  }
+  analyseMovesEl
+    .querySelector(".move.active")
+    ?.scrollIntoView({ block: "nearest" });
 }
 
-function goToAnalysePly(ply) {
+function playSoundForMove(move) {
+  if (move.san.includes("#")) playSound("gameover");
+  else if (move.san.includes("+")) playSound("check");
+  else if (move.flags.includes("k") || move.flags.includes("q"))
+    playSound("castle");
+  else if (move.flags.includes("p")) playSound("promote");
+  else if (move.captured) playSound("capture");
+  else playSound("move");
+}
+
+function goToAnalysePly(ply, animate = true) {
   if (ply < 0 || ply > analyseHistory.length) return;
+
+  const previousPly = analyseCurrentPly;
 
   analyseGame.reset();
 
+  let lastPlayed = null;
   for (let i = 0; i < ply; i++) {
-    analyseGame.move(analyseHistory[i]);
+    lastPlayed = analyseGame.move(analyseHistory[i]);
+  }
+
+  // Sadece tek adımlık ileri/geri gitmede animasyon + ses
+  let animation = false;
+
+  if (animate && ply === previousPly + 1 && lastPlayed) {
+    animation = { from: lastPlayed.from, to: lastPlayed.to };
+    playSoundForMove(lastPlayed);
+  } else if (animate && ply === previousPly - 1) {
+    const undone = analyseGame.move(analyseHistory[ply]);
+    analyseGame.undo();
+
+    animation = { from: undone.to, to: undone.from }; // taş geri kayar
+    playSoundForMove(undone);
   }
 
   analyseCurrentPly = ply;
-
   clearAnalyseSelection();
 
-  renderAnalyseBoard();
+  renderAnalyseBoard(animation);
   renderAnalyseMoves();
 
   const statusEl = document.getElementById("analyse-status");
@@ -1679,10 +1737,459 @@ window.addEventListener("keydown", (e) => {
 });
 
 document.getElementById("analyse-btn-reset")?.addEventListener("click", () => {
-  analyseSelectedSquare = null;
-  analyseLegalMoves = [];
+  reviewRunId++; // devam eden incelemeyi iptal et
 
-  goToAnalysePly(0);
+  analyseHistory = [];
+  analyseMoveClasses = [];
+  analyseCurrentPly = 0;
+  analyseGame.reset();
+  clearAnalyseSelection();
+
+  document.getElementById("analyse-game-report").hidden = true;
+  analyseGamesStatusEl.textContent = "";
+
+  goToAnalysePly(0, false);
+});
+
+const REVIEW_DEPTH = 12;
+const PIECE_VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
+
+let analyseMoveClasses = []; // index = ply (1'den başlar)
+let reviewRunId = 0;
+let reviewEnginePromise = null;
+let reviewWorker = null;
+
+/* ---------- Review motoru (canlı analizden ayrı worker) ---------- */
+
+function initReviewEngine() {
+  if (reviewEnginePromise) return reviewEnginePromise;
+
+  reviewEnginePromise = new Promise((resolve, reject) => {
+    const worker = new Worker("./assets/stockfish/stockfish-19-lite-single.js");
+    reviewWorker = worker;
+
+    worker.onerror = (err) => reject(err);
+
+    const onMessage = (event) => {
+      const msg = String(event.data).trim();
+
+      if (msg === "uciok") {
+        worker.postMessage("setoption name MultiPV value 1");
+        worker.postMessage("isready");
+      } else if (msg === "readyok") {
+        worker.removeEventListener("message", onMessage);
+        resolve(worker);
+      }
+    };
+
+    worker.addEventListener("message", onMessage);
+    worker.postMessage("uci");
+  });
+
+  return reviewEnginePromise;
+}
+
+let evalQueue = Promise.resolve();
+
+function evaluateFen(fen, depth = REVIEW_DEPTH) {
+  const job = evalQueue.then(() => runEvaluation(fen, depth));
+  evalQueue = job.catch(() => {});
+  return job;
+}
+
+// Döndürür: { cp (BEYAZ gözünden), best (uci | null) }
+async function runEvaluation(fen, depth = REVIEW_DEPTH) {
+  const worker = await initReviewEngine();
+  const whiteToMove = fen.split(" ")[1] === "w";
+
+  return new Promise((resolve) => {
+    let cpWhite = 0;
+
+    const onMessage = (event) => {
+      const msg = String(event.data).trim();
+
+      if (msg.startsWith("info ") && !/\b(lowerbound|upperbound)\b/.test(msg)) {
+        const cp = msg.match(/\bscore cp (-?\d+)/);
+        const mate = msg.match(/\bscore mate (-?\d+)/);
+        let value = null;
+
+        if (cp) value = Number(cp[1]);
+        else if (mate) value = Number(mate[1]) > 0 ? 3000 : -3000;
+
+        if (value !== null) cpWhite = whiteToMove ? value : -value;
+      } else if (msg.startsWith("bestmove")) {
+        worker.removeEventListener("message", onMessage);
+        const best = msg.split(" ")[1];
+        resolve({ cp: cpWhite, best: best && best !== "(none)" ? best : null });
+      }
+    };
+
+    worker.addEventListener("message", onMessage);
+    worker.postMessage(`position fen ${fen}`);
+    worker.postMessage(`go depth ${depth}`);
+  });
+}
+
+/* ---------- Matematik ---------- */
+
+function winPercent(cp) {
+  const c = Math.max(-1500, Math.min(1500, cp));
+  return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * c)) - 1);
+}
+
+function moveAccuracy(winLoss) {
+  const acc = 103.1668 * Math.exp(-0.04354 * winLoss) - 3.1669;
+  return Math.max(0, Math.min(100, acc));
+}
+
+// Taş feda edildi mi? (kayıp >= 2 puan, rakip alırsa)
+function isSacrifice(fenBefore, move) {
+  if (!["n", "b", "r", "q"].includes(move.piece)) return false;
+
+  const chess = new Chess(fenBefore);
+  chess.move(move.san);
+
+  const gained = move.captured ? PIECE_VAL[move.captured] : 0;
+  const lost = PIECE_VAL[move.piece];
+
+  const captures = chess
+    .moves({ verbose: true })
+    .filter((m) => m.to === move.to && m.captured);
+
+  if (!captures.length) return false;
+
+  let worst = 0;
+
+  for (const reply of captures) {
+    const after = new Chess(chess.fen());
+    after.move(reply.san);
+
+    const recapture = after
+      .moves({ verbose: true })
+      .some((m) => m.to === move.to && m.captured);
+
+    const net = gained - lost + (recapture ? PIECE_VAL[reply.piece] : 0);
+    worst = Math.min(worst, net);
+  }
+
+  return worst <= -2;
+}
+
+function classifyMove({ uci, best, loss, sacrifice, winBefore, winAfter }) {
+  if (loss < 2 && sacrifice && winAfter >= 45 && winBefore < 90) {
+    return "brilliant";
+  }
+  if (uci === best || loss < 0.3) return "best";
+  if (loss < 2) return "excellent";
+  if (loss < 5) return "good";
+  if (loss < 10) return "inaccuracy";
+  if (loss < 20) return "mistake";
+  return "blunder";
+}
+
+/* ---------- Oyunu incele ---------- */
+
+async function reviewGame(sanMoves, runId) {
+  const chess = new Chess();
+  const moves = [];
+
+  for (const san of sanMoves) {
+    const fenBefore = chess.fen();
+    const m = chess.move(san);
+
+    moves.push({
+      san: m.san,
+      color: m.color,
+      uci: m.from + m.to + (m.promotion ?? ""),
+      fenBefore,
+      fenAfter: chess.fen(),
+      sacrifice: isSacrifice(fenBefore, m),
+    });
+  }
+
+  const total = moves.length;
+  const evals = [];
+
+  for (let i = 0; i <= total; i++) {
+    if (runId !== reviewRunId) return;
+
+    analyseGamesStatusEl.textContent = `Reviewing game… ${i}/${total}`;
+
+    const fen = i === 0 ? moves[0].fenBefore : moves[i - 1].fenAfter;
+    const pos = new Chess(fen);
+
+    if (pos.isCheckmate()) {
+      evals.push({ cp: pos.turn() === "w" ? -3000 : 3000, best: null });
+    } else if (pos.isDraw()) {
+      evals.push({ cp: 0, best: null });
+    } else {
+      evals.push(await evaluateFen(fen));
+    }
+  }
+
+  if (runId !== reviewRunId) return;
+
+  const summary = {};
+  for (const color of ["w", "b"]) {
+    summary[color] = {
+      brilliant: 0,
+      best: 0,
+      excellent: 0,
+      good: 0,
+      inaccuracy: 0,
+      mistake: 0,
+      blunder: 0,
+      accSum: 0,
+      count: 0,
+    };
+  }
+
+  analyseMoveClasses = [];
+
+  moves.forEach((mv, i) => {
+    const sign = mv.color === "w" ? 1 : -1;
+    const winBefore = winPercent(sign * evals[i].cp);
+    const winAfter = winPercent(sign * evals[i + 1].cp);
+    const loss = Math.max(0, winBefore - winAfter);
+
+    const cls = classifyMove({
+      uci: mv.uci,
+      best: evals[i].best,
+      loss,
+      sacrifice: mv.sacrifice,
+      winBefore,
+      winAfter,
+    });
+
+    analyseMoveClasses[i + 1] = cls;
+
+    const s = summary[mv.color];
+    s[cls]++;
+    s.accSum += moveAccuracy(loss);
+    s.count++;
+  });
+
+  for (const color of ["w", "b"]) {
+    const s = summary[color];
+    s.accuracy = s.count ? s.accSum / s.count : null;
+  }
+
+  analyseGamesStatusEl.textContent = "Review complete.";
+  renderAnalyseReport({ totalMoves: total, summary });
+  renderAnalyseMoves();
+}
+
+function setText(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}
+
+function renderAnalyseReport({ totalMoves, summary }) {
+  const panel = document.getElementById("analyse-game-report");
+  if (!panel) return;
+
+  panel.hidden = false;
+  setText("analyse-total-moves", totalMoves);
+
+  const idKey = {
+    brilliant: "brilliant",
+    best: "best",
+    excellent: "excellent",
+    good: "good",
+    inaccuracy: "inaccuracies",
+    mistake: "mistakes",
+    blunder: "blunders",
+  };
+
+  for (const [color, name] of [
+    ["w", "white"],
+    ["b", "black"],
+  ]) {
+    const s = summary[color];
+
+    setText(
+      `analyse-${name}-accuracy`,
+      s.accuracy === null ? "--%" : `${s.accuracy.toFixed(1)}%`,
+    );
+
+    for (const [cls, key] of Object.entries(idKey)) {
+      setText(`analyse-${name}-${key}`, s[cls]);
+    }
+  }
+}
+
+/* ---------- Oyun yükleme ---------- */
+
+function loadAnalyseGame(pgn, orientation = "w") {
+  const chess = new Chess();
+
+  try {
+    chess.loadPgn(pgn);
+  } catch {
+    analyseGamesStatusEl.textContent = `Review failed: ${error.message}`;
+    return;
+  }
+
+  const sanMoves = chess.history();
+
+  if (!sanMoves.length) {
+    analyseGamesStatusEl.textContent = "This game has no moves.";
+    return;
+  }
+
+  const runId = ++reviewRunId;
+
+  analyseHistory = sanMoves;
+  analyseMoveClasses = [];
+  analyseOrientation = orientation;
+  clearAnalyseSelection();
+
+  document.getElementById("analyse-game-report").hidden = true;
+
+  goToAnalysePly(0, false);
+
+  reviewGame(sanMoves, runId).catch((error) => {
+    console.error("Review failed:", error);
+    analyseGamesStatusEl.textContent = "Review failed.";
+  });
+}
+
+function renderAnalyseGamesList(items) {
+  analyseGames = items;
+  analyseGamesListEl.innerHTML = "";
+
+  items.forEach((item) => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "analyse-game-item";
+
+    const text = document.createElement("div");
+    text.className = "analyse-game-text";
+
+    const title = document.createElement("strong");
+    title.textContent = item.title;
+
+    const sub = document.createElement("span");
+    sub.textContent = item.subtitle;
+
+    text.append(title, sub);
+    btn.append(text);
+
+    if (item.result) {
+      const badge = document.createElement("span");
+      badge.className = `analyse-game-result ${item.result.toLowerCase()}`;
+      badge.textContent = item.result;
+      btn.append(badge);
+    }
+
+    btn.addEventListener("click", () =>
+      loadAnalyseGame(item.pgn, item.orientation),
+    );
+
+    analyseGamesListEl.appendChild(btn);
+  });
+}
+
+/* ---------- Chess.com ---------- */
+
+async function fetchChesscomGames(username) {
+  const user = username.trim().toLowerCase();
+  const base = `https://api.chess.com/pub/player/${encodeURIComponent(user)}`;
+
+  const archivesRes = await fetch(`${base}/games/archives`);
+
+  if (!archivesRes.ok) {
+    throw new Error(
+      archivesRes.status === 404
+        ? "User not found."
+        : "Chess.com request failed.",
+    );
+  }
+
+  const { archives } = await archivesRes.json();
+  const games = [];
+
+  for (const url of [...archives].reverse().slice(0, 3)) {
+    const res = await fetch(url);
+    if (!res.ok) continue;
+
+    const data = await res.json();
+    games.push(...[...data.games].reverse());
+
+    if (games.length >= 30) break;
+  }
+
+  return games
+    .filter((g) => g.pgn && g.rules === "chess")
+    .slice(0, 30)
+    .map((g) => {
+      const isWhite = g.white.username.toLowerCase() === user;
+      const me = isWhite ? g.white : g.black;
+      const opp = isWhite ? g.black : g.white;
+
+      const result =
+        me.result === "win" ? "Win" : opp.result === "win" ? "Loss" : "Draw";
+
+      return {
+        title: `${g.white.username} vs ${g.black.username}`,
+        subtitle: `${g.time_class} · ${new Date(g.end_time * 1000).toLocaleDateString()}`,
+        result,
+        pgn: g.pgn,
+        orientation: isWhite ? "w" : "b",
+      };
+    });
+}
+
+document
+  .getElementById("fetch-chesscom-games")
+  ?.addEventListener("click", async () => {
+    const username = document.getElementById("chesscom-username").value;
+    if (!username.trim()) return;
+
+    analyseGamesStatusEl.textContent = "Loading games…";
+    analyseGamesListEl.innerHTML = "";
+
+    try {
+      const items = await fetchChesscomGames(username);
+
+      analyseGamesStatusEl.textContent = items.length
+        ? `${items.length} games found. Click one to analyse.`
+        : "No games found.";
+
+      renderAnalyseGamesList(items);
+    } catch (error) {
+      analyseGamesStatusEl.textContent = error.message;
+    }
+  });
+
+/* ---------- PGN dosyası ---------- */
+
+analysePgnFileEl?.addEventListener("change", async () => {
+  const file = analysePgnFileEl.files[0];
+  if (!file) return;
+
+  const text = await file.text();
+
+  const items = splitGames(text).map((g, index) => {
+    const h = g.headers;
+    const headerText = Object.entries(h)
+      .map(([k, v]) => `[${k} "${v.replace(/(["\\])/g, "\\$1")}"]`)
+      .join("\n");
+
+    return {
+      title: `${h.White ?? "?"} vs ${h.Black ?? "?"}`,
+      subtitle: `${h.Result ?? "*"} · ${h.Date ?? `Game ${index + 1}`}`,
+      pgn: `${headerText}\n\n${g.movetext}`,
+      orientation: "w",
+    };
+  });
+
+  analyseGamesStatusEl.textContent = items.length
+    ? `${items.length} games found. Click one to analyse.`
+    : "No games found in this file.";
+
+  renderAnalyseGamesList(items);
+  analysePgnFileEl.value = "";
 });
 
 /* ---------- Material ---------- */

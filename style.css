@@ -1507,14 +1507,24 @@ button:disabled {
 }
 
 #analyse .analyse-games-section {
-  margin-top: -20px;
+  width: calc(min(100%, 594px) - 34px);
+  margin: -26px 0 0 auto;
   min-width: 0;
-  width: 100%;
   padding: 18px;
   background: var(--panel);
   border: 1px solid var(--panel-border);
   border-radius: 10px;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+
+#analyse-strip-bottom {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  #analyse .analyse-games-section {
+    width: min(calc(100vw - 72px), 520px);
+  }
 }
 
 #analyse .analyse-games-section h2 {
@@ -1617,5 +1627,96 @@ button:disabled {
 }
 
 #analyse-board .analyse-legal-capture {
-  box-shadow: inset 0 0 0 5px rgba(30, 30, 30, 0.3);
+  position: relative;
+}
+
+#analyse-board .analyse-legal-capture::after {
+  content: "";
+  position: absolute;
+  width: 90%;
+  height: 90%;
+  border-radius: 50%;
+  border: 6px solid var(--legal-dot);
+  pointer-events: none;
+}
+
+.analyse-game-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+}
+
+.analyse-game-text {
+  min-width: 0;
+}
+
+.analyse-game-text strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analyse-game-text span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.analyse-game-result {
+  flex: 0 0 auto;
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  border: 1px solid;
+  border-radius: 20px;
+}
+
+.analyse-game-result.win {
+  color: #7ee08a;
+  background: rgba(126, 224, 138, 0.12);
+  border-color: rgba(126, 224, 138, 0.5);
+}
+
+.analyse-game-result.loss {
+  color: #ff8f8f;
+  background: rgba(255, 143, 143, 0.12);
+  border-color: rgba(255, 143, 143, 0.5);
+}
+
+.analyse-game-result.draw {
+  color: var(--text-muted);
+  background: rgba(127, 169, 174, 0.12);
+  border-color: rgba(127, 169, 174, 0.5);
+}
+
+.move[data-cls]::after {
+  content: "●";
+  margin-left: 4px;
+  font-size: 0.6em;
+  color: var(--cls);
+}
+
+.move[data-cls="brilliant"] {
+  --cls: #26c9c3;
+}
+.move[data-cls="best"] {
+  --cls: #7fd35a;
+}
+.move[data-cls="excellent"] {
+  --cls: #96bc4b;
+}
+.move[data-cls="good"] {
+  --cls: #a8b0a0;
+}
+.move[data-cls="inaccuracy"] {
+  --cls: #f7c631;
+}
+.move[data-cls="mistake"] {
+  --cls: #e68f2d;
+}
+.move[data-cls="blunder"] {
+  --cls: #ca3431;
 }

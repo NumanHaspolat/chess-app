@@ -2069,3 +2069,9 @@ css .analysis-rank,
     margin: 14px 0 16px 0; /* Mobilde de temiz 14px üst boşluk */
   }
 }
+
+#analyse-moves {
+  max-height: 180px; /* Mobilde dikey alanı sınırlar */
+  overflow-y: auto;
+  overflow-x: hidden; /* Sağ tarafa kaymayı kesinlikle engeller */
+}

@@ -1673,9 +1673,12 @@ function renderAnalyseMoves() {
     analyseMovesEl.appendChild(li);
   }
 
-  analyseMovesEl
-    .querySelector(".move.active")
-    ?.scrollIntoView({ block: "nearest" });
+  const activeEl = analyseMovesEl.querySelector(".move.active");
+  if (activeEl) {
+    // Tüm sayfayı kaydırmak yerine sadece .moves listesinin içinde kaydırır
+    analyseMovesEl.scrollTop =
+      activeEl.offsetTop - analyseMovesEl.offsetTop - 10;
+  }
 }
 
 function playSoundForMove(move) {

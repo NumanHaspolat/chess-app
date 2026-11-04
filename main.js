@@ -1639,7 +1639,10 @@ function renderMoves() {
   }
 
   const activeEl = movesEl.querySelector(".move.active");
-  if (activeEl) activeEl.scrollIntoView({ block: "nearest" });
+  if (activeEl) {
+    // Bütün sayfayı kaydırmak yerine sadece .moves kutusunun içini kaydırır:
+    movesEl.scrollTop = activeEl.offsetTop - movesEl.offsetTop - 10;
+  }
 }
 
 const analyseMovesEl = document.getElementById("analyse-moves");

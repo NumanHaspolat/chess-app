@@ -32,6 +32,7 @@ body {
   color: var(--text);
   font-family: var(--font-pixel);
   font-size: 16px;
+  overflow-x: hidden; /* Yatay taşmaları kesin olarak engeller */
   background:
     radial-gradient(1200px 600px at 30% -10%, var(--bg-glow), transparent 70%),
     var(--bg);
@@ -379,19 +380,29 @@ button:disabled {
   flex: 1;
 }
 
+/* Hamleler kapsayıcısı (Mobilde sabit yükseklik) */
 .moves {
   margin: 0;
   padding: 0;
   list-style: none;
   counter-reset: ply;
-  max-height: 65vh;
-  overflow-y: auto;
+  height: 180px; /* Sabit yükseklik verildi */
+  max-height: 180px;
+  overflow-y: auto; /* Sadece kendi içinde dikey scroll yapar */
+  overflow-x: hidden; /* Sağ/sol kaymayı kesin kilitler */
+  width: 100%;
   font-family: var(--font-pixel);
   font-size: 1.05rem;
   line-height: 1.7;
   color: var(--text-muted);
-  scrollbar-color: var(--control-hover) transparent;
-  scrollbar-width: thin;
+}
+
+/* Hamle kutusu dışarı taşmasın */
+.moves-section,
+.repertoire-moves-section {
+  min-width: 0;
+  width: 100%;
+  overflow: hidden; /* Dışarıya hiçbir şey taşırmaz */
 }
 
 .moves li {
@@ -1821,4 +1832,195 @@ css .analysis-rank,
 .move-badge svg {
   display: block;
   margin-top: -1px;
+}
+
+/* ==========================================
+   RESPONSIVE & MOBILE OPTIMIZATIONS
+   ========================================== */
+
+/* 1. TABLET & DÜŞÜK ÇÖZÜNÜRLÜKLÜ EKRANLAR (1050px ve altı) */
+@media (max-width: 1050px) {
+  .app,
+  #analyse.app,
+  .repertoire-layout {
+    grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+    width: min(95%, 980px);
+    gap: 16px;
+  }
+
+  .learn-section,
+  .repertoire-management-section,
+  .analysis-panel,
+  #analyse-analysis-panel {
+    grid-column: span 1;
+  }
+
+  .board-wrap,
+  #analyse .board-wrap,
+  .repertoire-board-section .board-wrap {
+    transform: translateY(0);
+    margin: 0 auto;
+  }
+
+  #analyse .analyse-games-section {
+    width: 100%;
+    margin: 16px 0 0 0;
+  }
+}
+
+/* 2. MOBİL CİHAZLAR (768px ve altı) */
+@media (max-width: 768px) {
+  /* NAVBAR MOBILE */
+  .navbar {
+    width: calc(100% - 16px);
+    margin: 8px auto;
+    padding: 8px 12px;
+    flex-direction: row;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .nav-brand {
+    font-size: 1.4rem;
+  }
+
+  .nav-links {
+    width: 100%;
+    display: flex;
+    overflow-x: auto;
+    justify-content: flex-start;
+    padding-bottom: 4px;
+    gap: 6px;
+    scrollbar-width: none; /* Firefox */
+  }
+
+  .nav-links::-webkit-scrollbar {
+    display: none; /* Chrome/Safari */
+  }
+
+  .nav-link {
+    padding: 6px 12px;
+    font-size: 0.85rem;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  /* LAYOUT - MOBİLDE SIRA: BOARD -> MOVES -> PANELS */
+  .app,
+  #analyse.app,
+  .repertoire-layout {
+    width: calc(100% - 16px);
+    max-width: 100%;
+    margin: 12px auto 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-x: hidden;
+  }
+
+  /* BOARD MOBILE BINDING */
+  .board-section,
+  .repertoire-board-section {
+    width: 100%;
+    order: 1; /* İlk sırada tahta */
+  }
+
+  .board-wrap,
+  #analyse .board-wrap,
+  .repertoire-board-section .board-wrap {
+    --size: min(calc(100vw - 48px), 480px);
+    width: 100%;
+    margin: 0 auto;
+    transform: translateY(0);
+  }
+
+  .board-row {
+    gap: 6px;
+  }
+
+  .board,
+  #rep-board,
+  #analyse-board {
+    width: var(--size);
+    height: var(--size);
+  }
+
+  .evaluation {
+    width: 18px;
+    flex: 0 0 18px;
+  }
+
+  .evaluation-bar {
+    width: 16px;
+  }
+
+  .evaluation-score {
+    font-size: 9px;
+    width: 24px;
+  }
+
+  /* MOVES SECTION MOBILE */
+  .moves-section,
+  .repertoire-moves-section {
+    width: 100%;
+    order: 2; /* Tahtadan hemen sonra hamleler */
+    padding: 14px;
+  }
+
+  .moves {
+    max-height: 180px; /* Mobilde hamleler listesi çok uzamasın */
+  }
+
+  /* PANELS MOBILE */
+  .analysis-panel,
+  .learn-section,
+  .repertoire-management-section,
+  .analyse-games-section,
+  #analyse-analysis-panel {
+    width: 100%;
+    order: 3; /* En alt bölüme detaylar */
+  }
+
+  #analyse .analyse-games-section {
+    width: 100%;
+    margin: 0;
+  }
+
+  /* OPENINGS & PROFILE PAGES */
+  .page-heading,
+  .openings-list,
+  .openings-filters {
+    width: calc(100% - 16px);
+  }
+
+  .openings-list {
+    grid-template-columns: 1fr;
+  }
+
+  #profile .page-heading,
+  #profile .profile-overview,
+  #profile .profile-progress-section {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .profile-overview {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+
+/* 3. KÜÇÜK MOBİL EKRANLAR (400px ve altı) */
+@media (max-width: 400px) {
+  .board-wrap,
+  #analyse .board-wrap,
+  .repertoire-board-section .board-wrap {
+    --size: calc(100vw - 40px);
+  }
+
+  .buttons button {
+    padding: 8px 6px;
+    font-size: 0.85rem;
+  }
 }

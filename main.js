@@ -1504,6 +1504,10 @@ function renderAnalyseBoard(animate = false) {
 
   analyseBoardEl.innerHTML = "";
 
+  const playedMove = analyseGame.history({ verbose: true }).at(-1);
+  const currentClass = analyseMoveClasses[analyseCurrentPly];
+  const badgeSquare = currentClass && playedMove ? playedMove.to : null;
+
   for (let row = 0; row < 8; row++) {
     for (let col = 0; col < 8; col++) {
       const name =
@@ -1539,6 +1543,18 @@ function renderAnalyseBoard(animate = false) {
       if (piece) {
         squareEl.appendChild(createPieceEl(piece.color, piece.type));
       }
+
+      // ↓↓↓ YENİ: rozet buraya ↓↓↓
+      if (name === badgeSquare) {
+        const badge = document.createElement("span");
+        badge.className = "move-badge";
+        badge.dataset.cls = currentClass;
+        badge.innerHTML = BADGE_SYMBOL[currentClass];
+        if (BADGE_SYMBOL[currentClass].length === 2)
+          badge.classList.add("double");
+        squareEl.appendChild(badge);
+      }
+      // ↑↑↑ YENİ ↑↑↑
 
       if (col === 0) addCoord(squareEl, "rank", name[1]);
       if (row === 7) addCoord(squareEl, "file", name[0]);
@@ -1770,7 +1786,15 @@ document.getElementById("analyse-btn-reset")?.addEventListener("click", () => {
 
 const REVIEW_DEPTH = 12;
 const PIECE_VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
-
+const BADGE_SYMBOL = {
+  brilliant: "!!",
+  best: '<svg viewBox="2 2 20 19" width="13" height="13" fill="currentColor"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>',
+  excellent: "!",
+  good: '<svg viewBox="4 6 16 12" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 12.5l4 4L18.5 7.5"/></svg>',
+  inaccuracy: "?!",
+  mistake: "?",
+  blunder: "??",
+};
 let analyseMoveClasses = []; // index = ply (1'den başlar)
 let reviewRunId = 0;
 let reviewEnginePromise = null;
@@ -1811,7 +1835,7 @@ function initReviewEngine() {
       const msg = String(event.data).trim();
 
       if (msg === "uciok") {
-        worker.postMessage("setoption name MultiPV value 1");
+        worker.postMessage("setoption name MultiPV value 2");
         worker.postMessage("isready");
       } else if (msg === "readyok") {
         worker.removeEventListener("message", onMessage);
@@ -1840,12 +1864,13 @@ async function runEvaluation(fen, depth = REVIEW_DEPTH) {
   const whiteToMove = fen.split(" ")[1] === "w";
 
   return new Promise((resolve) => {
-    let cpWhite = 0;
+    const scores = {}; // multipv sırası -> cp (beyaz gözünden)
 
     const onMessage = (event) => {
       const msg = String(event.data).trim();
 
       if (msg.startsWith("info ") && !/\b(lowerbound|upperbound)\b/.test(msg)) {
+        const rank = Number(msg.match(/\bmultipv (\d+)/)?.[1] ?? 1);
         const cp = msg.match(/\bscore cp (-?\d+)/);
         const mate = msg.match(/\bscore mate (-?\d+)/);
         let value = null;
@@ -1853,11 +1878,16 @@ async function runEvaluation(fen, depth = REVIEW_DEPTH) {
         if (cp) value = Number(cp[1]);
         else if (mate) value = Number(mate[1]) > 0 ? 3000 : -3000;
 
-        if (value !== null) cpWhite = whiteToMove ? value : -value;
+        if (value !== null) scores[rank] = whiteToMove ? value : -value;
       } else if (msg.startsWith("bestmove")) {
         worker.removeEventListener("message", onMessage);
         const best = msg.split(" ")[1];
-        resolve({ cp: cpWhite, best: best && best !== "(none)" ? best : null });
+
+        resolve({
+          cp: scores[1] ?? 0,
+          second: scores[2] ?? null,
+          best: best && best !== "(none)" ? best : null,
+        });
       }
     };
 
@@ -1879,9 +1909,42 @@ function moveAccuracy(winLoss) {
   return Math.max(0, Math.min(100, acc));
 }
 
+// Eval'in oynak olduğu (kritik) anlara daha çok ağırlık verir
+function volatilityWeights(winSeries) {
+  const total = winSeries.length - 1;
+  const size = Math.max(2, Math.min(8, Math.round(total / 10)));
+  const weights = [];
+
+  for (let i = 0; i < total; i++) {
+    let win = winSeries.slice(i, i + size);
+    if (win.length < 2) win = winSeries.slice(-size);
+
+    const mean = win.reduce((a, b) => a + b, 0) / win.length;
+    const sd = Math.sqrt(
+      win.reduce((a, b) => a + (b - mean) ** 2, 0) / win.length,
+    );
+
+    weights.push(Math.max(0.5, Math.min(12, sd)));
+  }
+
+  return weights;
+}
+
+function combineAccuracy(accs, weights) {
+  if (!accs.length) return null;
+
+  const weightSum = weights.reduce((a, b) => a + b, 0);
+  const weighted =
+    accs.reduce((sum, a, i) => sum + a * weights[i], 0) / weightSum;
+  const harmonic =
+    accs.length / accs.reduce((sum, a) => sum + 1 / Math.max(a, 1), 0);
+
+  return (weighted + harmonic) / 2;
+}
+
 // Taş feda edildi mi? (kayıp >= 2 puan, rakip alırsa)
-function isSacrifice(fenBefore, move) {
-  if (!["n", "b", "r", "q"].includes(move.piece)) return false;
+function sacrificeValue(fenBefore, move) {
+  if (move.piece === "k") return 0;
 
   const chess = new Chess(fenBefore);
   chess.move(move.san);
@@ -1893,7 +1956,7 @@ function isSacrifice(fenBefore, move) {
     .moves({ verbose: true })
     .filter((m) => m.to === move.to && m.captured);
 
-  if (!captures.length) return false;
+  if (!captures.length) return 0;
 
   let worst = 0;
 
@@ -1909,13 +1972,43 @@ function isSacrifice(fenBefore, move) {
     worst = Math.min(worst, net);
   }
 
-  return worst <= -2;
+  return worst;
 }
 
-function classifyMove({ uci, best, loss, sacrifice, winBefore, winAfter }) {
-  if (loss < 2 && sacrifice && winAfter >= 45 && winBefore < 90) {
+function classifyMove({
+  uci,
+  best,
+  loss,
+  sacrifice,
+  piece,
+  winBefore,
+  winAfter,
+  gap,
+  isRecapture,
+}) {
+  const nearBest = loss < 2;
+
+  // Brilliant: iyi bir taş fedası
+  if (
+    nearBest &&
+    sacrifice <= -2 &&
+    "nbrq".includes(piece) &&
+    winAfter >= 45 &&
+    winBefore < 90
+  ) {
     return "brilliant";
   }
+
+  // Great: kritik hamle (peon/küçük feda ya da tek iyi hamle)
+  if (
+    nearBest &&
+    winAfter >= 40 &&
+    winBefore < 90 &&
+    (sacrifice <= -1 || (gap >= 25 && !isRecapture))
+  ) {
+    return "great";
+  }
+
   if (uci === best || loss < 0.3) return "best";
   if (loss < 2) return "excellent";
   if (loss < 5) return "good";
@@ -1923,7 +2016,6 @@ function classifyMove({ uci, best, loss, sacrifice, winBefore, winAfter }) {
   if (loss < 20) return "mistake";
   return "blunder";
 }
-
 /* ---------- Oyunu incele ---------- */
 
 async function reviewGame(sanMoves, runId) {
@@ -1937,10 +2029,13 @@ async function reviewGame(sanMoves, runId) {
     moves.push({
       san: m.san,
       color: m.color,
+      piece: m.piece,
+      captured: m.captured,
+      to: m.to,
       uci: m.from + m.to + (m.promotion ?? ""),
       fenBefore,
       fenAfter: chess.fen(),
-      sacrifice: isSacrifice(fenBefore, m),
+      sacrifice: sacrificeValue(fenBefore, m),
     });
   }
 
@@ -1970,45 +2065,63 @@ async function reviewGame(sanMoves, runId) {
   for (const color of ["w", "b"]) {
     summary[color] = {
       brilliant: 0,
-      best: 0,
       excellent: 0,
+      best: 0,
       good: 0,
       inaccuracy: 0,
       mistake: 0,
       blunder: 0,
-      accSum: 0,
-      count: 0,
+      accs: [],
+      weights: [],
     };
   }
 
   const classes = [];
 
+  const weights = volatilityWeights(evals.map((e) => winPercent(e.cp)));
+
+  // Açılış teorisi: baştan itibaren kitapta olan hamleler
+  let bookPlies = 0;
+  if (openingBook) {
+    while (bookPlies < total && openingBook.lookup(moves[bookPlies].fenAfter)) {
+      bookPlies++;
+    }
+  }
   moves.forEach((mv, i) => {
+    if (i < bookPlies) return;
     const sign = mv.color === "w" ? 1 : -1;
     const winBefore = winPercent(sign * evals[i].cp);
     const winAfter = winPercent(sign * evals[i + 1].cp);
     const loss = Math.max(0, winBefore - winAfter);
+
+    const second = evals[i].second;
+    const gap = second == null ? 0 : winBefore - winPercent(sign * second);
+    const isRecapture =
+      i > 0 && moves[i - 1].captured && moves[i - 1].to === mv.to;
 
     const cls = classifyMove({
       uci: mv.uci,
       best: evals[i].best,
       loss,
       sacrifice: mv.sacrifice,
+      piece: mv.piece,
       winBefore,
       winAfter,
+      gap,
+      isRecapture,
     });
 
     classes[i + 1] = cls;
 
     const s = summary[mv.color];
     s[cls]++;
-    s.accSum += moveAccuracy(loss);
-    s.count++;
+    s.accs.push(moveAccuracy(loss));
+    s.weights.push(weights[i]);
   });
 
   for (const color of ["w", "b"]) {
     const s = summary[color];
-    s.accuracy = s.count ? s.accSum / s.count : null;
+    s.accuracy = combineAccuracy(s.accs, s.weights);
   }
 
   if (analyseMainLine) {
@@ -2022,6 +2135,7 @@ async function reviewGame(sanMoves, runId) {
   analyseGamesStatusEl.textContent = "Review complete.";
   renderAnalyseReport({ totalMoves: total, summary });
   renderAnalyseMoves();
+  renderAnalyseBoard();
 }
 
 function setText(id, value) {
@@ -2039,6 +2153,7 @@ function renderAnalyseReport({ totalMoves, summary }) {
   const idKey = {
     brilliant: "brilliant",
     best: "best",
+    great: "great",
     excellent: "excellent",
     good: "good",
     inaccuracy: "inaccuracies",
@@ -2095,6 +2210,10 @@ function loadAnalyseGame(pgn, orientation = "w") {
   document.getElementById("analyse-game-report").hidden = true;
 
   goToAnalysePly(0, false);
+
+  document
+    .getElementById("analyse-board")
+    ?.scrollIntoView({ behavior: "smooth", block: "center" });
 
   reviewGame(sanMoves, runId).catch((error) => {
     console.error("Review failed:", error);

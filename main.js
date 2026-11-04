@@ -1989,7 +1989,7 @@ function classifyMove({
   gap,
   isRecapture,
 }) {
-  const nearBest = loss < 2;
+  const nearBest = loss < 0.8; // Tolerans daraltıldı (eski hali 2 idi)
 
   // Brilliant: iyi bir taş fedası
   if (
@@ -2002,7 +2002,7 @@ function classifyMove({
     return "brilliant";
   }
 
-  // Great: kritik hamle (peon/küçük feda ya da tek iyi hamle)
+  // Great: kritik hamle
   if (
     nearBest &&
     winAfter >= 40 &&
@@ -2012,11 +2012,22 @@ function classifyMove({
     return "great";
   }
 
-  if (uci === best || loss < 0.3) return "best";
-  if (loss < 2) return "excellent";
-  if (loss < 5) return "good";
-  if (loss < 10) return "inaccuracy";
-  if (loss < 20) return "mistake";
+  // Kesin en iyi hamle veya kaybın neredeyse hiç olmadığı durumlar
+  if (uci === best || loss < 0.15) return "best";
+
+  // Excellent: En iyi hamle değil ama kayıp çok minimal (0.15 ile 0.7 arası)
+  if (loss < 0.7) return "excellent";
+
+  // Good: Kabul edilebilir iyi hamle (0.7 ile 1.8 arası)
+  if (loss < 1.8) return "good";
+
+  // Inaccuracy: Küçük hata / hassasiyet kaybı (1.8 ile 3.5 arası)
+  if (loss < 3.5) return "inaccuracy";
+
+  // Mistake: Ciddi hata (3.5 ile 7.0 arası)
+  if (loss < 7.0) return "mistake";
+
+  // Blunder: Büyük patates / saçmalık
   return "blunder";
 }
 /* ---------- Oyunu incele ---------- */

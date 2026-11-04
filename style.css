@@ -1352,6 +1352,7 @@ button:disabled {
 .analysis-line {
   display: flex;
   align-items: center;
+  height: 52px;
   margin-top: 10px;
   gap: 14px;
   width: 100%;
@@ -1393,22 +1394,13 @@ button:disabled {
 }
 
 .analysis-continuation {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--text-muted);
   font-size: 0.92rem;
-  line-height: 1.5;
-}
-
-@media (max-width: 600px) {
-  .analysis-line {
-    gap: 8px;
-    padding: 10px;
-    flex-wrap: wrap;
-  }
-
-  .analysis-continuation {
-    flex-basis: 100%;
-    padding-left: 36px;
-  }
 }
 
 /* ANALYSE PAGE */
@@ -1719,4 +1711,45 @@ button:disabled {
 }
 .move[data-cls="blunder"] {
   --cls: #ca3431;
+}
+
+.analyse-variation-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  margin: 10px 0;
+  padding: 10px;
+  font-size: 0.85rem;
+  text-align: center;
+  color: var(--accent-strong);
+  background: rgba(45, 192, 212, 0.1);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+}
+
+.analyse-variation-bar button {
+  width: 100%;
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  color: #062b2b;
+  background: var(--accent-strong);
+  border-color: var(--accent);
+}
+
+.analyse-variation-bar button:hover {
+  background: var(--accent);
+}
+
+css .analysis-rank,
+.analysis-score,
+.analysis-best-move {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+#analyse-opening:empty {
+  display: none;
 }

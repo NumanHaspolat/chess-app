@@ -1430,10 +1430,25 @@ function makeAnalyseMove(from, to, promotion = "q", animate = true) {
   // eski devam hamlelerini sil.
 
   if (analyseCurrentPly < analyseHistory.length) {
-    reviewRunId++; // devam eden incelemeyi iptal et
+    // Yüklü oyundan ilk sapma: ana hattı sakla
+    if (analyseGameLoaded && !analyseMainLine) {
+      analyseMainLine = {
+        history: [...analyseHistory],
+        classes: [...analyseMoveClasses],
+        ply: analyseCurrentPly,
+        shared: analyseCurrentPly,
+      };
+    } else if (analyseMainLine) {
+      analyseMainLine.shared = Math.min(
+        analyseMainLine.shared,
+        analyseCurrentPly,
+      );
+    }
+
     analyseMoveClasses = analyseMoveClasses.slice(0, analyseCurrentPly + 1);
-    document.getElementById("analyse-game-report").hidden = true;
   }
+
+  updateVariationBar();
   analyseHistory = analyseHistory.slice(0, analyseCurrentPly);
   analyseHistory.push(move.san);
 
@@ -1738,7 +1753,9 @@ window.addEventListener("keydown", (e) => {
 
 document.getElementById("analyse-btn-reset")?.addEventListener("click", () => {
   reviewRunId++; // devam eden incelemeyi iptal et
-
+  analyseMainLine = null;
+  analyseGameLoaded = false;
+  updateVariationBar();
   analyseHistory = [];
   analyseMoveClasses = [];
   analyseCurrentPly = 0;
@@ -1758,6 +1775,26 @@ let analyseMoveClasses = []; // index = ply (1'den başlar)
 let reviewRunId = 0;
 let reviewEnginePromise = null;
 let reviewWorker = null;
+let analyseMainLine = null; // { history, classes, ply, shared }
+let analyseGameLoaded = false;
+
+function updateVariationBar() {
+  const bar = document.getElementById("analyse-variation-bar");
+  if (bar) bar.hidden = !analyseMainLine;
+}
+
+document.getElementById("analyse-return-btn")?.addEventListener("click", () => {
+  if (!analyseMainLine) return;
+
+  const { history, classes, ply } = analyseMainLine;
+
+  analyseHistory = history;
+  analyseMoveClasses = classes;
+  analyseMainLine = null;
+
+  updateVariationBar();
+  goToAnalysePly(ply, false);
+});
 
 /* ---------- Review motoru (canlı analizden ayrı worker) ---------- */
 
@@ -1944,7 +1981,7 @@ async function reviewGame(sanMoves, runId) {
     };
   }
 
-  analyseMoveClasses = [];
+  const classes = [];
 
   moves.forEach((mv, i) => {
     const sign = mv.color === "w" ? 1 : -1;
@@ -1961,7 +1998,7 @@ async function reviewGame(sanMoves, runId) {
       winAfter,
     });
 
-    analyseMoveClasses[i + 1] = cls;
+    classes[i + 1] = cls;
 
     const s = summary[mv.color];
     s[cls]++;
@@ -1972,6 +2009,14 @@ async function reviewGame(sanMoves, runId) {
   for (const color of ["w", "b"]) {
     const s = summary[color];
     s.accuracy = s.count ? s.accSum / s.count : null;
+  }
+
+  if (analyseMainLine) {
+    // Kullanıcı varyasyondayken inceleme bittiyse
+    analyseMainLine.classes = classes;
+    analyseMoveClasses = classes.slice(0, analyseMainLine.shared + 1);
+  } else {
+    analyseMoveClasses = classes;
   }
 
   analyseGamesStatusEl.textContent = "Review complete.";
@@ -2041,6 +2086,9 @@ function loadAnalyseGame(pgn, orientation = "w") {
 
   analyseHistory = sanMoves;
   analyseMoveClasses = [];
+  analyseMainLine = null;
+  analyseGameLoaded = true;
+  updateVariationBar();
   analyseOrientation = orientation;
   clearAnalyseSelection();
 

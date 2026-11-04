@@ -2149,10 +2149,23 @@ async function reviewGame(sanMoves, runId) {
     analyseMoveClasses = classes;
   }
 
+  // Review tamamlandığında rapora kaydır (Özellikle mobilde hayat kurtarır)
+
   analyseGamesStatusEl.textContent = "Review complete.";
+  // Review tamamlandığında sonuçları ekrana basıyoruz
   renderAnalyseReport({ totalMoves: total, summary });
   renderAnalyseMoves();
   renderAnalyseBoard();
+
+  // YENİ: Mobilde/Tablette review bitince otomatik olarak Rapora kaydır
+  if (window.innerWidth <= 1050) {
+    setTimeout(() => {
+      document.getElementById("analyse-game-report")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 100);
+  }
 }
 
 function setText(id, value) {
@@ -4507,6 +4520,14 @@ document
 
 const hintButton = document.getElementById("train-hint");
 
+// Mobilde rapordan tahtaya geri dönme butonu
+// Game Report içindeki "See moves" butonuna basınca tahtaya geri kaydır
+document.getElementById("btn-back-to-board")?.addEventListener("click", () => {
+  document.getElementById("analyse-board")?.scrollIntoView({
+    behavior: "smooth",
+    block: "center",
+  });
+});
 // Mobil hamle navigasyon butonları işlevleri
 document.getElementById("analyse-nav-first")?.addEventListener("click", () => {
   goToAnalysePly(0);

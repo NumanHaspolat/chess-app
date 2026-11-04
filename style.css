@@ -2075,3 +2075,25 @@ css .analysis-rank,
   overflow-y: auto;
   overflow-x: hidden; /* Sağ tarafa kaymayı kesinlikle engeller */
 }
+
+/* Varsayılan olarak masaüstünde gizli */
+.analyse-back-to-board-btn {
+  display: none;
+  width: 100%;
+  padding: 12px;
+  margin-bottom: 16px;
+  background: var(--accent-strong);
+  color: #062b2b;
+  font-weight: 700;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: center;
+}
+
+/* Sadece tablet ve mobil ekranlarda görünür olsun */
+@media (max-width: 1050px) {
+  .analyse-back-to-board-btn {
+    display: block;
+  }
+}

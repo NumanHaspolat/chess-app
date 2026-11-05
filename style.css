@@ -847,6 +847,12 @@ button:disabled {
   gap: 20px;
 }
 
+@media (max-width: 755px) and (min-width: 600px) {
+  #openings-list {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
 .opening-card {
   padding: 24px;
   background: var(--panel);
@@ -891,11 +897,16 @@ button:disabled {
   letter-spacing: 0.5px;
 }
 
-.opening-color.white,
+.opening-color.white {
+  color: #001a20;
+  background: rgb(252, 255, 255);
+  border: 1px solid rgba(0, 34, 39, 0.4);
+}
+
 .opening-color.black {
-  color: #c7f5ff;
-  background: rgba(45, 192, 212, 0.14);
-  border: 1px solid rgba(45, 192, 212, 0.4);
+  color: #fdffff;
+  background: rgba(0, 0, 0, 0.14);
+  border: 1px solid rgba(230, 252, 255, 0.4);
 }
 
 /* RESPONSIVE */

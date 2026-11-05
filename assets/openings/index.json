@@ -1,1 +1,7 @@
-["scotch-game.json", "italian-game.json", "sicilian-defense.json" , "caro-kann-defense.json" , "queens-gambit.json"]
+[
+  "caro-kann-defense.json",
+  "italian-game.json",
+  "queens-gambit.json",
+  "scotch-game.json",
+  "sicilian-defense.json"
+]

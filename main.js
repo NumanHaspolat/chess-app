@@ -3704,7 +3704,11 @@ function startTrain(opening) {
 
   renderLearnPanel();
   update();
+
+  // ---> BURAYI EKLE: Antrenman başladığı an hamle sırasını kontrol et ve gerekirse ilk hamleyi yaptır
+  continueTrain();
 }
+
 function startCurrentLearnTrain() {
   if (!lesson || !lesson.variation) return;
 
@@ -4449,22 +4453,32 @@ function onDrillMove(move) {
     advanceDrill();
     return;
   }
+  const sound = SOUNDS.move;
+  if (sound) {
+    sound.pause();
+    sound.currentTime = 0;
+  }
+  const capSound = SOUNDS.capture;
+  if (capSound) {
+    capSound.pause();
+    capSound.currentTime = 0;
+  }
 
-  // Yanlış hamle
   drill.mistakes++;
   drill.mistakeCount++;
 
   const node = drill.rep.getNode(move.before);
   const correctEdges = node ? [...node.edges.values()] : [];
+  const correctEdge = correctEdges[0];
 
-  // İlk hatada doğru hamlenin çıkış karesini göster.
-  if (drill.mistakeCount >= 1) {
-    drillHintSquares = correctEdges.length
-      ? [parseUci(correctEdges[0].uci).from]
-      : [];
+  if (correctEdge) {
+    const parsed = parseUci(correctEdge.uci);
+    drillHintSquares =
+      drill.mistakeCount === 1 ? [parsed.from] : [parsed.from, parsed.to];
+  } else {
+    drillHintSquares = [];
   }
 
-  // İkinci hatada doğru hamleleri göster.
   if (drill.mistakeCount >= 2) {
     drill.hintShown = true;
     drill.alternatives = correctEdges.slice(0, 2);
@@ -4473,7 +4487,13 @@ function onDrillMove(move) {
   drill.phase = "mistake";
   drill.mistake = move.san;
 
-  const boardWrap = document.querySelector(".board-wrap");
+  // Sadece hata sesi çalsın (Çakışma önlendi)
+  playSound("gameover", 2);
+
+  const boardWrap =
+    document.querySelector(".board-wrap") ||
+    document.querySelector("#rep-board")?.closest(".board-wrap") ||
+    document.querySelector("#rep-board")?.parentElement;
 
   if (boardWrap) {
     boardWrap.classList.remove("board-shake");
@@ -4504,6 +4524,7 @@ function onDrillMove(move) {
 
   update();
 }
+
 function retryDrill() {
   if (!drill || drill.phase !== "mistake") return;
 

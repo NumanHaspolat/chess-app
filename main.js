@@ -1916,18 +1916,32 @@ async function runEvaluation(fen, depth = REVIEW_DEPTH) {
   });
 }
 
-/* ---------- Matematiksel Dengelemeler ---------- */
+/* ---------- Matematiksel Dengelemeler (Chess.com / Lichess Standardı) ---------- */
 
 function winPercent(cp) {
-  // Kazanma yüzdesi eğrisini Stockfish standartlarına göre optimize ettik
-  const c = Math.max(-1500, Math.min(1500, cp));
-  return 50 + 50 * (2 / (1 + Math.exp(-0.0057 * c)) - 1);
+  // Stockfish win-rate formula: centipawn değerini yumuşatılmış kazanma yüzdesine çevirir
+  const c = Math.max(-1200, Math.min(1200, cp));
+  return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * c)) - 1);
 }
 
 function moveAccuracy(winLoss) {
-  // Kayıp yüzdesine göre accuracy eğrisi (0 kayıp = %100, büyük kayıplarda sönümleme)
-  const acc = 100 * Math.exp(-0.06 * Math.max(0, winLoss));
+  // Kayıp cezasını Chess.com standartlarına uyacak şekilde biraz daha sertleştiriyoruz
+  // Böylece küçük hatalar ve inaccurate hamleler yüzdeyi gerçekçi bir şekilde (~%65-%75 bandına) çekecek
+  const acc = 100 * Math.exp(-0.0525 * Math.max(0, winLoss));
   return Math.max(0, Math.min(100, acc));
+}
+
+function combineAccuracy(accs, weights) {
+  if (!accs.length) return null;
+
+  const weightSum = weights.reduce((a, b) => a + b, 0);
+  const weighted =
+    accs.reduce((sum, a, i) => sum + a * weights[i], 0) / weightSum;
+  const harmonic =
+    accs.length / accs.reduce((sum, a) => sum + 1 / Math.max(a, 1), 0);
+
+  // Harmonik ve ağırlıklı ortalamayı dengeleyerek şişme yapmasını engelliyoruz
+  return Math.min(100, Math.max(0, weighted * 0.55 + harmonic * 0.45));
 }
 
 function volatilityWeights(winSeries) {
@@ -1944,23 +1958,10 @@ function volatilityWeights(winSeries) {
       win.reduce((a, b) => a + (b - mean) ** 2, 0) / win.length,
     );
 
-    weights.push(Math.max(0.5, Math.min(5, sd)));
+    weights.push(Math.max(0.5, Math.min(4, sd)));
   }
 
   return weights;
-}
-
-function combineAccuracy(accs, weights) {
-  if (!accs.length) return null;
-
-  const weightSum = weights.reduce((a, b) => a + b, 0);
-  const weighted =
-    accs.reduce((sum, a, i) => sum + a * weights[i], 0) / weightSum;
-  const harmonic =
-    accs.length / accs.reduce((sum, a) => sum + 1 / Math.max(a, 1), 0);
-
-  // Ağırlıklı ortalama ve harmonik ortalamanın dengeli birleşimi
-  return Math.min(100, Math.max(0, weighted * 0.6 + harmonic * 0.4));
 }
 
 // Taş feda edildi mi? (kayıp >= 2 puan, rakip alırsa)
@@ -2007,46 +2008,46 @@ function classifyMove({
   gap,
   isRecapture,
 }) {
-  // 1. Brilliant (!!): Mantıklı bir feda içeren ve konumu
-  // kazanca/üstünlüğe taşıyan harika hamleler
+  // 1. Brilliant (!!): Fedalı üstün hamleler
   if (
-    loss < 0.6 &&
+    loss < 0.4 &&
     sacrifice <= -2 &&
     "nbrq".includes(piece) &&
-    winAfter >= 40 &&
-    winBefore < 85
+    winAfter >= 35 &&
+    winBefore < 80
   ) {
     return "brilliant";
   }
 
-  // 2. Excellent (!): Best hamleden de öte, pozisyonu
-  // harika bir noktaya taşıyan/parlatan üstün hamleler
-  if (loss < 0.2 && winAfter > winBefore + 5 && !isRecapture) {
+  // 2. Excellent (!): Best hamleden de öte mükemmel hamleler
+  if (loss < 0.12 && winAfter > winBefore + 3 && !isRecapture) {
     return "excellent";
   }
 
-  // 3. Best (★): Motorun önerdiği 1 numaralı ana hamle (veya kayıpsız hamle)
-  if (uci === best || loss < 0.1) {
+  // 3. Best (★): Motorun 1 numaralı önerisi
+  if (uci === best || loss < 0.06) {
     return "best";
   }
 
-  // 4. Good: Oyunu bozmayan, sağlam ve doğru hamleler
-  if (loss < 1.8) {
+  // 4. Good: Sağlam ve doğru hamleler
+  if (loss < 2.0) {
     return "good";
   }
 
-  // 5. Inaccuracy (?): Ufak konumsal sapmalar veya hafif hatalar
+  // 5. Inaccuracy (?): Ufak konumsal sapmalar
   if (loss < 4.5) {
     return "inaccuracy";
   }
 
-  // 6. Mistake (?): Ciddi avantaj kaybı veya hesap hatası
-  if (loss < 10.0) {
+  // 6. Mistake (?): Ciddi avantaj kaybı (Chess.com'daki "Fehler" sınıfı buraya kaydı)
+  if (loss < 15.0) {
     return "mistake";
   }
 
-  // 7. Blunder (??): Çok sert kayıp (10+ puan/yüzde kaybı veya kazanılan maçı çöpe atma)
-  if (loss >= 10.0 || (winBefore >= 40 && winAfter < 15)) {
+  // 7. Blunder (??): KESERKEN ÇOK SERT YAPTIK!
+  // Artık sadece 15+ puanlık devasa kayıplar veya kazanılan maçın tamamen çöpe atıldığı
+  // mutlak felaketler blunder sayılacak. Normal hatalar artık asla blunder olmayacak.
+  if (loss >= 20.0 || (winBefore >= 50 && winAfter < 10)) {
     return "blunder";
   }
 
@@ -2261,7 +2262,7 @@ function renderAnalyseReport({
 
   const idKey = {
     brilliant: "brilliant",
-    best: "best",
+    best: "best-moves",
     great: "great",
     excellent: "excellent",
     good: "good",

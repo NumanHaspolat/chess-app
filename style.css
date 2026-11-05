@@ -2328,3 +2328,174 @@ css .analysis-rank,
   vertical-align: middle;
   letter-spacing: 0.5px;
 }
+
+/* Mobil ve Tablet için Navbar Düzenlemesi */
+@media (max-width: 768px) {
+  .navbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    gap: 8px;
+  }
+
+  .nav-brand {
+    font-size: 1.1rem;
+    white-space: nowrap;
+  }
+
+  /* Navigasyon linklerini yatay kaydırılabilir şık bir bar yapalım */
+  .nav-links {
+    display: flex;
+    overflow-x: auto;
+    white-space: nowrap;
+    gap: 6px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Firefox gizle */
+    padding-bottom: 2px;
+  }
+
+  .nav-links::-webkit-scrollbar {
+    display: none; /* Chrome/Safari scrollbar gizle */
+  }
+
+  .nav-link {
+    padding: 6px 10px;
+    font-size: 0.85rem;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+}
+
+/* Masaüstünde yan yana duran analiz düzeni */
+.analyse-container {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+}
+
+/* Tablet ve Mobilde (1050px ve altı) dikey sıralama */
+@media (max-width: 1050px) {
+  .analyse-container,
+  .analyse-sidebar {
+    display: flex;
+    flex-direction: column; /* Öğeleri yukarıdan aşağıya dizer */
+  }
+
+  /* Moves kutusunu ilk sıraya alıyoruz */
+  #analyse-moves,
+  .analyse-moves-wrapper {
+    order: 1;
+  }
+
+  /* En iyi 5 hamle / Engine panelini Moves'un hemen altına koyuyoruz */
+  #analyse-analysis-panel,
+  .analyse-engine-lines {
+    order: 2;
+    margin-top: 12px;
+    width: 100%;
+  }
+
+  /* Oyun Raporu / Game Report en alta gelsin */
+  #analyse-game-report {
+    order: 3;
+  }
+}
+
+/* ==========================================
+   MOBİL VE TABLET UYUMLULUK DÜZELTMELERİ
+   ========================================== */
+
+/* 1. Navbar Düzenlemesi (Taşmayı ve Bug'ları Önler) */
+@media (max-width: 800px) {
+  .navbar {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .nav-brand {
+    font-size: 1.1rem;
+    white-space: nowrap;
+  }
+
+  .nav-links {
+    display: flex;
+    overflow-x: auto;
+    white-space: nowrap;
+    gap: 6px;
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; /* Firefox için scrollbar gizleme */
+  }
+
+  .nav-links::-webkit-scrollbar {
+    display: none; /* Chrome/Safari için scrollbar gizleme */
+  }
+
+  .nav-link {
+    padding: 6px 10px;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+  }
+}
+
+/* 2. Analyse Sayfası Mobil Sıralaması (Analysis, Moves Altına Alınır) */
+@media (max-width: 1050px) {
+  /* Analyse ana konteynerını esnek dikey sütun yapıyoruz */
+  main#analyse {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* 1. Sırada Tahta (Board) */
+  main#analyse > .board-section {
+    order: 1;
+    width: 100%;
+  }
+
+  /* 2. Sırada Moves (Hamleler) */
+  main#analyse > .moves-section {
+    order: 2;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* 3. Sırada Analysis (En İyi 5 Hamle - Stockfish) */
+  main#analyse > #analyse-analysis-panel {
+    order: 3;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* 4. Sırada Chess.com Maç Yükleme Alanı */
+  main#analyse .analyse-games-section {
+    order: 4;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  /* Moves Bölümündeki Taşma Düzeltmesi */
+  .moves-section {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  .moves-section .buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    width: 100%;
+  }
+
+  .moves-section .buttons button {
+    flex: 1;
+    min-width: 60px;
+    padding: 8px 4px;
+    font-size: 0.85rem;
+  }
+}

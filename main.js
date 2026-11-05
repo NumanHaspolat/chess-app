@@ -369,22 +369,29 @@ function renderRepertoireBoard(animate = true) {
 
   const currentGame = drill ? drillGame : repertoireGame;
   const displayGame = drill ? drillGame : syncRepView();
-  const lastMove = currentGame.history({ verbose: true }).at(-1);
+  const history = displayGame.history({ verbose: true });
+  const lastMove = history[history.length - 1];
+
+  // Dışarıdan gelen animasyon objesini ({from, to}) veya son hamleyi kontrol et
+  const animMove =
+    typeof animate === "object" && animate !== null
+      ? animate
+      : animate
+        ? lastMove
+        : null;
 
   let oldPieceRect = null;
 
-  if (animate && lastMove) {
+  if (animMove && animMove.from) {
     const oldPiece = repBoardEl.querySelector(
-      `[data-square="${lastMove.from}"] .piece`,
+      `[data-square="${animMove.from}"] .piece`,
     );
-
     if (oldPiece) {
       oldPieceRect = oldPiece.getBoundingClientRect();
     }
   }
 
   const boardGame = displayGame;
-
   repBoardEl.innerHTML = "";
 
   for (let row = 0; row < 8; row++) {
@@ -398,11 +405,10 @@ function renderRepertoireBoard(animate = true) {
       const rankNumber = Number(squareName[1]);
 
       const square = document.createElement("div");
-
       square.className =
         "square " + ((fileIndex + rankNumber) % 2 === 0 ? "light" : "dark");
-
       square.dataset.square = squareName;
+
       if (drillHintSquares.includes(squareName)) {
         square.classList.add("drill-hint");
       }
@@ -411,24 +417,21 @@ function renderRepertoireBoard(animate = true) {
         square.classList.add("selected");
       }
 
-      const lastMove = boardGame.history({ verbose: true }).at(-1);
-
+      const playedLastMove = boardGame.history({ verbose: true }).at(-1);
       if (
-        lastMove &&
-        (lastMove.from === squareName || lastMove.to === squareName)
+        playedLastMove &&
+        (playedLastMove.from === squareName || playedLastMove.to === squareName)
       ) {
         square.classList.add("last-move");
       }
 
       const legalMove = repLegalMoves.find((move) => move.to === squareName);
-
       if (legalMove) {
         square.classList.add("legal");
         if (legalMove.captured) square.classList.add("capture");
       }
 
       const piece = boardGame.get(squareName);
-
       if (piece) {
         square.appendChild(createPieceEl(piece.color, piece.type));
       }
@@ -440,21 +443,20 @@ function renderRepertoireBoard(animate = true) {
     }
   }
 
-  // Animate the moved piece to its new square.
-  if (animate && oldPieceRect && lastMove) {
-    const toSquare = repBoardEl.querySelector(`[data-square="${lastMove.to}"]`);
+  // TAŞIN GERİ VE İLERİ PÜRÜZSÜZ KAYMA ANİMASYONU
+  if (animMove && oldPieceRect && animMove.to) {
+    const toSquare = repBoardEl.querySelector(`[data-square="${animMove.to}"]`);
     const newPiece = toSquare?.querySelector(".piece");
 
     if (newPiece) {
       const newRect = newPiece.getBoundingClientRect();
-
       const deltaX = oldPieceRect.left - newRect.left;
       const deltaY = oldPieceRect.top - newRect.top;
 
       newPiece.style.transition = "none";
       newPiece.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
 
-      newPiece.offsetHeight;
+      newPiece.offsetHeight; // Reflow
 
       requestAnimationFrame(() => {
         newPiece.style.transition = "transform 180ms ease";
@@ -765,7 +767,7 @@ repMovesEl.addEventListener("click", (e) => {
   const moveEl = e.target.closest(".move");
   if (!moveEl || drill) return;
 
-  goToRepPly(Number(moveEl.dataset.ply));
+  goToRepPlyAnimated(Number(moveEl.dataset.ply));
 });
 
 repFlipBtn.addEventListener("click", () => {
@@ -3263,6 +3265,10 @@ function goToPlyAnimated(ply) {
 // REPERTOIRE MODU NAVİGASYON BUTONLARI
 // ==========================================
 
+// ==========================================
+// REPERTOIRE MODU ANİMASYONLU NAVİGASYON
+// ==========================================
+
 document.getElementById("rep-nav-first")?.addEventListener("click", () => {
   goToRepPlyAnimated(0);
 });
@@ -3296,10 +3302,14 @@ function goToRepPlyAnimated(ply) {
   }
 
   let animation = false;
+
+  // 1 Adım İleri Giderken Animasyon
   if (ply === previousPly + 1 && lastPlayed) {
     animation = { from: lastPlayed.from, to: lastPlayed.to };
     playSoundForMove(lastPlayed);
-  } else if (ply === previousPly - 1) {
+  }
+  // 1 Adım Geri Giderken Animasyon (Ters yönde pürüzsüz kayma)
+  else if (ply === previousPly - 1) {
     const undoneMove = new Chess();
     for (let i = 0; i < previousPly; i++) undoneMove.move(history[i]);
     const m = undoneMove.undo();

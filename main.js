@@ -4885,6 +4885,40 @@ document
 
 const hintButton = document.getElementById("train-hint");
 
+// ==========================================
+// MOBİL HAMBURGER MENÜ YÖNETİMİ
+// ==========================================
+
+// ==========================================
+// MOBİL HAMBURGER MENÜ YÖNETİMİ
+// ==========================================
+
+const menuToggle = document.getElementById("menu-toggle");
+const navLinksContainer = document.getElementById("nav-links");
+
+if (menuToggle && navLinksContainer) {
+  menuToggle.addEventListener("click", (e) => {
+    e.stopPropagation(); // Tıklamanın dışarı yayılmasını önle
+    navLinksContainer.classList.toggle("open");
+  });
+
+  // Menü içindeki bir linke tıklandığında menüyü kapat
+  navLinksContainer.querySelectorAll(".nav-link").forEach((link) => {
+    link.addEventListener("click", () => {
+      navLinksContainer.classList.remove("open");
+    });
+  });
+
+  // Sayfada başka bir yere tıklandığında menüyü kapat
+  window.addEventListener("click", (e) => {
+    if (
+      !menuToggle.contains(e.target) &&
+      !navLinksContainer.contains(e.target)
+    ) {
+      navLinksContainer.classList.remove("open");
+    }
+  });
+}
 // Mobilde rapordan tahtaya geri dönme butonu
 // Game Report içindeki "See moves" butonuna basınca tahtaya geri kaydır
 document.getElementById("btn-back-to-board")?.addEventListener("click", () => {

@@ -2054,7 +2054,115 @@ function classifyMove({
 }
 /* ---------- Oyunu incele ---------- */
 
-async function reviewGame(sanMoves, runId) {
+// 1. Maça tıklandığında analizi başlatan fonksiyon
+// Oyuna tıklandığında çağrılan ana fonksiyon
+function startGameAnalysis(gameData) {
+  const reportPanel = document.getElementById("analyse-game-report");
+  const progressBox = document.getElementById("analyse-progress-box");
+  const reportContent = document.getElementById("analyse-report-content");
+  const progressText = document.getElementById("analyse-progress-text");
+
+  // 1. Rapor panelini ve yükleme kutusunu görünür yap
+  if (reportPanel) {
+    reportPanel.hidden = false;
+  }
+  if (progressBox) {
+    progressBox.style.display = "flex"; // Yükleme animasyonunu aç
+  }
+  if (reportContent) {
+    reportContent.style.display = "none"; // Eski raporu gizle
+  }
+  if (progressText) {
+    progressText.textContent = "Analyzing game... (0%)";
+  }
+
+  // 2. Mobilde/Tablette hemen rapora kaydır
+  if (window.innerWidth <= 1050) {
+    reportPanel?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+  }
+
+  // 3. Mevcut review işlemine benzersiz bir ID vererek Stockfish analizini başlat
+  if (typeof reviewRunId === "undefined") {
+    window.reviewRunId = 0;
+  }
+  reviewRunId++;
+  const currentRunId = reviewRunId;
+
+  // Analizi çalıştır
+  reviewGame(
+    gameData,
+    (currentMove, totalMoves) => {
+      if (progressText) {
+        const percent = Math.round((currentMove / totalMoves) * 100);
+        progressText.textContent = `Analyzing game... (${percent}%)`;
+      }
+    },
+    currentRunId,
+  );
+}
+
+// 2. Analiz bittiğinde yüklemeyi gizleyip raporu açan fonksiyon
+function onAnalysisComplete() {
+  const progressBox = document.getElementById("analyse-progress-box");
+  const reportContent = document.getElementById("analyse-report-content");
+
+  // Yükleme animasyonunu tamamen kaldır/gizle
+  if (progressBox) progressBox.style.display = "none";
+  // Game Report içeriğini görünür yap
+  if (reportContent) reportContent.style.display = "block";
+}
+
+async function reviewGame(
+  sanMoves,
+  runId,
+  whitePlayer = "",
+  blackPlayer = "",
+  targetUsername = "",
+) {
+  const reportPanel = document.getElementById("analyse-game-report");
+  const progressBox = document.getElementById("analyse-progress-box");
+  const reportContent = document.getElementById("analyse-report-content");
+  const progressText = document.getElementById("analyse-progress-text");
+
+  document.querySelectorAll(".report-you-badge").forEach((el) => el.remove());
+
+  setText("analyse-white-accuracy", "--%");
+  setText("analyse-black-accuracy", "--%");
+  [
+    "brilliant",
+    "best",
+    "great",
+    "excellent",
+    "good",
+    "inaccuracies",
+    "mistakes",
+    "blunders",
+  ].forEach((key) => {
+    setText(`analyse-white-${key}`, "0");
+    setText(`analyse-black-${key}`, "0");
+  });
+  // ----------------------------------------
+
+  // Listeyi gizle ki ekranda kalabalık yapmasın
+  const gamesContainer =
+    document.getElementById("analyse-games-list") ||
+    document.querySelector(".analyse-games-container");
+  if (gamesContainer) {
+    gamesContainer.style.display = "none";
+  }
+
+  if (reportPanel) reportPanel.hidden = false;
+  if (progressBox) progressBox.style.display = "flex";
+  if (reportContent) reportContent.style.display = "none";
+  if (progressText) progressText.textContent = "Analyzing game... (0%)";
+
+  if (window.innerWidth <= 1050) {
+    reportPanel?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
   const chess = new Chess();
   const moves = [];
 
@@ -2062,26 +2170,31 @@ async function reviewGame(sanMoves, runId) {
     const fenBefore = chess.fen();
     const m = chess.move(san);
 
-    moves.push({
-      san: m.san,
-      color: m.color,
-      piece: m.piece,
-      captured: m.captured,
-      to: m.to,
-      uci: m.from + m.to + (m.promotion ?? ""),
-      fenBefore,
-      fenAfter: chess.fen(),
-      sacrifice: sacrificeValue(fenBefore, m),
-    });
+    moves.path ??
+      moves.push({
+        san: m.san,
+        color: m.color,
+        piece: m.piece,
+        captured: m.captured,
+        to: m.to,
+        uci: m.from + m.to + (m.promotion ?? ""),
+        fenBefore,
+        fenAfter: chess.fen(),
+        sacrifice: sacrificeValue(fenBefore, m),
+      });
   }
-
   const total = moves.length;
   const evals = [];
 
   for (let i = 0; i <= total; i++) {
     if (runId !== reviewRunId) return;
 
-    analyseGamesStatusEl.textContent = `Reviewing game… ${i}/${total}`;
+    // --- HER HAMLEDE YÜZDEYİ GÜNCELLE ---
+    if (progressText && total > 0) {
+      const percent = Math.round((i / total) * 100);
+      progressText.textContent = `Analyzing game... (${percent}%)`;
+    }
+    // ------------------------------------
 
     const fen = i === 0 ? moves[0].fenBefore : moves[i - 1].fenAfter;
     const pos = new Chess(fen);
@@ -2113,16 +2226,15 @@ async function reviewGame(sanMoves, runId) {
   }
 
   const classes = [];
-
   const weights = volatilityWeights(evals.map((e) => winPercent(e.cp)));
 
-  // Açılış teorisi: baştan itibaren kitapta olan hamleler
   let bookPlies = 0;
-  if (openingBook) {
+  if (typeof openingBook !== "undefined" && openingBook) {
     while (bookPlies < total && openingBook.lookup(moves[bookPlies].fenAfter)) {
       bookPlies++;
     }
   }
+
   moves.forEach((mv, i) => {
     if (i < bookPlies) return;
     const sign = mv.color === "w" ? 1 : -1;
@@ -2160,23 +2272,27 @@ async function reviewGame(sanMoves, runId) {
     s.accuracy = combineAccuracy(s.accs, s.weights);
   }
 
-  if (analyseMainLine) {
-    // Kullanıcı varyasyondayken inceleme bittiyse
+  if (typeof analyseMainLine !== "undefined" && analyseMainLine) {
     analyseMainLine.classes = classes;
     analyseMoveClasses = classes.slice(0, analyseMainLine.shared + 1);
   } else {
     analyseMoveClasses = classes;
   }
 
-  // Review tamamlandığında rapora kaydır (Özellikle mobilde hayat kurtarır)
-
-  analyseGamesStatusEl.textContent = "Review complete.";
-  // Review tamamlandığında sonuçları ekrana basıyoruz
-  renderAnalyseReport({ totalMoves: total, summary });
+  // Sonuçları ekrana bas
+  renderAnalyseReport({
+    totalMoves: total,
+    summary,
+    whitePlayer,
+    blackPlayer,
+    targetUsername,
+  });
   renderAnalyseMoves();
   renderAnalyseBoard();
 
-  // YENİ: Mobilde/Tablette review bitince otomatik olarak Rapora kaydır
+  if (progressBox) progressBox.style.display = "none";
+  if (reportContent) reportContent.style.display = "block";
+
   if (window.innerWidth <= 1050) {
     setTimeout(() => {
       document.getElementById("analyse-game-report")?.scrollIntoView({
@@ -2192,7 +2308,13 @@ function setText(id, value) {
   if (el) el.textContent = value;
 }
 
-function renderAnalyseReport({ totalMoves, summary }) {
+function renderAnalyseReport({
+  totalMoves,
+  summary,
+  whitePlayer,
+  blackPlayer,
+  targetUsername,
+}) {
   const panel = document.getElementById("analyse-game-report");
   if (!panel) return;
 
@@ -2225,16 +2347,73 @@ function renderAnalyseReport({ totalMoves, summary }) {
       setText(`analyse-${name}-${key}`, s[cls]);
     }
   }
+
+  // 1. "30 games found" veya durum yazısını analiz başlarken/biterken temizle
+  const statusEl =
+    document.getElementById("analyse-games-status") ||
+    document.querySelector(".analyse-games-status");
+  if (statusEl) statusEl.textContent = "";
+
+  // 2. "YOU" rozetini doğrudan doğru oyuncu tarafına ekle
+  updateYouBadge(whitePlayer, blackPlayer, targetUsername);
+}
+
+function updateYouBadge(whitePlayer, blackPlayer, targetUsername) {
+  // Önce sayfadaki tüm eski "YOU" rozetlerini tamamen temizle
+  document.querySelectorAll(".report-you-badge").forEach((el) => el.remove());
+
+  const currentUsername = (
+    targetUsername ||
+    document.getElementById("chesscom-username")?.value ||
+    ""
+  )
+    .trim()
+    .toLowerCase();
+
+  const reportEl = document.getElementById("analyse-game-report");
+  if (!reportEl || !currentUsername) return;
+
+  let userColor = null; // 'white' veya 'black'
+
+  if (whitePlayer && blackPlayer) {
+    if (whitePlayer.toLowerCase() === currentUsername) userColor = "white";
+    else if (blackPlayer.toLowerCase() === currentUsername) userColor = "black";
+  }
+
+  // Eğer renk eşleştiyse, sadece ilgili sütun başlığına (White veya Black h3 veya başlığına) ekle
+  if (userColor) {
+    // Sütun başlıklarını hedef alıyoruz (Örn: White / Black yazan ana başlıklar)
+    const headers = reportEl.querySelectorAll("h3, .column-title, th, strong");
+
+    headers.forEach((header) => {
+      const text = header.textContent.toLowerCase();
+      if (
+        text.includes(userColor) &&
+        !header.querySelector(".report-you-badge")
+      ) {
+        const badge = document.createElement("span");
+        badge.className = "report-you-badge";
+        badge.textContent = "YOU";
+        header.appendChild(badge);
+      }
+    });
+  }
 }
 
 /* ---------- Oyun yükleme ---------- */
 
-function loadAnalyseGame(pgn, orientation = "w") {
+function loadAnalyseGame(
+  pgn,
+  orientation = "w",
+  whitePlayer = "",
+  blackPlayer = "",
+  targetUsername = "",
+) {
   const chess = new Chess();
 
   try {
     chess.loadPgn(pgn);
-  } catch {
+  } catch (error) {
     analyseGamesStatusEl.textContent = `Review failed: ${error.message}`;
     return;
   }
@@ -2264,15 +2443,33 @@ function loadAnalyseGame(pgn, orientation = "w") {
     .getElementById("analyse-board")
     ?.scrollIntoView({ behavior: "smooth", block: "center" });
 
-  reviewGame(sanMoves, runId).catch((error) => {
-    console.error("Review failed:", error);
-    analyseGamesStatusEl.textContent = "Review failed.";
-  });
+  // Oyuna tıklandığında listeyi gizle ama arama yapılınca tekrar açılabilsin diye esnek yapalım
+  const gamesContainer =
+    document.getElementById("analyse-games-list") ||
+    document.querySelector(".analyse-games-container");
+  if (gamesContainer) {
+    gamesContainer.style.display = "none";
+  }
+
+  reviewGame(sanMoves, runId, whitePlayer, blackPlayer, targetUsername).catch(
+    (error) => {
+      console.error("Review failed:", error);
+      analyseGamesStatusEl.textContent = "Review failed.";
+    },
+  );
 }
 
 function renderAnalyseGamesList(items) {
   analyseGames = items;
   analyseGamesListEl.innerHTML = "";
+
+  // Yeni oyunlar geldiğinde liste container'ını tekrar görünür yap (Tekrar arama yapıldığında görünmesini sağlar)
+  const gamesContainer =
+    document.getElementById("analyse-games-list") ||
+    document.querySelector(".analyse-games-container");
+  if (gamesContainer) {
+    gamesContainer.style.display = "block";
+  }
 
   items.forEach((item) => {
     const btn = document.createElement("button");
@@ -2299,7 +2496,13 @@ function renderAnalyseGamesList(items) {
     }
 
     btn.addEventListener("click", () =>
-      loadAnalyseGame(item.pgn, item.orientation),
+      loadAnalyseGame(
+        item.pgn,
+        item.orientation,
+        item.white,
+        item.black,
+        item.username,
+      ),
     );
 
     analyseGamesListEl.appendChild(btn);
@@ -2309,6 +2512,10 @@ function renderAnalyseGamesList(items) {
 /* ---------- Chess.com ---------- */
 
 async function fetchChesscomGames(username) {
+  const statusElement = document.getElementById("analyse-games-status");
+  if (statusElement) {
+    statusElement.textContent = ""; // Yazı tamamen silinir
+  }
   const user = username.trim().toLowerCase();
   const base = `https://api.chess.com/pub/player/${encodeURIComponent(user)}`;
 
@@ -2352,6 +2559,9 @@ async function fetchChesscomGames(username) {
         result,
         pgn: g.pgn,
         orientation: isWhite ? "w" : "b",
+        white: g.white.username,
+        black: g.black.username,
+        username: user,
       };
     });
 }
@@ -3303,8 +3513,6 @@ async function initCuratedOpenings() {
     );
 
     curatedOpening = openingLibrary[0] || null;
-
-    console.log("Loaded openings:", openingLibrary);
 
     renderOpenings();
   } catch (error) {

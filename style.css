@@ -386,8 +386,8 @@ button:disabled {
   padding: 0;
   list-style: none;
   counter-reset: ply;
-  height: 261px !important; /* İstediğin sabit yükseklik hepsinde geçerli olsun */
-  max-height: 261px !important;
+  height: 286px !important; /* İstediğin sabit yükseklik hepsinde geçerli olsun */
+  max-height: 286px !important;
   overflow-y: auto !important; /* Hepsinde dikey kaydırma aktif */
   overflow-x: hidden !important; /* Yatay taşma ve kayma kesinlikle engelli */
   width: 100%;
@@ -2276,4 +2276,55 @@ css .analysis-rank,
 
 .custom-file-trigger-btn:active {
   transform: scale(0.98);
+}
+
+.analyse-progress-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 15px;
+  gap: 12px;
+  text-align: center;
+}
+
+#analyse-progress-text {
+  font-family: var(--font-pixel);
+  font-size: 1.1rem;
+  color: var(--accent-strong);
+}
+
+/* Basit ve şık bir piksel/koyu tema yükleme efekti */
+.spinner {
+  width: 28px;
+  height: 28px;
+  border: 4px solid var(--control);
+  border-top: 4px solid var(--accent-strong);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* GAME REPORT "YOU" ROZETİ */
+.report-you-badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 7px;
+  background: rgba(44, 192, 212, 0.18); /* Şeffaf mavi/turkuaz arkaplan */
+  border: 1px solid var(--accent); /* Sitenin tema rengi */
+  color: var(--accent-strong);
+  font-family: var(--font-pixel);
+  font-size: 0.75rem;
+  font-weight: bold;
+  border-radius: 6px; /* Hafif oval border-radius */
+  vertical-align: middle;
+  letter-spacing: 0.5px;
 }

@@ -1,0 +1,181 @@
+{
+  "id": "queens-gambit",
+  "name": "Queen's Gambit",
+  "color": "white",
+  "description": "One of White's oldest and most powerful positional openings, offering a flank pawn to secure dominating central control.",
+  "variations": [
+    {
+      "id": "queens-gambit-declined",
+      "name": "Queen's Gambit Declined (QGD)",
+      "moves": "1. d4 d5 2. c4 e6 3. Nc3 Nf6 4. Bg5 Be7 5. e3 O-O",
+      "explanations": {
+        "d4": "White controls the center with the queen's pawn.",
+        "d5": "Black stakes a claim in the center.",
+        "c4": "White offers the Queen's Gambit, fighting for central dominance.",
+        "e6": "Black declines the gambit solidly, supporting d5.",
+        "Nc3": "White develops the queen's knight.",
+        "Nf6": "Black develops the king's knight.",
+        "Bg5": "White pins the f6-knight to apply pressure.",
+        "Be7": "Black breaks the pin and develops the bishop.",
+        "e3": "White supports the center solidly.",
+        "O-O": "Black tucks the king away to safety."
+      }
+    },
+    {
+      "id": "queens-gambit-accepted",
+      "name": "Queen's Gambit Accepted (QGA)",
+      "moves": "1. d4 d5 2. c4 dxc4 3. Nf3 Nf6 4. e3 e6 5. Bxc4 c5",
+      "explanations": {
+        "d4": "White plays d4.",
+        "d5": "Black plays d5.",
+        "c4": "White offers the Queen's Gambit.",
+        "dxc4": "Black temporarily accepts the gambit pawn to ease development.",
+        "Nf3": "White develops knight preventing immediate e5.",
+        "Nf6": "Black develops knight.",
+        "e3": "White prepares to recapture the c4-pawn.",
+        "e6": "Black supports the center.",
+        "Bxc4": "White recovers the gambit pawn actively.",
+        "c5": "Black strikes back against White's center."
+      }
+    },
+    {
+      "id": "slav-defense",
+      "name": "Slav Defense",
+      "moves": "1. d4 d5 2. c4 c6 3. Nf3 Nf6 4. Nc3 dxc4 5. a4 Bf5",
+      "explanations": {
+        "d4": "White opens d4.",
+        "d5": "Black plays d5.",
+        "c4": "White offers Queen's Gambit.",
+        "c6": "Black plays the solid Slav Defense, protecting d5 without blocking the light-squared bishop.",
+        "Nf3": "White develops knight.",
+        "Nf6": "Black develops knight.",
+        "Nc3": "White develops knight.",
+        "dxc4": "Black temporarily grabs the pawn.",
+        "a4": "White prevents b5 and prepares to recover the pawn.",
+        "Bf5": "Black develops the bishop safely outside the pawn chain."
+      }
+    },
+    {
+      "id": "semi-slav-defense",
+      "name": "Semi-Slav Defense",
+      "moves": "1. d4 d5 2. c4 c6 3. Nf3 Nf6 4. Nc3 e6 5. e3 Nbd7",
+      "explanations": {
+        "d4": "White opens d4.",
+        "d5": "Black plays d5.",
+        "c4": "White plays c4.",
+        "c6": "Black plays Slav structure.",
+        "Nf3": "White develops knight.",
+        "Nf6": "Black develops knight.",
+        "Nc3": "White develops knight.",
+        "e6": "Black transitions into the dynamic Semi-Slav Defense.",
+        "e3": "White reinforces the center.",
+        "Nbd7": "Black develops the knight flexibly."
+      }
+    },
+    {
+      "id": "catalan-opening",
+      "name": "Catalan Opening",
+      "moves": "1. d4 Nf6 2. c4 e6 3. g3 d5 4. Bg2 Be7 5. Nf3 O-O",
+      "explanations": {
+        "d4": "White plays d4.",
+        "Nf6": "Black develops knight.",
+        "c4": "White plays c4.",
+        "e6": "Black plays e6.",
+        "g3": "White prepares the powerful Catalan fianchetto setup.",
+        "d5": "Black claims central space.",
+        "Bg2": "White places the bishop on the long diagonal.",
+        "Be7": "Black develops bishop.",
+        "Nf3": "White develops knight.",
+        "O-O": "Black castles safely."
+      }
+    },
+    {
+      "id": "grunfeld-defense",
+      "name": "Grünfeld Defense",
+      "moves": "1. d4 Nf6 2. c4 g6 3. Nc3 d5 4. cxd5 Nxd5 5. e4 Nxc3 6. bxc3 Bg7",
+      "explanations": {
+        "d4": "White opens d4.",
+        "Nf6": "Black develops knight.",
+        "c4": "White plays c4.",
+        "g6": "Black prepares the hypermodern Grünfeld Defense.",
+        "d5": "Black strikes at the center.",
+        "cxd5": "White trades pawns.",
+        "Nxd5": "Black recaptures with the knight.",
+        "e4": "White builds a broad central pawn duo.",
+        "Nxc3": "Black trades the knight to undermine White's center.",
+        "bxc3": "White recaptures with the b-pawn.",
+        "Bg7": "Black fianchettos to put heavy pressure on White's center."
+      }
+    },
+    {
+      "id": "queen-indian-defense",
+      "name": "Queen's Indian Defense",
+      "moves": "1. d4 Nf6 2. c4 e6 3. Nf3 b6 4. g3 Ba6 5. b3 Bb4+",
+      "explanations": {
+        "d4": "White opens d4.",
+        "Nf6": "Black develops knight.",
+        "c4": "White plays c4.",
+        "e6": "Black prepares Indian defenses.",
+        "Nf3": "White develops knight.",
+        "b6": "Black prepares to fianchetto the queen's bishop (Queen's Indian).",
+        "g3": "White prepares a solid setup.",
+        "Ba6": "Black targets the c4-pawn actively.",
+        "b3": "White supports c4.",
+        "Bb4+": "Black delivers a developing check."
+      }
+    },
+    {
+      "id": "nimzo-indian-defense",
+      "name": "Nimzo-Indian Defense",
+      "moves": "1. d4 Nf6 2. c4 e6 3. Nc3 Bb4 4. e3 O-O 5. Bd3 d5",
+      "explanations": {
+        "d4": "White opens d4.",
+        "Nf6": "Black develops knight.",
+        "c4": "White plays c4.",
+        "e6": "Black plays e6.",
+        "Nc3": "White develops knight, covering e4.",
+        "Bb4": "Black plays the Nimzo-Indian, pinning the knight to control e4.",
+        "e3": "White prepares solid development.",
+        "O-O": "Black castles.",
+        "Bd3": "White develops bishop.",
+        "d5": "Black strikes centrally."
+      }
+    },
+    {
+      "id": "king-indian-defense",
+      "name": "King's Indian Defense",
+      "moves": "1. d4 Nf6 2. c4 g6 3. Nc3 Bg7 4. e4 d6 5. Nf3 O-O 6. Be2 e5",
+      "explanations": {
+        "d4": "White plays d4.",
+        "Nf6": "Black develops knight.",
+        "c4": "White plays c4.",
+        "g6": "Black prepares King's Indian setup.",
+        "Nc3": "White develops knight.",
+        "Bg7": "Black fianchettos the bishop.",
+        "e4": "White builds a massive center.",
+        "d6": "Black solidifies the position.",
+        "Nf3": "White develops knight.",
+        "O-O": "Black castles.",
+        "Be2": "White prepares kingside safety.",
+        "e5": "Black strikes back against White's center to ignite kingside counterplay."
+      }
+    },
+    {
+      "id": "albin-countergambit",
+      "name": "Albin Countergambit",
+      "moves": "1. d4 d5 2. c4 e5 3. dxe5 d4 4. Nf3 Nc6 5. a3 Bg4",
+      "explanations": {
+        "d4": "White plays d4.",
+        "d5": "Black plays d5.",
+        "c4": "White offers Queen's Gambit.",
+        "e5": "Black offers the sharp Albin Countergambit, fighting fiercely for initiative.",
+        "dxe5": "White captures the pawn.",
+        "d4": "Black pushes the pawn deep into White's territory to create tactical chaos.",
+        "Nf3": "White develops knight.",
+        "Nc6": "Black develops knight, increasing pressure on d4.",
+        "a3": "White prevents Bb4+ checks.",
+        "Bg4": "Black pins the knight to target the d4 pawn controller."
+      }
+    }
+  ]
+}

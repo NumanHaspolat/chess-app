@@ -1153,8 +1153,8 @@ button:disabled {
 
 .opening-favorite {
   position: absolute;
-  top: 14px;
-  right: 14px;
+  top: 10px;
+  right: 10px;
   padding: 0;
   background: transparent;
   border: none;
@@ -2599,4 +2599,3 @@ css .analysis-rank,
     font-size: 0.9rem;
   }
 }
-

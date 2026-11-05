@@ -5,6 +5,52 @@
   "description": "An open game that challenges the center early and creates opportunities for quick development and active piece play.",
   "variations": [
     {
+      "id": "classical-variation",
+      "name": "Classical Variation",
+      "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Bc5 5. Be3 Qf6 6. c3 Nge7 7. Bc4 O-O 8. O-O Bb6",
+      "explanations": {
+        "e4": "White claims central space with the king's pawn.",
+        "e5": "Black stakes a claim in the center symmetrically.",
+        "Nf3": "White develops the knight, attacking the e5-pawn.",
+        "Nc6": "Black develops the knight to defend the e5-pawn.",
+        "d4": "White strikes immediately in the center, defining the Scotch Game.",
+        "exd4": "Black captures the central pawn.",
+        "Nxd4": "White recaptures with the central knight.",
+        "Bc5": "Black develops the bishop, putting pressure on the d4-knight (Classical setup).",
+        "Be3": "White defends the knight and solidifies the center.",
+        "Qf6": "Black brings the queen out to an active attacking post.",
+        "c3": "White reinforces the center and restricts black pieces.",
+        "Nge7": "Black develops the knight to support the position flexibly.",
+        "Bc4": "White develops the bishop to a dangerous diagonal targeting f7.",
+        "O-O": "Black gets the king to safety by castling.",
+        "O-O": "White tucks the king away safely via castling.",
+        "Bb6": "Black retreats the bishop to safety out of tactical danger."
+      }
+    },
+    {
+      "id": "mieses-variation",
+      "name": "Mieses Variation",
+      "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Nf6 5. Nxc6 bxc6 6. e5 Qe7 7. Qe2 Nd5 8. c4 Ba6",
+      "explanations": {
+        "e4": "White opens the game with e4.",
+        "e5": "Black responds with e5.",
+        "Nf3": "White develops the knight.",
+        "Nc6": "Black defends with the knight.",
+        "d4": "White plays the Scotch Game.",
+        "exd4": "Black captures the pawn.",
+        "Nxd4": "White recaptures with the knight.",
+        "Nf6": "Black attacks the e4-pawn (Mieses Variation initiation).",
+        "Nxc6": "White trades knights to compromise Black's structure.",
+        "bxc6": "Black captures toward the center, creating doubled b-pawns.",
+        "e5": "White pushes the pawn forward to harass the black queen/knight.",
+        "Qe7": "Black moves the queen to challenge the e5-pawn.",
+        "Qe2": "White defends the e5-pawn and supports the position.",
+        "Nd5": "Black maneuvers the knight to a central outpost.",
+        "c4": "White expands on the queenside and challenges the knight.",
+        "Ba6": "Black pins the c4-pawn and applies heavy pressure."
+      }
+    },
+    {
       "id": "scotch-gambit",
       "name": "Scotch Gambit",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Bc4 Bc5 5. c3 dxc3 6. Bxf7+ Kxf7 7. Qd5+ Kf8 8. Qxc5+ Qe7 9. Qxe7+ Ngxe7 10. Nxc3 d5 11. exd5 Nb4",

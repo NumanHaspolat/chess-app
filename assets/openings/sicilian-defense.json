@@ -1,0 +1,168 @@
+{
+  "id": "sicilian-defense",
+  "name": "Sicilian Defense",
+  "color": "black",
+  "description": "Black's most aggressive and dynamic response to 1.e4, fighting for asymmetrical positions and counter-attacking chances.",
+  "variations": [
+    {
+      "id": "sicilian-najdorf",
+      "name": "Najdorf Variation",
+      "moves": "1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 a6",
+      "explanations": {
+        "e4": "White claims the center with the king's pawn.",
+        "c5": "Black strikes back asynchronously, defining the Sicilian Defense.",
+        "Nf3": "White develops the knight toward the center.",
+        "d6": "Black solidifies the center and prepares flexibility.",
+        "d4": "White opens central files with an immediate pawn break.",
+        "cxd4": "Black trades the flank pawn for White's center pawn.",
+        "Nxd4": "White recaptures with the central knight.",
+        "Nf6": "Black develops the knight and attacks White's e4-pawn.",
+        "Nc3": "White defends e4 with the queen's knight.",
+        "a6": "Black plays the Najdorf signature move, preventing b5 checks and controlling b5."
+      }
+    },
+    {
+      "id": "sicilian-dragon",
+      "name": "Dragon Variation",
+      "moves": "1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 g6",
+      "explanations": {
+        "e4": "White opens the game.",
+        "c5": "Black plays the Sicilian Defense.",
+        "Nf3": "White develops the knight.",
+        "d6": "Black supports the center.",
+        "d4": "White opens the center.",
+        "cxd4": "Black trades the flank pawn.",
+        "Nxd4": "White recaptures with the knight.",
+        "Nf6": "Black develops and attacks e4.",
+        "Nc3": "White defends the center.",
+        "g6": "Black prepares a fierce dragon setup, fianchettoing the dark-squared bishop."
+      }
+    },
+    {
+      "id": "sicilian-accelerated-dragon",
+      "name": "Accelerated Dragon",
+      "moves": "1. e4 c5 2. Nf3 Nc6 3. d4 cxd4 4. Nxd4 g6",
+      "explanations": {
+        "e4": "White plays e4.",
+        "c5": "Black plays Sicilian.",
+        "Nf3": "White develops knight.",
+        "Nc6": "Black develops the queen's knight early.",
+        "d4": "White opens the center.",
+        "cxd4": "Black captures the pawn.",
+        "Nxd4": "White recaptures with the knight.",
+        "g6": "Black accelerates the dragon fianchetto, avoiding Maroczy Bind setups."
+      }
+    },
+    {
+      "id": "sicilian-scheveningen",
+      "name": "Scheveningen Variation",
+      "moves": "1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 e6",
+      "explanations": {
+        "e4": "White opens the center.",
+        "c5": "Black contests with c5.",
+        "Nf3": "White develops knight.",
+        "d6": "Black plays d6.",
+        "d4": "White opens lines.",
+        "cxd4": "Black captures.",
+        "Nxd4": "White recaptures.",
+        "Nf6": "Black attacks e4.",
+        "Nc3": "White defends e4.",
+        "e6": "Black creates a flexible, solid pawn structure (Scheveningen setup)."
+      }
+    },
+    {
+      "id": "sicilian-classical",
+      "name": "Classical Variation",
+      "moves": "1. e4 c5 2. Nf3 d6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 Nc6",
+      "explanations": {
+        "e4": "White opens the game.",
+        "c5": "Black plays Sicilian.",
+        "Nf3": "White develops knight.",
+        "d6": "Black plays d6.",
+        "d4": "White trades pawns in the center.",
+        "cxd4": "Black captures.",
+        "Nxd4": "White recaptures.",
+        "Nf6": "Black attacks e4.",
+        "Nc3": "White defends.",
+        "Nc6": "Black develops the knight to its natural classical square."
+      }
+    },
+    {
+      "id": "sicilian-sveshnikov",
+      "name": "Sveshnikov Variation",
+      "moves": "1. e4 c5 2. Nf3 Nc6 3. d4 cxd4 4. Nxd4 Nf6 5. Nc3 e5",
+      "explanations": {
+        "e4": "White opens with e4.",
+        "c5": "Black plays Sicilian.",
+        "Nf3": "White develops knight.",
+        "Nc6": "Black develops knight.",
+        "d4": "White opens lines.",
+        "cxd4": "Black captures.",
+        "Nxd4": "White recaptures.",
+        "Nf6": "Black attacks e4.",
+        "Nc3": "White defends e4.",
+        "e5": "Black boldly strikes with e5, accepting a backward d6-pawn for dynamic activity."
+      }
+    },
+    {
+      "id": "sicilian-kan",
+      "name": "Kan Variation",
+      "moves": "1. e4 c5 2. Nf3 e6 3. d4 cxd4 4. Nxd4 a6",
+      "explanations": {
+        "e4": "White opens e4.",
+        "c5": "Black plays Sicilian.",
+        "Nf3": "White develops knight.",
+        "e6": "Black prepares flexible queen-side development.",
+        "d4": "White opens the center.",
+        "cxd4": "Black captures.",
+        "Nxd4": "White recaptures.",
+        "a6": "Black controls b4 and prevents piece intrusions (Kan Variation)."
+      }
+    },
+    {
+      "id": "sicilian-taimanov",
+      "name": "Taimanov Variation",
+      "moves": "1. e4 c5 2. Nf3 e6 3. d4 cxd4 4. Nxd4 Nc6",
+      "explanations": {
+        "e4": "White opens e4.",
+        "c5": "Black plays Sicilian.",
+        "Nf3": "White develops knight.",
+        "e6": "Black plays e6.",
+        "d4": "White opens lines.",
+        "cxd4": "Black captures.",
+        "Nxd4": "White recaptures.",
+        "Nc6": "Black develops the knight to put immediate pressure on d4."
+      }
+    },
+    {
+      "id": "sicilian-closed",
+      "name": "Closed Sicilian",
+      "moves": "1. e4 c5 2. Nc3 Nc6 3. g3 g6 4. Bg2 Bg7",
+      "explanations": {
+        "e4": "White opens e4.",
+        "c5": "Black plays Sicilian.",
+        "Nc3": "White opts for a positional Closed Sicilian setup.",
+        "Nc6": "Black develops the knight.",
+        "g3": "White prepares to fianchetto the bishop.",
+        "g6": "Black mirrors White's fianchetto strategy.",
+        "Bg2": "White develops the bishop.",
+        "Bg7": "Black develops the bishop to the long diagonal."
+      }
+    },
+    {
+      "id": "sicilian-alapin",
+      "name": "Alapin Variation",
+      "moves": "1. e4 c5 2. c3 d5 3. exd5 Qxd5 4. d4 Nf6",
+      "explanations": {
+        "e4": "White opens e4.",
+        "c5": "Black plays Sicilian.",
+        "c3": "White plays the Alapin, preparing a strong d4 pawn duo.",
+        "d5": "Black strikes immediately in the center to challenge White's plan.",
+        "exd5": "White captures the center pawn.",
+        "Qxd5": "Black's queen centralizes actively.",
+        "d4": "White establishes a firm pawn grip.",
+        "Nf6": "Black develops the knight attacking d4."
+      }
+    }
+  ]
+}

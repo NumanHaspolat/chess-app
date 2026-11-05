@@ -1,0 +1,176 @@
+{
+  "id": "caro-kann-defense",
+  "name": "Caro-Kann Defense",
+  "color": "black",
+  "description": "A rock-solid and resilient defense for Black against 1.e4, renowned for its strong pawn structure and endgame potential.",
+  "variations": [
+    {
+      "id": "caro-kann-classical",
+      "name": "Classical Variation",
+      "moves": "1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Bf5",
+      "explanations": {
+        "e4": "White opens with e4.",
+        "c6": "Black prepares d5 with the Caro-Kann Defense.",
+        "d4": "White builds a strong central presence.",
+        "d5": "Black challenges the center immediately.",
+        "Nc3": "White defends the e4-pawn.",
+        "dxe4": "Black trades the central pawn.",
+        "Nxe4": "White recaptures with the knight.",
+        "Bf5": "Black develops the light-squared bishop outside the pawn chain (Classical main line)."
+      }
+    },
+    {
+      "id": "caro-kann-advance",
+      "name": "Advance Variation",
+      "moves": "1. e4 c6 2. d4 d5 3. e5 Bf5 4. Nf3 e6 5. Be2 c5",
+      "explanations": {
+        "e4": "White opens e4.",
+        "c6": "Black plays Caro-Kann.",
+        "d4": "White claims the center.",
+        "d5": "Black plays d5.",
+        "e5": "White pushes space in the Advance Variation.",
+        "Bf5": "Black successfully escapes with the light-squared bishop before playing e6.",
+        "Nf3": "White develops the knight.",
+        "e6": "Black solidifies the central structure.",
+        "Be2": "White develops bishop preparing castling.",
+        "c5": "Black strikes at White's d4-pawn base."
+      }
+    },
+    {
+      "id": "caro-kann-exchange",
+      "name": "Exchange Variation",
+      "moves": "1. e4 c6 2. d4 d5 3. exd5 cxd5 4. Bd3 Nc6 5. c3 Nf6",
+      "explanations": {
+        "e4": "White opens e4.",
+        "c6": "Black plays Caro-Kann.",
+        "d4": "White plays d4.",
+        "d5": "Black plays d5.",
+        "exd5": "White exchanges pawns to open lines.",
+        "cxd5": "Black recaptures, creating a symmetrical pawn structure.",
+        "Bd3": "White develops the bishop.",
+        "Nc6": "Black develops the knight.",
+        "c3": "White supports d4.",
+        "Nf6": "Black develops the knight toward the center."
+      }
+    },
+    {
+      "id": "caro-kann-panov",
+      "name": "Panov Attack",
+      "moves": "1. e4 c6 2. d4 d5 3. exd5 cxd5 4. c4 Nf6 5. Nc3 e6",
+      "explanations": {
+        "e4": "White opens e4.",
+        "c6": "Black plays Caro-Kann.",
+        "d4": "White plays d4.",
+        "d5": "Black plays d5.",
+        "exd5": "White exchanges pawns.",
+        "cxd5": "Black recaptures.",
+        "c4": "White transitions into the Panov Attack, playing for an isolated queen's pawn position.",
+        "Nf6": "Black develops knight.",
+        "Nc3": "White develops knight.",
+        "e6": "Black solidifies the center solidly."
+      }
+    },
+    {
+      "id": "caro-kann-two-knights",
+      "name": "Two Knights Variation",
+      "moves": "1. e4 c6 2. Nc3 d5 3. Nf3 Bg4 4. h3 Bxf3 5. Qxf3 e6",
+      "explanations": {
+        "e4": "White opens e4.",
+        "c6": "Black plays Caro-Kann.",
+        "Nc3": "White develops knight.",
+        "d5": "Black challenges center.",
+        "Nf3": "White develops second knight.",
+        "Bg4": "Black pins White's knight actively.",
+        "h3": "White questions the bishop.",
+        "Bxf3": "Black trades bishop for knight to damage pawn structure.",
+        "Qxf3": "White recaptures with the queen.",
+        "e6": "Black solidifies the position."
+      }
+    },
+    {
+      "id": "caro-kann-fantasy",
+      "name": "Fantasy Variation",
+      "moves": "1. e4 c6 2. d4 d5 3. f3 dxe4 4. fxe4 e5 5. Nf3 exd4",
+      "explanations": {
+        "e4": "White opens e4.",
+        "c6": "Black plays Caro-Kann.",
+        "d4": "White plays d4.",
+        "d5": "Black plays d5.",
+        "f3": "White plays the aggressive Fantasy Variation.",
+        "dxe4": "Black captures the pawn.",
+        "fxe4": "White recaptures, gaining space.",
+        "e5": "Black strikes back in the center.",
+        "Nf3": "White develops knight.",
+        "exd4": "Black captures the d4-pawn."
+      }
+    },
+    {
+      "id": "caro-kann-tartakower",
+      "name": "Tartakower Variation",
+      "moves": "1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Nf6 5. Nxf6+ exf6",
+      "explanations": {
+        "e4": "White opens e4.",
+        "c6": "Black plays Caro-Kann.",
+        "d4": "White plays d4.",
+        "d5": "Black plays d5.",
+        "Nc3": "White develops knight.",
+        "dxe4": "Black trades.",
+        "Nxe4": "White captures.",
+        "Nf6": "Black develops knight.",
+        "Nxf6+": "White gives check and trades.",
+        "exf6": "Black recaptures with the e-pawn for an endgame-oriented structure."
+      }
+    },
+    {
+      "id": "caro-kann-bronstein-larsen",
+      "name": "Bronstein-Larsen Variation",
+      "moves": "1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Nf6 5. Nxf6+ gxf6",
+      "explanations": {
+        "e4": "White opens e4.",
+        "c6": "Black plays Caro-Kann.",
+        "d4": "White plays d4.",
+        "d5": "Black plays d5.",
+        "Nc3": "White develops knight.",
+        "dxe4": "Black captures.",
+        "Nxe4": "White recaptures.",
+        "Nf6": "Black develops knight.",
+        "Nxf6+": "White trades knights.",
+        "gxf6": "Black recaptures with the g-pawn, keeping open lines for counterplay on the g-file."
+      }
+    },
+    {
+      "id": "caro-kann-karpov",
+      "name": "Karpov Variation",
+      "moves": "1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Nd7",
+      "explanations": {
+        "e4": "White opens e4.",
+        "c6": "Black plays Caro-Kann.",
+        "d4": "White plays d4.",
+        "d5": "Black plays d5.",
+        "Nc3": "White develops knight.",
+        "dxe4": "Black captures.",
+        "Nxe4": "White recaptures.",
+        "Nd7": "Black plays the flexible Karpov variation, preparing to safely trade minor pieces."
+      }
+    },
+    {
+      "id": "caro-kann-smyslov",
+      "name": "Smyslov Variation",
+      "moves": "1. e4 c6 2. d4 d5 3. Nc3 dxe4 4. Nxe4 Nd7 5. Bc4 Ngf6 6. Ng5 e6",
+      "explanations": {
+        "e4": "White opens e4.",
+        "c6": "Black plays Caro-Kann.",
+        "d4": "White plays d4.",
+        "d5": "Black plays d5.",
+        "Nc3": "White develops knight.",
+        "dxe4": "Black captures.",
+        "Nxe4": "White recaptures.",
+        "Nd7": "Black develops knight.",
+        "Bc4": "White aims at f7.",
+        "Ngf6": "Black develops knight.",
+        "Ng5": "White threatens f7.",
+        "e6": "Black solidly covers the f7 weakness."
+      }
+    }
+  ]
+}

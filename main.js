@@ -1916,17 +1916,17 @@ async function runEvaluation(fen, depth = REVIEW_DEPTH) {
   });
 }
 
-/* ---------- Matematik ---------- */
+/* ---------- Matematiksel Dengelemeler ---------- */
 
 function winPercent(cp) {
+  // Kazanma yüzdesi eğrisini Stockfish standartlarına göre optimize ettik
   const c = Math.max(-1500, Math.min(1500, cp));
-  return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * c)) - 1);
+  return 50 + 50 * (2 / (1 + Math.exp(-0.0057 * c)) - 1);
 }
 
 function moveAccuracy(winLoss) {
-  // Eski eğri yerine daha dengeli ve cezalandırıcı bir formül:
-  // winLoss (kazanma yüzdesi kaybı) arttıkça accuracy hızla düşer.
-  const acc = 100 * Math.exp(-0.055 * Math.max(0, winLoss));
+  // Kayıp yüzdesine göre accuracy eğrisi (0 kayıp = %100, büyük kayıplarda sönümleme)
+  const acc = 100 * Math.exp(-0.06 * Math.max(0, winLoss));
   return Math.max(0, Math.min(100, acc));
 }
 
@@ -1944,8 +1944,7 @@ function volatilityWeights(winSeries) {
       win.reduce((a, b) => a + (b - mean) ** 2, 0) / win.length,
     );
 
-    // Ağırlıkların aşırı yüksek değerler almasını engellemek için sınırları daralttık (0.5 - 6 arası)
-    weights.push(Math.max(0.5, Math.min(6, sd)));
+    weights.push(Math.max(0.5, Math.min(5, sd)));
   }
 
   return weights;
@@ -1960,7 +1959,8 @@ function combineAccuracy(accs, weights) {
   const harmonic =
     accs.length / accs.reduce((sum, a) => sum + 1 / Math.max(a, 1), 0);
 
-  return (weighted + harmonic) / 2;
+  // Ağırlıklı ortalama ve harmonik ortalamanın dengeli birleşimi
+  return Math.min(100, Math.max(0, weighted * 0.6 + harmonic * 0.4));
 }
 
 // Taş feda edildi mi? (kayıp >= 2 puan, rakip alırsa)
@@ -2007,108 +2007,50 @@ function classifyMove({
   gap,
   isRecapture,
 }) {
-  if (uci === best || loss < 0.1) return "best";
-
-  // Brilliant: Taş fedası içeren üstün hamleler
+  // 1. Brilliant (!!): Mantıklı bir feda içeren ve konumu
+  // kazanca/üstünlüğe taşıyan harika hamleler
   if (
     loss < 0.6 &&
     sacrifice <= -2 &&
     "nbrq".includes(piece) &&
-    winAfter >= 45 &&
-    winBefore < 90
+    winAfter >= 40 &&
+    winBefore < 85
   ) {
     return "brilliant";
   }
 
-  // Great: Kritik ve oyunu döndüren hamleler
-  if (
-    loss < 0.8 &&
-    winAfter >= 40 &&
-    winBefore < 90 &&
-    (sacrifice <= -1 || (gap >= 22 && !isRecapture))
-  ) {
-    return "great";
+  // 2. Excellent (!): Best hamleden de öte, pozisyonu
+  // harika bir noktaya taşıyan/parlatan üstün hamleler
+  if (loss < 0.2 && winAfter > winBefore + 5 && !isRecapture) {
+    return "excellent";
   }
 
-  if (loss < 0.6) return "excellent";
-  if (loss < 1.5) return "good";
-  if (loss < 3.5) return "inaccuracy";
+  // 3. Best (★): Motorun önerdiği 1 numaralı ana hamle (veya kayıpsız hamle)
+  if (uci === best || loss < 0.1) {
+    return "best";
+  }
 
-  // Mistake: Ciddi değerlendirme kaybı (Yüzde kaybı 4 ile 10 arası)
+  // 4. Good: Oyunu bozmayan, sağlam ve doğru hamleler
+  if (loss < 1.8) {
+    return "good";
+  }
+
+  // 5. Inaccuracy (?): Ufak konumsal sapmalar veya hafif hatalar
+  if (loss < 4.5) {
+    return "inaccuracy";
+  }
+
+  // 6. Mistake (?): Ciddi avantaj kaybı veya hesap hatası
   if (loss < 10.0) {
-    // Eğer oyuncu zaten çok kötü durumdaysa (winBefore < 15) her kaybı blunder yapma
-    return winBefore < 15 ? "inaccuracy" : "mistake";
+    return "mistake";
   }
 
-  // Blunder (??): Sadece kayıp çok büyükse ve oyuncu kazanırken veya eşitken birden çöküş yaşadıysa
-  if (loss >= 10.0 && winBefore >= 30) {
+  // 7. Blunder (??): Çok sert kayıp (10+ puan/yüzde kaybı veya kazanılan maçı çöpe atma)
+  if (loss >= 10.0 || (winBefore >= 40 && winAfter < 15)) {
     return "blunder";
   }
 
-  // Eğer çok düşük yüzdeyle oynuyorsa ve zaten kayıptaysa en fazla mistake sayılır
-  return winBefore < 20 ? "mistake" : "blunder";
-}
-/* ---------- Oyunu incele ---------- */
-
-// 1. Maça tıklandığında analizi başlatan fonksiyon
-// Oyuna tıklandığında çağrılan ana fonksiyon
-function startGameAnalysis(gameData) {
-  const reportPanel = document.getElementById("analyse-game-report");
-  const progressBox = document.getElementById("analyse-progress-box");
-  const reportContent = document.getElementById("analyse-report-content");
-  const progressText = document.getElementById("analyse-progress-text");
-
-  // 1. Rapor panelini ve yükleme kutusunu görünür yap
-  if (reportPanel) {
-    reportPanel.hidden = false;
-  }
-  if (progressBox) {
-    progressBox.style.display = "flex"; // Yükleme animasyonunu aç
-  }
-  if (reportContent) {
-    reportContent.style.display = "none"; // Eski raporu gizle
-  }
-  if (progressText) {
-    progressText.textContent = "Analyzing game... (0%)";
-  }
-
-  // 2. Mobilde/Tablette hemen rapora kaydır
-  if (window.innerWidth <= 1050) {
-    reportPanel?.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  }
-
-  // 3. Mevcut review işlemine benzersiz bir ID vererek Stockfish analizini başlat
-  if (typeof reviewRunId === "undefined") {
-    window.reviewRunId = 0;
-  }
-  reviewRunId++;
-  const currentRunId = reviewRunId;
-
-  // Analizi çalıştır
-  reviewGame(
-    gameData,
-    (currentMove, totalMoves) => {
-      if (progressText) {
-        const percent = Math.round((currentMove / totalMoves) * 100);
-        progressText.textContent = `Analyzing game... (${percent}%)`;
-      }
-    },
-    currentRunId,
-  );
-}
-
-// 2. Analiz bittiğinde yüklemeyi gizleyip raporu açan fonksiyon
-function onAnalysisComplete() {
-  const progressBox = document.getElementById("analyse-progress-box");
-  const reportContent = document.getElementById("analyse-report-content");
-
-  // Yükleme animasyonunu tamamen kaldır/gizle
-  if (progressBox) progressBox.style.display = "none";
-  // Game Report içeriğini görünür yap
-  if (reportContent) reportContent.style.display = "block";
+  return "mistake";
 }
 
 async function reviewGame(
@@ -2565,24 +2507,57 @@ async function fetchChesscomGames(username) {
 document
   .getElementById("fetch-chesscom-games")
   ?.addEventListener("click", async () => {
-    const username = document.getElementById("chesscom-username").value;
-    if (!username.trim()) return;
+    executeFetchGames();
+  });
 
-    analyseGamesStatusEl.textContent = "Loading games…";
-    analyseGamesListEl.innerHTML = "";
-
-    try {
-      const items = await fetchChesscomGames(username);
-
-      analyseGamesStatusEl.textContent = items.length
-        ? `${items.length} games found. Click one to analyse.`
-        : "No games found.";
-
-      renderAnalyseGamesList(items);
-    } catch (error) {
-      analyseGamesStatusEl.textContent = error.message;
+// ---> BURAYI EKLE: Kullanıcı username input alanındayken Enter tuşuna basarsa aramayı tetikle
+document
+  .getElementById("chesscom-username")
+  ?.addEventListener("keydown", async (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault(); // Sayfanın varsayılan form submit davranışını engelle
+      executeFetchGames();
     }
   });
+
+async function executeFetchGames() {
+  const usernameInput = document.getElementById("chesscom-username");
+  const fetchButton = document.getElementById("fetch-chesscom-games");
+  const username = usernameInput ? usernameInput.value : "";
+
+  if (!username.trim()) return;
+
+  analyseGamesStatusEl.textContent = "Loading games…";
+  analyseGamesListEl.innerHTML = "";
+
+  if (fetchButton) {
+    fetchButton.classList.add("fetch-loading");
+  }
+
+  try {
+    const items = await fetchChesscomGames(username);
+
+    analyseGamesStatusEl.textContent = items.length
+      ? `${items.length} games found. Click one to analyse.`
+      : "No games found.";
+
+    renderAnalyseGamesList(items);
+
+    // Ekranı doğrudan kullanıcı adı input alanının (veya arama kutusunun üstünün) hizasına kaydır
+    if (usernameInput) {
+      usernameInput.scrollIntoView({
+        behavior: "smooth",
+        block: "center", // Veya "start"
+      });
+    }
+  } catch (error) {
+    analyseGamesStatusEl.textContent = error.message;
+  } finally {
+    if (fetchButton) {
+      fetchButton.classList.remove("fetch-loading");
+    }
+  }
+}
 
 /* ---------- PGN dosyası ---------- */
 

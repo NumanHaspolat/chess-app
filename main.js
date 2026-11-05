@@ -1763,30 +1763,6 @@ document.getElementById("analyse-btn-flip")?.addEventListener("click", () => {
   renderAnalyseBoard();
 });
 
-window.addEventListener("keydown", (e) => {
-  // Sadece Analyse sayfası açıkken çalışsın
-  if (document.querySelector("#analyse").hidden) return;
-
-  // Sürükleme sırasında veya input'a yazarken çalışmasın
-  if (analyseDrag) return;
-  if (
-    ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)
-  ) {
-    return;
-  }
-
-  let nextPly;
-
-  if (e.key === "ArrowLeft") nextPly = analyseCurrentPly - 1;
-  else if (e.key === "ArrowRight") nextPly = analyseCurrentPly + 1;
-  else if (e.key === "Home") nextPly = 0;
-  else if (e.key === "End") nextPly = analyseHistory.length;
-  else return;
-
-  e.preventDefault();
-  goToAnalysePly(nextPly);
-});
-
 document.getElementById("analyse-btn-reset")?.addEventListener("click", () => {
   reviewRunId++; // devam eden incelemeyi iptal et
   analyseMainLine = null;
@@ -2761,7 +2737,6 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
       playSound("promote", 2);
 
       // Doğru hamle
-      // Doğru hamle
       lesson.index++;
 
       trainCorrectSquares = [move.from, move.to];
@@ -3209,6 +3184,143 @@ movesEl.addEventListener("click", (e) => {
   goToPly(Number(moveEl.dataset.ply));
 });
 
+// ==========================================
+// PLAY MODU ANİMASYONLU NAVİGASYON & SINIR KONTROLÜ
+// ==========================================
+
+document.getElementById("play-nav-first")?.addEventListener("click", () => {
+  goToPlyAnimated(0);
+});
+document.getElementById("play-nav-prev")?.addEventListener("click", () => {
+  const sanMoves = game.history();
+  const current = viewPly ?? sanMoves.length;
+  if (current > 0) goToPlyAnimated(current - 1);
+});
+document.getElementById("play-nav-next")?.addEventListener("click", () => {
+  const sanMoves = game.history();
+  const current = viewPly ?? sanMoves.length;
+  if (current < sanMoves.length) goToPlyAnimated(current + 1);
+});
+document.getElementById("play-nav-last")?.addEventListener("click", () => {
+  const sanMoves = game.history();
+  goToPlyAnimated(sanMoves.length);
+});
+
+function goToPlyAnimated(ply) {
+  const sanMoves = game.history();
+  const total = sanMoves.length;
+
+  if (total === 0 || ply < 0 || ply > total) return;
+
+  const previousPly = viewPly ?? total;
+  if (ply === previousPly) return;
+
+  const tempGame = new Chess();
+  let lastPlayed = null;
+  for (let i = 0; i < ply; i++) {
+    lastPlayed = tempGame.move(sanMoves[i]);
+  }
+
+  let animation = false;
+  if (ply === previousPly + 1 && lastPlayed) {
+    animation = { from: lastPlayed.from, to: lastPlayed.to };
+    playSoundForMove(lastPlayed);
+  } else if (ply === previousPly - 1) {
+    const undoneMove = new Chess();
+    for (let i = 0; i < previousPly; i++) undoneMove.move(sanMoves[i]);
+    const m = undoneMove.undo();
+    if (m) {
+      // Play modunda da geri giderken taşın ters yöne pürüzsüz kayması için:
+      animation = { from: m.to, to: m.from };
+      playSoundForMove(m);
+    }
+  }
+
+  viewPly = ply === total ? null : ply;
+  selectedSquare = null;
+  legalMoves = [];
+
+  view = syncView();
+  renderBoard(animation);
+  renderStrips();
+  renderStatus();
+  renderOpening();
+  renderMoves();
+}
+
+// ==========================================
+// REPERTOIRE MODU NAVİGASYON BUTONLARI
+// ==========================================
+
+document.getElementById("rep-nav-first")?.addEventListener("click", () => {
+  goToRepPlyAnimated(0);
+});
+document.getElementById("rep-nav-prev")?.addEventListener("click", () => {
+  const history = repertoireGame.history();
+  const current = repViewPly ?? history.length;
+  if (current > 0) goToRepPlyAnimated(current - 1);
+});
+document.getElementById("rep-nav-next")?.addEventListener("click", () => {
+  const history = repertoireGame.history();
+  const current = repViewPly ?? history.length;
+  if (current < history.length) goToRepPlyAnimated(current + 1);
+});
+document.getElementById("rep-nav-last")?.addEventListener("click", () => {
+  const history = repertoireGame.history();
+  goToRepPlyAnimated(history.length);
+});
+
+function goToRepPlyAnimated(ply) {
+  const history = repertoireGame.history();
+  const total = history.length;
+
+  if (ply < 0 || ply > total) return;
+  const previousPly = repViewPly ?? total;
+  if (ply === previousPly) return;
+
+  const tempGame = new Chess();
+  let lastPlayed = null;
+  for (let i = 0; i < ply; i++) {
+    lastPlayed = tempGame.move(history[i]);
+  }
+
+  let animation = false;
+  if (ply === previousPly + 1 && lastPlayed) {
+    animation = { from: lastPlayed.from, to: lastPlayed.to };
+    playSoundForMove(lastPlayed);
+  } else if (ply === previousPly - 1) {
+    const undoneMove = new Chess();
+    for (let i = 0; i < previousPly; i++) undoneMove.move(history[i]);
+    const m = undoneMove.undo();
+    if (m) {
+      animation = { from: m.to, to: m.from };
+      playSoundForMove(m);
+    }
+  }
+
+  repViewPly = ply >= total ? null : ply;
+  repSelectedSquare = null;
+  repLegalMoves = [];
+
+  renderRepertoireBoard(animation);
+  renderRepertoireMoves();
+
+  const displayGame = drill ? drillGame : syncRepView();
+  if (repStatusEl) {
+    repStatusEl.textContent =
+      displayGame.turn() === "w" ? "White to move" : "Black to move";
+  }
+  renderRepertoireStrips(displayGame);
+  renderRepertoireOpening(displayGame);
+  requestEngineEvaluation(displayGame.fen(), "repertoire");
+  renderRepertoire();
+  renderRepLibrary();
+}
+
+// ==========================================
+// TEK VE GÜVENLİ EVRENSEL KLAVYE DİNLEYİCİSİ (ÇAKIŞMA YOK)
+// ==========================================
+
 window.addEventListener("keydown", (e) => {
   if (
     drag ||
@@ -3219,9 +3331,7 @@ window.addEventListener("keydown", (e) => {
     return;
   }
 
-  // Learn mode keyboard navigation
   if (lesson && !trainMode) {
-    if (trainMode) return;
     if (e.key === "ArrowLeft") {
       e.preventDefault();
       previousLessonMove();
@@ -3229,35 +3339,48 @@ window.addEventListener("keydown", (e) => {
       e.preventDefault();
       nextLessonMove();
     }
-
     return;
   }
 
   const isRepPage = !pages.repertoire.hidden;
   const isPlayPage = !pages.play.hidden;
+  const isAnalysePage = !pages.analyse.hidden;
 
-  if (!isRepPage && !isPlayPage) return;
+  if (!isRepPage && !isPlayPage && !isAnalysePage) return;
 
-  const total = isRepPage
-    ? repertoireGame.history().length
-    : game.history().length;
+  let current, maxPly;
 
-  const current = isRepPage ? (repViewPly ?? total) : (viewPly ?? total);
+  if (isPlayPage) {
+    const sanMoves = game.history();
+    maxPly = sanMoves.length;
+    current = viewPly ?? maxPly;
+  } else if (isRepPage) {
+    const history = repertoireGame.history();
+    maxPly = history.length;
+    current = repViewPly ?? maxPly;
+  } else if (isAnalysePage) {
+    maxPly = analyseHistory.length;
+    current = analyseCurrentPly;
+  }
 
-  let nextPly;
+  let nextPly = current;
 
   if (e.key === "ArrowLeft") nextPly = current - 1;
   else if (e.key === "ArrowRight") nextPly = current + 1;
   else if (e.key === "Home") nextPly = 0;
-  else if (e.key === "End") nextPly = total;
+  else if (e.key === "End") nextPly = maxPly;
   else return;
+
+  if (nextPly < 0 || nextPly > maxPly) return;
 
   e.preventDefault();
 
-  if (isRepPage) {
-    goToRepPly(nextPly);
-  } else {
-    goToPly(nextPly);
+  if (isPlayPage) {
+    goToPlyAnimated(nextPly);
+  } else if (isRepPage) {
+    goToRepPlyAnimated(nextPly);
+  } else if (isAnalysePage) {
+    goToAnalysePly(nextPly);
   }
 });
 

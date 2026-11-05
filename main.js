@@ -1792,15 +1792,32 @@ document.getElementById("analyse-btn-reset")?.addEventListener("click", () => {
 
 const REVIEW_DEPTH = 12;
 const PIECE_VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
-const BADGE_SYMBOL = {
-  brilliant: "!!",
-  best: '<svg viewBox="2 2 20 19" width="13" height="13" fill="currentColor"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>',
-  excellent: "!",
-  good: '<svg viewBox="4 6 16 12" width="13" height="13" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 12.5l4 4L18.5 7.5"/></svg>',
-  inaccuracy: "?!",
-  mistake: "?",
-  blunder: "??",
-};
+// İkon görsellerinin yolları (Kendi çizdiğin PNG veya SVG'leri buraya koyabilirsin)
+//! const BADGE_IMAGES = {
+//   brilliant: "./assets/badges/brilliant.png",
+//   great: "./assets/badges/great.png",
+//   best: "./assets/badges/best.png",
+//   excellent: "./assets/badges/excellent.png",
+//   good: "./assets/badges/good.png",
+//   inaccuracy: "./assets/badges/inaccuracy.png",
+//   mistake: "./assets/badges/mistake.png",
+//   blunder: "./assets/badges/blunder.png",
+// };
+
+// renderAnalyseBoard fonksiyonu içindeki rozet ekleme kısmını şu şekilde güncelleyin:
+//! if (name === badgeSquare) {
+//   const badge = document.createElement("span");
+//   badge.className = "move-badge";
+//   badge.dataset.cls = currentClass;
+
+//   // SVG yerine senin çizeceğin görsel ekleniyor
+//   const img = document.createElement("img");
+//   img.src = BADGE_IMAGES[currentClass] || "";
+//   img.alt = currentClass;
+//   badge.appendChild(img);
+
+//   squareEl.appendChild(badge);
+// }
 let analyseMoveClasses = []; // index = ply (1'den başlar)
 let reviewRunId = 0;
 let reviewEnginePromise = null;
@@ -1911,14 +1928,15 @@ function winPercent(cp) {
 }
 
 function moveAccuracy(winLoss) {
-  const acc = 103.1668 * Math.exp(-0.04354 * winLoss) - 3.1669;
+  // Eski eğri yerine daha dengeli ve cezalandırıcı bir formül:
+  // winLoss (kazanma yüzdesi kaybı) arttıkça accuracy hızla düşer.
+  const acc = 100 * Math.exp(-0.055 * Math.max(0, winLoss));
   return Math.max(0, Math.min(100, acc));
 }
 
-// Eval'in oynak olduğu (kritik) anlara daha çok ağırlık verir
 function volatilityWeights(winSeries) {
   const total = winSeries.length - 1;
-  const size = Math.max(2, Math.min(8, Math.round(total / 10)));
+  const size = Math.max(2, Math.min(6, Math.round(total / 12)));
   const weights = [];
 
   for (let i = 0; i < total; i++) {
@@ -1930,7 +1948,8 @@ function volatilityWeights(winSeries) {
       win.reduce((a, b) => a + (b - mean) ** 2, 0) / win.length,
     );
 
-    weights.push(Math.max(0.5, Math.min(12, sd)));
+    // Ağırlıkların aşırı yüksek değerler almasını engellemek için sınırları daralttık (0.5 - 6 arası)
+    weights.push(Math.max(0.5, Math.min(6, sd)));
   }
 
   return weights;
@@ -1992,11 +2011,11 @@ function classifyMove({
   gap,
   isRecapture,
 }) {
-  const nearBest = loss < 0.8; // Tolerans daraltıldı (eski hali 2 idi)
+  if (uci === best || loss < 0.1) return "best";
 
-  // Brilliant: iyi bir taş fedası
+  // Brilliant: Taş fedası içeren üstün hamleler
   if (
-    nearBest &&
+    loss < 0.6 &&
     sacrifice <= -2 &&
     "nbrq".includes(piece) &&
     winAfter >= 45 &&
@@ -2005,33 +2024,33 @@ function classifyMove({
     return "brilliant";
   }
 
-  // Great: kritik hamle
+  // Great: Kritik ve oyunu döndüren hamleler
   if (
-    nearBest &&
+    loss < 0.8 &&
     winAfter >= 40 &&
     winBefore < 90 &&
-    (sacrifice <= -1 || (gap >= 25 && !isRecapture))
+    (sacrifice <= -1 || (gap >= 22 && !isRecapture))
   ) {
     return "great";
   }
 
-  // Kesin en iyi hamle veya kaybın neredeyse hiç olmadığı durumlar
-  if (uci === best || loss < 0.15) return "best";
-
-  // Excellent: En iyi hamle değil ama kayıp çok minimal (0.15 ile 0.7 arası)
-  if (loss < 0.7) return "excellent";
-
-  // Good: Kabul edilebilir iyi hamle (0.7 ile 1.8 arası)
-  if (loss < 1.8) return "good";
-
-  // Inaccuracy: Küçük hata / hassasiyet kaybı (1.8 ile 3.5 arası)
+  if (loss < 0.6) return "excellent";
+  if (loss < 1.5) return "good";
   if (loss < 3.5) return "inaccuracy";
 
-  // Mistake: Ciddi hata (3.5 ile 7.0 arası)
-  if (loss < 7.0) return "mistake";
+  // Mistake: Ciddi değerlendirme kaybı (Yüzde kaybı 4 ile 10 arası)
+  if (loss < 10.0) {
+    // Eğer oyuncu zaten çok kötü durumdaysa (winBefore < 15) her kaybı blunder yapma
+    return winBefore < 15 ? "inaccuracy" : "mistake";
+  }
 
-  // Blunder: Büyük patates / saçmalık
-  return "blunder";
+  // Blunder (??): Sadece kayıp çok büyükse ve oyuncu kazanırken veya eşitken birden çöküş yaşadıysa
+  if (loss >= 10.0 && winBefore >= 30) {
+    return "blunder";
+  }
+
+  // Eğer çok düşük yüzdeyle oynuyorsa ve zaten kayıptaysa en fazla mistake sayılır
+  return winBefore < 20 ? "mistake" : "blunder";
 }
 /* ---------- Oyunu incele ---------- */
 
@@ -4400,6 +4419,11 @@ function renderRepLibrary() {
     container.appendChild(card);
   });
 }
+
+// Özel butona basıldığında gizli dosya seçiciyi tetikle
+document.getElementById("custom-upload-btn")?.addEventListener("click", () => {
+  document.getElementById("pgn-upload")?.click();
+});
 
 // Navbar page navigation
 const navLinks = document.querySelectorAll(".nav-link");

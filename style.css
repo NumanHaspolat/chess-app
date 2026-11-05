@@ -380,22 +380,28 @@ button:disabled {
   flex: 1;
 }
 
-/* Hamleler kapsayıcısı (Mobilde sabit yükseklik) */
+/* TÜM SAYFALARDAKİ (PLAY, ANALYSE, REPERTOIRE VB.) HAMLELER LİSTESİ ORTAK STANDART */
 .moves {
   margin: 0;
   padding: 0;
   list-style: none;
   counter-reset: ply;
-  height: 180px; /* Sabit yükseklik verildi */
-  max-height: 180px;
-  overflow-y: auto; /* Sadece kendi içinde dikey scroll yapar */
-  overflow-x: hidden; /* Sağ/sol kaymayı kesin kilitler */
+  height: 261px !important; /* İstediğin sabit yükseklik hepsinde geçerli olsun */
+  max-height: 261px !important;
+  overflow-y: auto !important; /* Hepsinde dikey kaydırma aktif */
+  overflow-x: hidden !important; /* Yatay taşma ve kayma kesinlikle engelli */
   width: 100%;
   font-family: var(--font-pixel);
   font-size: 1.05rem;
   line-height: 1.7;
   color: var(--text-muted);
 }
+
+/* Yalnızca Analyse sayfasındaki hamleler kutusu (yan panel ile eşitlenmesi için) */
+/* #analyse .moves-section .moves {
+  height: 261px !important;
+  max-height: 261px !important;
+} */
 
 /* Hamle kutusu dışarı taşmasın */
 .moves-section,
@@ -1805,35 +1811,78 @@ css .analysis-rank,
   color: #fff;
 }
 
+/* ROZETLER (BADGES) - PIXEL ART STİLİ */
 .move-badge {
   position: absolute;
   top: 3px;
   right: 3px;
   z-index: 3;
-  width: 24px;
-  height: 24px;
-  padding: 1px 0 0;
-  display: grid;
-  place-items: center;
-  font-family: system-ui, sans-serif;
-  font-size: 14px;
-  font-weight: 900;
-  line-height: 1;
-  border-radius: 50%;
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.45);
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px; /* Piksel temaya daha uygun hafif köşeli piksel kart tasarımı */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
   pointer-events: none;
-  animation: badgePop 220ms ease 120ms backwards;
+  animation: badgePop 180ms ease-out backwards;
+  image-rendering: pixelated;
 }
 
-.move-badge.double {
-  font-size: 12px;
+/* RENK PALETİ VE GÖLGELER */
+.move-badge[data-cls="brilliant"] {
+  background: #26c9c3;
+  color: #04201d;
+  border: 1px solid #7bf6f1;
 }
 
+.move-badge[data-cls="great"] {
+  background: #3fdef3;
+  color: #092c33;
+  border: 1px solid #a4f5ff;
+}
+
+.move-badge[data-cls="best"] {
+  background: #7fd35a;
+  color: #123005;
+  border: 1px solid #b7f79c;
+}
+
+.move-badge[data-cls="excellent"] {
+  background: #96bc4b;
+  color: #1d2a0c;
+  border: 1px solid #d4f294;
+}
+
+.move-badge[data-cls="good"] {
+  background: #5b8793;
+  color: #ffffff;
+  border: 1px solid #8ab8c5;
+}
+
+.move-badge[data-cls="inaccuracy"] {
+  background: #f7c631;
+  color: #3a2b00;
+  border: 1px solid #ffe893;
+}
+
+.move-badge[data-cls="mistake"] {
+  background: #e68f2d;
+  color: #3a1d00;
+  border: 1px solid #ffc485;
+}
+
+.move-badge[data-cls="blunder"] {
+  background: #ca3431;
+  color: #ffffff;
+  border: 1px solid #ff8885;
+}
+
+/* SVG İKON HİZALAMA */
 .move-badge svg {
   display: block;
-  margin-top: -1px;
+  shape-rendering: crispedges; /* Piksel kenarlarının bulanıklaşmasını engeller */
 }
-
 /* ==========================================
    RESPONSIVE & MOBILE OPTIMIZATIONS
    ========================================== */
@@ -2091,9 +2140,140 @@ css .analysis-rank,
   text-align: center;
 }
 
+.square.legal.capture::after,
+#analyse-board .analyse-legal-capture::after {
+  width: 90% !important; /* Eskiden 90% idi, biraz küçültüldü */
+  height: 90% !important; /* Eskiden 90% idi, biraz küçültüldü */
+  background: transparent;
+  border: 4.5px solid var(--legal-dot); /* Kenar kalınlığı da dengelendi */
+  /* top: 14%;
+  left: 14%; */
+  border-radius: 50%;
+  position: absolute;
+  content: "";
+  pointer-events: none;
+}
+
 /* Sadece tablet ve mobil ekranlarda görünür olsun */
 @media (max-width: 1050px) {
   .analyse-back-to-board-btn {
     display: block;
   }
+}
+
+/* ÖZEL PİKSEL / CAM TEMALI SCROLLBAR */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(15, 42, 51, 0.5);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--dark); /* Temadaki koyu mavi-yeşil tonu */
+  border-radius: 3px;
+  border: 1px solid var(--panel-border);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent); /* Üzerine gelince sitenin turkuaz rengi parlar */
+}
+
+::selection {
+  background: var(--accent-strong); /* #3fdef3 parlak turkuaz */
+  color: #04201d; /* Koyu tema metin rengi */
+}
+
+::-moz-selection {
+  background: var(--accent-strong);
+  color: #04201d;
+}
+
+/* ANALYSE GAMES SECTION - GENİŞLİK AYARI */
+#analyse .analyse-games-section {
+  width: min(
+    100%,
+    594px
+  ); /* Navigasyon butonları ve tahta genişliğiyle birebir aynı */
+  margin: 16px 0 0 auto; /* Sağa yaslı ve üstten boşluklu */
+  min-width: 0;
+  padding: 18px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.25);
+}
+
+@media (max-width: 1050px) {
+  #analyse .analyse-games-section {
+    width: 100%;
+    margin: 16px 0 0 0;
+  }
+}
+
+/* PGN UPLOAD BÖLÜMÜNÜ TEMAYA UYDURMA */
+.analyse-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--panel-border);
+}
+
+.analyse-upload label {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* Dosya seçme (input file) alanını site butonlarına benzetiyoruz */
+#pgn-upload {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px dashed var(--panel-border);
+  border-radius: 6px;
+  background: var(--control);
+  color: var(--text);
+  font-family: var(--font-pixel);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+
+#pgn-upload:hover {
+  background: var(--control-hover);
+  border-color: var(--accent-strong);
+}
+
+.custom-file-trigger-btn {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--control);
+  color: #cfe7e7;
+  font-family: var(--font-pixel);
+  font-size: 0.95rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  cursor: pointer;
+  text-align: center;
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    transform 0.1s;
+}
+
+.custom-file-trigger-btn:hover {
+  background: var(--control-hover);
+  border-color: var(--accent-strong);
+}
+
+.custom-file-trigger-btn:active {
+  transform: scale(0.98);
 }

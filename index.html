@@ -171,8 +171,24 @@
             </div>
 
             <div class="analyse-upload">
-              <label for="pgn-upload">Or upload PGN</label>
-              <input type="file" id="pgn-upload" accept=".pgn" />
+              <label>Or upload PGN</label>
+
+              <!-- Orijinal input'u gizliyoruz ama ID'sini koruyoruz ki JS çalışmaya devam etsin -->
+              <input
+                type="file"
+                id="pgn-upload"
+                accept=".pgn"
+                style="display: none"
+              />
+
+              <!-- Yerine sitenin diğer butonlarıyla birebir aynı tarzda özel butonumuz -->
+              <button
+                type="button"
+                id="custom-upload-btn"
+                class="custom-file-trigger-btn"
+              >
+                Upload PGN File
+              </button>
             </div>
           </div>
 

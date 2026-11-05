@@ -1486,6 +1486,17 @@ function makeAnalyseMove(from, to, promotion = "q", animate = true) {
   return true;
 }
 
+const BADGE_IMAGES = {
+  brilliant: "./assets/badges/brilliant.png",
+  great: "./assets/badges/great.png",
+  best: "./assets/badges/best.png",
+  excellent: "./assets/badges/excellent.png",
+  good: "./assets/badges/good.png",
+  inaccuracy: "./assets/badges/inaccuracy.png",
+  mistake: "./assets/badges/mistake.png",
+  blunder: "./assets/badges/blunder.png",
+};
+
 function renderAnalyseBoard(animate = false) {
   if (!analyseBoardEl) return;
 
@@ -1504,6 +1515,7 @@ function renderAnalyseBoard(animate = false) {
 
   analyseBoardEl.innerHTML = "";
 
+  // BURASI EKSİK OLDUĞU İÇİN HATA VERİYORDU:
   const playedMove = analyseGame.history({ verbose: true }).at(-1);
   const currentClass = analyseMoveClasses[analyseCurrentPly];
   const badgeSquare = currentClass && playedMove ? playedMove.to : null;
@@ -1544,17 +1556,19 @@ function renderAnalyseBoard(animate = false) {
         squareEl.appendChild(createPieceEl(piece.color, piece.type));
       }
 
-      // ↓↓↓ YENİ: rozet buraya ↓↓↓
+      // Rozet görselini kareye ekleme
       if (name === badgeSquare) {
         const badge = document.createElement("span");
         badge.className = "move-badge";
         badge.dataset.cls = currentClass;
-        badge.innerHTML = BADGE_SYMBOL[currentClass];
-        if (BADGE_SYMBOL[currentClass].length === 2)
-          badge.classList.add("double");
+
+        const img = document.createElement("img");
+        img.src = BADGE_IMAGES[currentClass] || "";
+        img.alt = currentClass;
+        badge.appendChild(img);
+
         squareEl.appendChild(badge);
       }
-      // ↑↑↑ YENİ ↑↑↑
 
       if (col === 0) addCoord(squareEl, "rank", name[1]);
       if (row === 7) addCoord(squareEl, "file", name[0]);
@@ -1792,32 +1806,7 @@ document.getElementById("analyse-btn-reset")?.addEventListener("click", () => {
 
 const REVIEW_DEPTH = 12;
 const PIECE_VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
-// İkon görsellerinin yolları (Kendi çizdiğin PNG veya SVG'leri buraya koyabilirsin)
-//! const BADGE_IMAGES = {
-//   brilliant: "./assets/badges/brilliant.png",
-//   great: "./assets/badges/great.png",
-//   best: "./assets/badges/best.png",
-//   excellent: "./assets/badges/excellent.png",
-//   good: "./assets/badges/good.png",
-//   inaccuracy: "./assets/badges/inaccuracy.png",
-//   mistake: "./assets/badges/mistake.png",
-//   blunder: "./assets/badges/blunder.png",
-// };
 
-// renderAnalyseBoard fonksiyonu içindeki rozet ekleme kısmını şu şekilde güncelleyin:
-//! if (name === badgeSquare) {
-//   const badge = document.createElement("span");
-//   badge.className = "move-badge";
-//   badge.dataset.cls = currentClass;
-
-//   // SVG yerine senin çizeceğin görsel ekleniyor
-//   const img = document.createElement("img");
-//   img.src = BADGE_IMAGES[currentClass] || "";
-//   img.alt = currentClass;
-//   badge.appendChild(img);
-
-//   squareEl.appendChild(badge);
-// }
 let analyseMoveClasses = []; // index = ply (1'den başlar)
 let reviewRunId = 0;
 let reviewEnginePromise = null;

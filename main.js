@@ -469,6 +469,9 @@ function renderRepertoireBoard(animate = true) {
 function renderRepertoireMoves() {
   if (!repMovesEl) return;
 
+  // 1. Güncelleme öncesi mevcut scroll konumunu hafızaya alıyoruz
+  const scrollTop = repMovesEl.scrollTop;
+
   const currentGame = drill ? drillGame : repertoireGame;
   const history = currentGame.history();
   const activePly = drill ? history.length : (repViewPly ?? history.length);
@@ -495,8 +498,20 @@ function renderRepertoireMoves() {
     repMovesEl.appendChild(li);
   }
 
+  // 2. Hamle listesi güncellendikten sonra eski scroll pozisyonunu geri yüklüyoruz
+  repMovesEl.scrollTop = scrollTop;
+
   const activeEl = repMovesEl.querySelector(".move.active");
-  if (activeEl) activeEl.scrollIntoView({ block: "nearest" });
+  if (activeEl) {
+    // Sadece aktif hamle ekranın dışındaysa akıllıca odaklanmasını sağlıyoruz
+    const containerTop = repMovesEl.scrollTop;
+    const containerBottom = containerTop + repMovesEl.clientHeight;
+    const elemTop = activeEl.offsetTop - repMovesEl.offsetTop;
+
+    if (elemTop < containerTop || elemTop > containerBottom) {
+      activeEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  }
 }
 
 function endAnalyseDrag(e, cancelled = false) {
@@ -1093,11 +1108,18 @@ function parseEngineInfo(message) {
 }
 
 function renderEvaluation(whiteScore, scoreText) {
-  const clamped = Math.max(-1000, Math.min(1000, whiteScore));
-  const whitePercent = 100 / (1 + Math.exp(-clamped / 300));
-  const safePercent = Math.max(5, Math.min(95, whitePercent));
+  // Eğer skor metninde mat varsa (örn: +M3 veya -M2)
+  let safePercent = 50; // varsayılan nötr
 
-  // Play evaluation bar
+  if (scoreText.includes("M")) {
+    // White mate yaptıysa (pozitif M) bar %100 beyaz, Black mate yaptıysa %0 beyaz
+    safePercent = scoreText.startsWith("+") ? 100 : 0;
+  } else {
+    const clamped = Math.max(-1000, Math.min(1000, whiteScore));
+    const whitePercent = 100 / (1 + Math.exp(-clamped / 300));
+    safePercent = Math.max(5, Math.min(95, whitePercent));
+  }
+
   if (
     evaluationBarEl &&
     evaluationWhiteEl &&
@@ -1113,7 +1135,6 @@ function renderEvaluation(whiteScore, scoreText) {
     evaluationScoreEl.textContent = scoreText;
   }
 }
-
 function renderAnalyseEvaluation(whiteScore, scoreText) {
   const bar = document.getElementById("analyse-evaluation-bar");
   const white = document.getElementById("analyse-evaluation-white");
@@ -2811,6 +2832,11 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
   clearSelection();
   update(animate);
 
+  // ---> BURAYA EKLE: Learn veya Train modundayken her hamle bittiğinde eval bar'ı güncelle
+  if (lesson) {
+    requestEngineEvaluation(game.fen(), "play");
+  }
+
   if (lesson && lesson.index >= lesson.variation.moves.length) {
     if (!trainMode && !lesson.learnSessionRecorded) {
       recordLearn(lesson.opening, lesson.variation);
@@ -2951,6 +2977,7 @@ function continueTrain() {
       trainHintSquares = [];
 
       update(false);
+      requestEngineEvaluation(game.fen(), "play");
       continueTrain();
     }, 500);
 

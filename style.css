@@ -838,28 +838,6 @@ button:disabled {
   }
 }
 
-.board-shake {
-  animation: boardShake 0.35s ease-in-out;
-}
-
-@keyframes boardShake {
-  0%,
-  100% {
-    transform: translateX(0) translateY(-38px);
-  }
-  20% {
-    transform: translateX(-5px) translateY(-38px);
-  }
-  40% {
-    transform: translateX(5px) translateY(-38px);
-  }
-  60% {
-    transform: translateX(-4px) translateY(-38px);
-  }
-  80% {
-    transform: translateX(4px) translateY(-38px);
-  }
-}
 /* OPENINGS */
 .openings-list {
   width: min(1480px, calc(100% - 48px));
@@ -2566,3 +2544,59 @@ css .analysis-rank,
     box-sizing: border-box;
   }
 }
+
+/* Mobil cihazlarda Learn / Train modu optimizasyonu */
+@media (max-width: 768px) {
+  /* Learn paneli açıkken Play ekranının dikey düzeni */
+  main.app#play:has(#learn-panel:not([hidden])) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px;
+    gap: 12px;
+  }
+
+  main.app#play:has(#learn-panel:not([hidden])) .moves-section {
+    display: flex !important; /* JavaScript motoru ve eval bar için aktif kalmalı */
+    visibility: hidden; /* Gözle görülmez */
+    position: absolute; /* Ekrandan yer kaplamaması için akıştan çıkarıyoruz */
+    pointer-events: none; /* Tıklanamaz */
+    height: 0;
+    overflow: hidden;
+  }
+
+  /* Learn panelini tahtanın hemen altında şık bir kart yapalım */
+  #learn-panel {
+    width: 100%;
+    max-width: 400px;
+    background-color: #131b22;
+    border: 2px solid #233442;
+    border-radius: 8px;
+    padding: 12px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  /* Açıklama metni ve butonların mobilde rahat okunaklı olması */
+  .learn-explanation {
+    font-size: 0.9rem;
+    padding: 8px;
+    background: #0d1217;
+    border-radius: 6px;
+  }
+
+  .learn-controls {
+    display: flex;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .learn-controls button {
+    flex: 1;
+    padding: 10px;
+    font-size: 0.9rem;
+  }
+}
+

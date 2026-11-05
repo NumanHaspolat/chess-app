@@ -4894,22 +4894,22 @@ const hintButton = document.getElementById("train-hint");
 // ==========================================
 
 const menuToggle = document.getElementById("menu-toggle");
-const navLinksContainer = document.getElementById("nav-links");
+const navLinksContainer = document.querySelector(".nav-links");
 
 if (menuToggle && navLinksContainer) {
   menuToggle.addEventListener("click", (e) => {
-    e.stopPropagation(); // Tıklamanın dışarı yayılmasını önle
+    e.stopPropagation();
     navLinksContainer.classList.toggle("open");
   });
 
-  // Menü içindeki bir linke tıklandığında menüyü kapat
+  // Linke tıklandığında menüyü kapat
   navLinksContainer.querySelectorAll(".nav-link").forEach((link) => {
     link.addEventListener("click", () => {
       navLinksContainer.classList.remove("open");
     });
   });
 
-  // Sayfada başka bir yere tıklandığında menüyü kapat
+  // Dışarı tıklandığında menüyü kapat
   window.addEventListener("click", (e) => {
     if (
       !menuToggle.contains(e.target) &&

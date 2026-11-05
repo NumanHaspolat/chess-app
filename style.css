@@ -2500,9 +2500,9 @@ css .analysis-rank,
   }
 }
 
-/* Normal masaüstünde hamburger butonu gizli */
+/* Hamburger Butonu Stili */
 .menu-toggle {
-  display: none;
+  display: none; /* Varsayılan olarak masaüstünde gizli */
   background: none;
   border: none;
   cursor: pointer;
@@ -2511,6 +2511,8 @@ css .analysis-rank,
   width: 24px;
   height: 18px;
   padding: 0;
+  position: relative;
+  z-index: 10005;
 }
 
 .menu-toggle span {
@@ -2528,13 +2530,15 @@ css .analysis-rank,
     position: relative;
     justify-content: space-between;
     align-items: center;
+    display: flex;
   }
 
+  /* Mobilde hamburgeri görünür yap */
   .menu-toggle {
-    display: flex !important; /* Mobilde kesinlikle görünür yap */
+    display: flex !important;
   }
 
-  /* Mobilde menü başlangıçta gizli */
+  /* Mobilde nav-links başlangıçta gizli */
   .nav-links {
     display: none !important;
     position: absolute;
@@ -2546,11 +2550,11 @@ css .analysis-rank,
     border-bottom: 2px solid #233442;
     padding: 12px;
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.6);
-    z-index: 9999;
+    z-index: 10004;
     box-sizing: border-box;
   }
 
-  /* JavaScript 'open' sınıfı eklediğinde görünür olur */
+  /* JavaScript ile 'open' sınıfı eklenince görünür olur */
   .nav-links.open {
     display: flex !important;
   }

@@ -1155,17 +1155,24 @@ function renderRepertoireEvaluation(whiteScore, scoreText) {
 }
 
 /* ---------- Rendering ---------- */
-
 function renderBoard(animate = true) {
   const history = view.history({ verbose: true });
   const lastMove = history[history.length - 1];
 
+  // Gelen 'animate' parametresi bir obje mi ({from, to}) yoksa boolean mı kontrol et
+  const animMove =
+    typeof animate === "object" && animate !== null
+      ? animate
+      : animate
+        ? lastMove
+        : null;
+
   // Animasyondan önce taşın eski konumunu kaydet.
   let oldPieceRect = null;
 
-  if (animate && lastMove) {
+  if (animMove && animMove.from) {
     const fromSquare = boardEl.querySelector(
-      `[data-square="${lastMove.from}"]`,
+      `[data-square="${animMove.from}"]`,
     );
     const oldPiece = fromSquare?.querySelector(".piece");
 
@@ -1317,9 +1324,10 @@ function renderBoard(animate = true) {
       arrowLayer.appendChild(arrow);
     }
   }
-  // Yeni tahtadaki hedef taşını eski konumundan kaydır.
-  if (animate && oldPieceRect && lastMove) {
-    const toSquare = boardEl.querySelector(`[data-square="${lastMove.to}"]`);
+
+  // Yeni tahtadaki hedef taşını eski konumundan pürüzsüzce kaydır (İleri veya Geri).
+  if (animMove && oldPieceRect && animMove.to) {
+    const toSquare = boardEl.querySelector(`[data-square="${animMove.to}"]`);
     const newPiece = toSquare?.querySelector(".piece");
 
     if (newPiece) {
@@ -3222,15 +3230,18 @@ function goToPlyAnimated(ply) {
   }
 
   let animation = false;
+
+  // 1 Adım İleri Giderken Animasyon
   if (ply === previousPly + 1 && lastPlayed) {
     animation = { from: lastPlayed.from, to: lastPlayed.to };
     playSoundForMove(lastPlayed);
-  } else if (ply === previousPly - 1) {
-    const undoneMove = new Chess();
-    for (let i = 0; i < previousPly; i++) undoneMove.move(sanMoves[i]);
-    const m = undoneMove.undo();
+  }
+  // 1 Adım Geri Giderken Animasyon (Kareler Ters Yönde Kayar)
+  else if (ply === previousPly - 1) {
+    const undoneGame = new Chess();
+    for (let i = 0; i < previousPly; i++) undoneGame.move(sanMoves[i]);
+    const m = undoneGame.undo();
     if (m) {
-      // Play modunda da geri giderken taşın ters yöne pürüzsüz kayması için:
       animation = { from: m.to, to: m.from };
       playSoundForMove(m);
     }

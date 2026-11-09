@@ -2641,3 +2641,53 @@ css .analysis-rank,
     transform: rotate(360deg);
   }
 }
+
+/* Sıra sizdeyken turkuaz parlayan ve dikkat çeken durum kutusu */
+.rep-turn.your-turn-glow {
+  color: var(--accent-strong);
+  font-weight: bold;
+  background: rgba(45, 192, 212, 0.12);
+  border: 1px dashed var(--accent);
+  padding: 6px 10px;
+  border-radius: 6px;
+  text-align: center;
+  animation: pulseGlow 1.5s infinite ease-in-out;
+}
+
+@keyframes pulseGlow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(45, 192, 212, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(45, 192, 212, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(45, 192, 212, 0);
+  }
+}
+
+.puzzle-history-box {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: bold;
+  cursor: pointer;
+}
+.puzzle-history-box.win {
+  background: rgba(126, 224, 138, 0.2);
+  color: #7ee08a;
+  border: 1px solid rgba(126, 224, 138, 0.5);
+}
+.puzzle-history-box.loss {
+  background: rgba(255, 143, 143, 0.2);
+  color: #ff8f8f;
+  border: 1px solid rgba(255, 143, 143, 0.5);
+}
+.puzzle-history-box.hint {
+  background: rgba(247, 198, 49, 0.2);
+  color: #f7c631;
+  border: 1px solid rgba(247, 198, 49, 0.5);
+}

@@ -27,6 +27,7 @@
       <nav class="nav-links">
         <a href="#play" class="nav-link active">Play</a>
         <a href="#analyse" class="nav-link">Analyse</a>
+        <a href="#puzzles" class="nav-link">Puzzles</a>
         <a href="#openings" class="nav-link">Openings</a>
         <a href="#repertoire" class="nav-link">My Repertoire</a>
         <a href="#profile" class="nav-link">Profile</a>
@@ -356,6 +357,91 @@
               </div>
             </div>
           </div>
+        </div>
+      </section>
+    </main>
+
+    <main class="app" id="puzzles" hidden>
+      <!-- SOL SÜTUN: PUZZLE BOARD -->
+      <section class="board-section">
+        <div class="board-wrap">
+          <div id="puzzle-strip-top" class="strip"></div>
+          <div class="board-row">
+            <!-- Bulmacalarda eval bar olmamasını istediğin için doğrudan tahtayı koyuyoruz -->
+            <div id="puzzle-board" class="board"></div>
+          </div>
+          <div id="puzzle-strip-bottom" class="strip"></div>
+        </div>
+        <div class="mobile-board-nav">
+          <button id="puzzle-nav-first">«</button>
+          <button id="puzzle-nav-prev">‹</button>
+          <button id="puzzle-nav-next">›</button>
+          <button id="puzzle-nav-last">»</button>
+        </div>
+      </section>
+
+      <!-- ORTA SÜTUN: MOVES -->
+      <section class="moves-section">
+        <h2>Puzzle Moves</h2>
+        <div id="puzzle-status" class="status">Loading puzzle...</div>
+        <div class="buttons">
+          <button id="puzzle-btn-hint">Hint</button>
+          <button id="puzzle-btn-skip">Skip</button>
+        </div>
+        <ol id="puzzle-moves" class="moves"></ol>
+      </section>
+
+      <!-- SAĞ SÜTUN: PUZZLE PANEL (Elo, Zorluk, Geçmiş 10 Kutu) -->
+      <section class="analysis-panel">
+        <h2>Puzzle Training</h2>
+        <div
+          class="profile-stat-card"
+          style="margin-bottom: 16px; padding: 12px"
+        >
+          <span class="profile-stat-label">Puzzle Elo</span>
+          <strong
+            id="puzzle-rating"
+            style="font-size: 1.5rem; color: var(--accent-strong)"
+            >1500</strong
+          >
+        </div>
+
+        <div style="margin-bottom: 16px">
+          <label
+            style="
+              display: block;
+              margin-bottom: 6px;
+              color: var(--text-muted);
+              font-size: 0.9rem;
+            "
+            >Difficulty</label
+          >
+          <select
+            id="puzzle-difficulty-select"
+            style="
+              width: 100%;
+              padding: 9px 12px;
+              border: 1px solid var(--panel-border);
+              border-radius: 6px;
+              background: var(--control);
+              color: var(--text);
+              font-family: var(--font-pixel);
+            "
+          >
+            <option value="easy">Easy (-200 Elo)</option>
+            <option value="normal" selected>Normal (Equal)</option>
+            <option value="hard">Hard (+200 Elo)</option>
+          </select>
+        </div>
+
+        <h3 style="font-size: 1rem; color: var(--accent); margin: 20px 0 10px">
+          Recent History
+        </h3>
+        <div
+          id="puzzle-history-grid"
+          style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px"
+        >
+          <!-- Son 10 bulmaca kutucukları buraya dinamik olarak eklenecek -->
         </div>
       </section>
     </main>

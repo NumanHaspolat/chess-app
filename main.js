@@ -91,6 +91,13 @@ const repOpeningEl = document.getElementById("rep-opening");
 const repResetBtn = document.getElementById("rep-reset");
 const repFlipBtn = document.getElementById("rep-flip");
 const learnCompleteStats = document.getElementById("learn-complete-stats");
+const puzzleBoardEl = document.getElementById("puzzle-board");
+const puzzleMovesEl = document.getElementById("puzzle-moves");
+const puzzleStatusEl = document.getElementById("puzzle-status");
+const puzzleRatingEl = document.getElementById("puzzle-rating");
+const puzzleHistoryGrid = document.getElementById("puzzle-history-grid");
+
+const puzzleGame = new Chess();
 
 let orientation = "w";
 let selectedSquare = null;
@@ -126,6 +133,17 @@ let analyseHistory = [];
 let analyseSelectedSquare = null;
 let analyseLegalMoves = [];
 let analyseCurrentPly = 0;
+
+let currentPuzzle = null;
+let puzzlePlayerColor = "w";
+let puzzleMoveIndex = 0;
+let puzzleHintStep = 0;
+let puzzleRating = Number(
+  localStorage.getItem("azurite-puzzle-rating") || 1500,
+);
+let puzzleHistory = JSON.parse(
+  localStorage.getItem("azurite-puzzle-history") || "[]",
+);
 
 function formatAnalysisLine(line) {
   const analysisGame = new Chess(line.fen || analysisFen);
@@ -288,15 +306,26 @@ function renderDrillCompleteOverlay() {
     const correct = drill.correctMoves ?? 0;
     const mistakes = drill.mistakes ?? 0;
     const total = correct + mistakes;
-    const accuracy = total > 0 ? Math.round((correct / total) * 100) : 100;
 
+    // Analiz sistemine benzer bir doğruluk (accuracy) hesabı
+    const accuracy =
+      total > 0
+        ? Math.max(0, Math.min(100, Math.round((correct / total) * 100)))
+        : 100;
+
+    // Pop-up içeriğini analiz raporundaki sınıflara benzer şekilde zenginleştiriyoruz
     drillCompleteStats.innerHTML = `
-  Accuracy: <span class="drill-accuracy">${accuracy}%</span>
-  · Mistakes: <span class="drill-mistakes">${mistakes}</span>
-`;
+      <div class="analyse-accuracy" style="margin-bottom: 5px;">
+        <strong style="font-size: 1.4rem; color: var(--accent);">${accuracy}%</strong>
+        <span>Drill Accuracy</span>
+      </div>
+      <div style="display: flex; justify-content: space-around; gap: 10px; font-size: 0.85rem; color: var(--text-muted);">
+        <div>Correct: <strong style="color: #7fd35a;">${correct}</strong></div>
+        <div>Mistakes: <strong style="color: #ca3431;">${mistakes}</strong></div>
+      </div>
+    `;
   }
 }
-
 function renderLearnTrainCompleteStats() {
   if (!learnCompleteStats) return;
 
@@ -3035,7 +3064,7 @@ window.addEventListener("pointercancel", (e) => endDrag(e, true));
 drillStopBtn.addEventListener("click", () => {
   const isRepertoireDrill = !!drill?.rep;
 
-  endDrill();
+  endDrill(); // Her şeyi temizle ve sıfırla
 
   if (isRepertoireDrill) {
     drillGame.reset();
@@ -3046,13 +3075,12 @@ drillStopBtn.addEventListener("click", () => {
     repLegalMoves = [];
     drillHintSquares = [];
 
-    updateRepertoirePage(false);
+    updateRepertoirePage(false); // Tahtayı ve repertuarı başlangıç pozisyonuna getir
   } else {
     game.reset();
     viewPly = null;
     drillHintSquares = [];
     clearSelection();
-
     update();
   }
 
@@ -4278,6 +4306,11 @@ function endDrill() {
   drill = null;
   clearTimeout(drillCompleteTimer);
   drillCompleteTimer = null;
+
+  if (repTurnEl) {
+    repTurnEl.classList.remove("your-turn-glow", "off");
+    repTurnEl.textContent = "";
+  }
 }
 
 function getAvailableDrillLines(rep) {
@@ -4517,9 +4550,15 @@ function retryDrill() {
   update();
 }
 function renderDrillStatus() {
+  if (!repTurnEl) return;
+
+  // Sınıfları sıfırla
+  repTurnEl.classList.remove("your-turn-glow", "off");
+
   switch (drill.phase) {
     case "your-move":
-      repTurnEl.textContent = "Your move";
+      repTurnEl.textContent = "Your turn! Make your repertoire move.";
+      repTurnEl.classList.add("your-turn-glow"); // Dikkat çeken animasyonlu sınıfı ekle
       break;
     case "opponent":
       repTurnEl.textContent = "Opponent's move...";
@@ -4554,6 +4593,170 @@ drillBtnEl.addEventListener("click", () => {
   } else {
     startDrill();
   }
+});
+
+// --- PUZZLE MODÜLÜ DEĞİŞKENLERİ --
+
+async function initPuzzle() {
+  renderPuzzleHistory();
+  if (puzzleRatingEl) puzzleRatingEl.textContent = puzzleRating;
+  await fetchNewPuzzle();
+}
+
+async function fetchNewPuzzle() {
+  puzzleStatusEl.textContent = "Loading puzzle from Lichess...";
+  puzzleMovesEl.innerHTML = "";
+  puzzleHintStep = 0;
+
+  try {
+    const res = await fetch("https://lichess.org/api/puzzle/daily");
+    if (!res.ok) throw new Error("Failed to fetch puzzle");
+    const data = await res.json();
+
+    // Lichess API yapısı: data.puzzle ve data.game şeklindedir.
+    const puzzleData = data.puzzle;
+    const gameData = data.game;
+
+    if (!puzzleData || !puzzleData.fen) {
+      throw new Error("Invalid puzzle data received");
+    }
+
+    // Bulmaca FEN'ini chess.js'e yüklüyoruz
+    puzzleGame.load(puzzleData.fen);
+
+    currentPuzzle = {
+      id: puzzleData.id,
+      solution: puzzleData.lines
+        ? puzzleData.lines.split(" ")
+        : puzzleData.solution || [],
+      initialFen: puzzleData.fen,
+      rating: puzzleData.rating || 1500,
+    };
+
+    // Eğer solution UCI formatındaysa ilk hamleyi oynatarak tahtayı hazırlayalım
+    if (currentPuzzle.solution.length > 0) {
+      const firstMoveUci = currentPuzzle.solution[0];
+      puzzleGame.move({
+        from: firstMoveUci.slice(0, 2),
+        to: firstMoveUci.slice(2, 4),
+        promotion: firstMoveUci[4] || "q",
+      });
+    }
+
+    puzzlePlayerColor = puzzleGame.turn();
+    puzzleMoveIndex = 1;
+
+    renderPuzzleBoard();
+    renderPuzzleMoves();
+    puzzleStatusEl.textContent = `Find the best move for ${puzzlePlayerColor === "w" ? "White" : "Black"}.`;
+  } catch (error) {
+    console.error("Puzzle load error:", error);
+    puzzleStatusEl.textContent =
+      "Could not load puzzle. Click Skip to try another.";
+  }
+}
+
+function renderPuzzleBoard() {
+  if (!puzzleBoardEl) return;
+  puzzleBoardEl.innerHTML = "";
+
+  for (let row = 0; row < 8; row++) {
+    for (let col = 0; col < 8; col++) {
+      const name = squareName(row, col); // Mevcut tahta koordinat helper'ı
+      const fileIndex = FILES.indexOf(name[0]);
+      const rankNumber = Number(name[1]);
+
+      const squareEl = document.createElement("div");
+      squareEl.className =
+        "square " + ((fileIndex + rankNumber) % 2 === 0 ? "light" : "dark");
+      squareEl.dataset.square = name;
+
+      const piece = puzzleGame.get(name);
+      if (piece) {
+        squareEl.appendChild(createPieceEl(piece.color, piece.type));
+      }
+
+      puzzleBoardEl.appendChild(squareEl);
+    }
+  }
+}
+
+function renderPuzzleMoves() {
+  if (!puzzleMovesEl) return;
+  // Oynanan hamleleri liste şeklinde göster
+  const history = puzzleGame.history();
+  puzzleMovesEl.innerHTML = "";
+
+  for (let i = 0; i < history.length; i += 2) {
+    const li = document.createElement("li");
+    li.textContent = `${Math.floor(i / 2) + 1}. ${history[i] || ""} ${history[i + 1] || ""}`;
+    puzzleMovesEl.appendChild(li);
+  }
+}
+
+function recordPuzzleResult(won, ratingChange, usedHint = false) {
+  puzzleRating += ratingChange;
+  if (puzzleRating < 400) puzzleRating = 400;
+
+  if (puzzleRatingEl) puzzleRatingEl.textContent = puzzleRating;
+  localStorage.setItem("azurite-puzzle-rating", puzzleRating);
+
+  const resultObj = {
+    won,
+    change: ratingChange,
+    hint: usedHint,
+  };
+
+  puzzleHistory.unshift(resultObj);
+  if (puzzleHistory.length > 10) puzzleHistory.pop(); // Son 10 bulmaca
+
+  localStorage.setItem("azurite-puzzle-history", JSON.stringify(puzzleHistory));
+  renderPuzzleHistory();
+}
+
+function renderPuzzleHistory() {
+  if (!puzzleHistoryGrid) return;
+  puzzleHistoryGrid.innerHTML = "";
+
+  puzzleHistory.forEach((item) => {
+    const box = document.createElement("div");
+    box.className =
+      "puzzle-history-box " + (item.hint ? "hint" : item.won ? "win" : "loss");
+    box.textContent = item.hint
+      ? "X"
+      : `${item.change > 0 ? "+" : ""}${item.change}`;
+    puzzleHistoryGrid.appendChild(box);
+  });
+}
+
+// Hint (İpucu) Tuşu Mantığı
+document.getElementById("puzzle-btn-hint")?.addEventListener("click", () => {
+  if (!currentPuzzle) return;
+  const nextCorrectUci = currentPuzzle.solution[puzzleMoveIndex];
+  if (!nextCorrectUci) return;
+
+  const from = nextCorrectUci.slice(0, 2);
+  const to = nextCorrectUci.slice(2, 4);
+
+  puzzleHintStep++;
+
+  // 1. Tıkta başlangıç karesini işaretle
+  const fromSquare = puzzleBoardEl.querySelector(`[data-square="${from}"]`);
+  if (fromSquare) fromSquare.classList.add("drill-hint");
+
+  // 2. Tıkta hedef kaleyi de işaretle
+  if (puzzleHintStep >= 2) {
+    const toSquare = puzzleBoardEl.querySelector(`[data-square="${to}"]`);
+    if (toSquare) toSquare.classList.add("drill-hint");
+    puzzleStatusEl.textContent = `Hint: Move from ${from} to ${to}`;
+  } else {
+    puzzleStatusEl.textContent = `Hint: Move the piece on ${from}`;
+  }
+});
+
+// Skip (Atla) Tuşu Mantığı
+document.getElementById("puzzle-btn-skip")?.addEventListener("click", () => {
+  fetchNewPuzzle();
 });
 
 analyseBoardEl.addEventListener("pointerdown", (e) => {
@@ -4797,11 +5000,11 @@ const brandLink = document.querySelector(".nav-brand");
 const pages = {
   play: document.querySelector("#play"),
   analyse: document.querySelector("#analyse"),
+  puzzles: document.querySelector("#puzzles"),
   openings: document.querySelector("#openings"),
   repertoire: document.querySelector("#repertoire"),
   profile: document.querySelector("#profile"),
 };
-
 function showPage(pageName) {
   Object.entries(pages).forEach(([name, element]) => {
     element.hidden = name !== pageName;
@@ -4831,6 +5034,12 @@ function showPage(pageName) {
   }
   if (pageName === "repertoire") updateRepertoirePage();
   if (pageName === "profile") renderProfileProgress();
+
+  // --- BURAYI EKLE: Puzzles sayfasına geçildiğinde bulmacayı başlat ---
+  if (pageName === "puzzles") {
+    initPuzzle();
+  }
+  // -----------------------------------------------------------------
 }
 
 navLinks.forEach((link) => {

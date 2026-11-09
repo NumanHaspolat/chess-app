@@ -136,8 +136,15 @@ let analyseCurrentPly = 0;
 
 let currentPuzzle = null;
 let puzzlePlayerColor = "w";
-let puzzleMoveIndex = 0;
+let puzzleOrientation = "w";
+let puzzleSolutionIndex = 0;
 let puzzleHintStep = 0;
+let puzzleSelectedSquare = null;
+let puzzleLegalMoves = [];
+let puzzleDrag = null;
+let puzzleHoverSquare = null;
+let puzzleHintUsedInCurrent = false;
+let puzzleViewPly = null;
 let puzzleRating = Number(
   localStorage.getItem("azurite-puzzle-rating") || 1500,
 );
@@ -4595,7 +4602,9 @@ drillBtnEl.addEventListener("click", () => {
   }
 });
 
-// --- PUZZLE MODÜLÜ DEĞİŞKENLERİ --
+// ==========================================
+// LICHESS PUZZLE MOTORU
+// ==========================================
 
 async function initPuzzle() {
   renderPuzzleHistory();
@@ -4604,65 +4613,117 @@ async function initPuzzle() {
 }
 
 async function fetchNewPuzzle() {
-  puzzleStatusEl.textContent = "Loading puzzle from Lichess...";
-  puzzleMovesEl.innerHTML = "";
+  if (puzzleStatusEl)
+    puzzleStatusEl.textContent = "Loading puzzle from Lichess...";
+  if (puzzleMovesEl) puzzleMovesEl.innerHTML = "";
   puzzleHintStep = 0;
+  puzzleSelectedSquare = null;
+  puzzleLegalMoves = [];
+  puzzleHintUsedInCurrent = false;
 
   try {
     const res = await fetch("https://lichess.org/api/puzzle/daily");
-    if (!res.ok) throw new Error("Failed to fetch puzzle");
+    if (!res.ok) throw new Error("API error");
+
     const data = await res.json();
-
-    // Lichess API yapısı: data.puzzle ve data.game şeklindedir.
     const puzzleData = data.puzzle;
-    const gameData = data.game;
+    if (!puzzleData || !puzzleData.fen) throw new Error("Invalid puzzle data");
 
-    if (!puzzleData || !puzzleData.fen) {
-      throw new Error("Invalid puzzle data received");
-    }
-
-    // Bulmaca FEN'ini chess.js'e yüklüyoruz
+    // 1. Bulmacanın başlangıç FEN'ini yükle
     puzzleGame.load(puzzleData.fen);
 
     currentPuzzle = {
       id: puzzleData.id,
-      solution: puzzleData.lines
-        ? puzzleData.lines.split(" ")
-        : puzzleData.solution || [],
+      solution: Array.isArray(puzzleData.solution)
+        ? puzzleData.solution
+        : puzzleData.solution
+          ? puzzleData.solution.split(" ")
+          : [],
       initialFen: puzzleData.fen,
       rating: puzzleData.rating || 1500,
     };
 
-    // Eğer solution UCI formatındaysa ilk hamleyi oynatarak tahtayı hazırlayalım
+    puzzleSolutionIndex = 0;
+
+    // 2. RAKİBİN İLK HAMLESİ OTOMATİK OYNATILIR
+    // Lichess bulmacalarında çözümün 0. hamlesi rakibin hazırlık hamlesidir.
     if (currentPuzzle.solution.length > 0) {
       const firstMoveUci = currentPuzzle.solution[0];
-      puzzleGame.move({
-        from: firstMoveUci.slice(0, 2),
-        to: firstMoveUci.slice(2, 4),
-        promotion: firstMoveUci[4] || "q",
-      });
+      const from = firstMoveUci.slice(0, 2);
+      const to = firstMoveUci.slice(2, 4);
+      const promotion = firstMoveUci[4] || "q";
+
+      const played = puzzleGame.move({ from, to, promotion });
+      if (played) {
+        playSound(played.captured ? "capture" : "move");
+      }
+      puzzleSolutionIndex = 1; // Artık sıra oyuncuda, çözümün 1. indeksindeyiz.
     }
 
+    // 3. OYUNCU RENGİ VE TAHTA YÖNÜ
+    // Rakip ilk hamleyi yaptıktan sonra FEN'de sıra kimdeyse OYUNCU odur.
     puzzlePlayerColor = puzzleGame.turn();
-    puzzleMoveIndex = 1;
 
-    renderPuzzleBoard();
+    // Tahta kesinlikle oyuncunun rengine göre yönlenir (Beyazsa beyaz altta, siyahsa siyah altta)
+    puzzleOrientation = puzzlePlayerColor;
+
+    renderPuzzleBoard({
+      from: currentPuzzle.solution[0]?.slice(0, 2),
+      to: currentPuzzle.solution[0]?.slice(2, 4),
+    });
     renderPuzzleMoves();
-    puzzleStatusEl.textContent = `Find the best move for ${puzzlePlayerColor === "w" ? "White" : "Black"}.`;
+
+    if (puzzleStatusEl) {
+      puzzleStatusEl.textContent = `Find the best move for ${puzzlePlayerColor === "w" ? "White" : "Black"}. (Rating: ${currentPuzzle.rating})`;
+    }
   } catch (error) {
-    console.error("Puzzle load error:", error);
-    puzzleStatusEl.textContent =
-      "Could not load puzzle. Click Skip to try another.";
+    console.error("Puzzle fetch error:", error);
+    if (puzzleStatusEl)
+      puzzleStatusEl.textContent = "Could not load puzzle. Click Skip.";
   }
 }
 
-function renderPuzzleBoard() {
+// SKIP (ATLA) BUTONU
+document.getElementById("puzzle-btn-skip")?.addEventListener("click", () => {
+  if (puzzleStatusEl) puzzleStatusEl.textContent = "Skipping...";
+  fetchNewPuzzle();
+});
+
+function getPuzzleSquareName(row, col) {
+  if (puzzleOrientation === "w") {
+    return FILES[col] + (8 - row);
+  }
+  return FILES[7 - col] + (row + 1);
+}
+
+function puzzleSquareFromPoint(x, y) {
+  const rect = puzzleBoardEl.getBoundingClientRect();
+  const size = rect.width / 8;
+  const col = Math.floor((x - rect.left) / size);
+  const row = Math.floor((y - rect.top) / size);
+  if (col < 0 || col > 7 || row < 0 || row > 7) return null;
+  return getPuzzleSquareName(row, col);
+}
+
+function renderPuzzleBoard(animateMove = null) {
   if (!puzzleBoardEl) return;
   puzzleBoardEl.innerHTML = "";
 
+  const history = puzzleGame.history({ verbose: true });
+  const lastMove = animateMove || history[history.length - 1];
+
+  let oldPieceRect = null;
+  if (animateMove && animateMove.from) {
+    const oldSquare = puzzleBoardEl.querySelector(
+      `[data-square="${animateMove.from}"]`,
+    );
+    const oldPiece = oldSquare?.querySelector(".piece");
+    if (oldPiece) oldPieceRect = oldPiece.getBoundingClientRect();
+  }
+
   for (let row = 0; row < 8; row++) {
     for (let col = 0; col < 8; col++) {
-      const name = squareName(row, col); // Mevcut tahta koordinat helper'ı
+      const name = getPuzzleSquareName(row, col);
       const fileIndex = FILES.indexOf(name[0]);
       const rankNumber = Number(name[1]);
 
@@ -4671,44 +4732,266 @@ function renderPuzzleBoard() {
         "square " + ((fileIndex + rankNumber) % 2 === 0 ? "light" : "dark");
       squareEl.dataset.square = name;
 
+      if (drillHintSquares.includes(name)) {
+        squareEl.classList.add("drill-hint");
+      }
+
+      if (lastMove && (name === lastMove.from || name === lastMove.to)) {
+        squareEl.classList.add("last-move");
+      }
+
+      if (puzzleSelectedSquare === name) {
+        squareEl.classList.add("selected");
+      }
+
+      const legalMove = puzzleLegalMoves.find((m) => m.to === name);
+      if (legalMove) {
+        squareEl.classList.add("legal");
+        if (legalMove.captured) squareEl.classList.add("capture");
+      }
+
       const piece = puzzleGame.get(name);
       if (piece) {
         squareEl.appendChild(createPieceEl(piece.color, piece.type));
       }
 
+      if (col === 0) addCoord(squareEl, "rank", name[1]);
+      if (row === 7) addCoord(squareEl, "file", name[0]);
+
       puzzleBoardEl.appendChild(squareEl);
+    }
+  }
+
+  if (animateMove && oldPieceRect && animateMove.to) {
+    const toSquare = puzzleBoardEl.querySelector(
+      `[data-square="${animateMove.to}"]`,
+    );
+    const newPiece = toSquare?.querySelector(".piece");
+
+    if (newPiece) {
+      const newRect = newPiece.getBoundingClientRect();
+      const deltaX = oldPieceRect.left - newRect.left;
+      const deltaY = oldPieceRect.top - newRect.top;
+
+      newPiece.style.transition = "none";
+      newPiece.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
+      newPiece.offsetHeight;
+
+      requestAnimationFrame(() => {
+        newPiece.style.transition = "transform 180ms ease";
+        newPiece.style.transform = "translate(0, 0)";
+      });
     }
   }
 }
 
 function renderPuzzleMoves() {
   if (!puzzleMovesEl) return;
-  // Oynanan hamleleri liste şeklinde göster
-  const history = puzzleGame.history();
+
+  const tempGame = new Chess(currentPuzzle.initialFen);
+  if (currentPuzzle.solution.length > 0) {
+    const fUci = currentPuzzle.solution[0];
+    tempGame.move({
+      from: fUci.slice(0, 2),
+      to: fUci.slice(2, 4),
+      promotion: fUci[4] || "q",
+    });
+  }
+
+  const history = puzzleGame.history({ verbose: true });
   puzzleMovesEl.innerHTML = "";
 
-  for (let i = 0; i < history.length; i += 2) {
-    const li = document.createElement("li");
-    li.textContent = `${Math.floor(i / 2) + 1}. ${history[i] || ""} ${history[i + 1] || ""}`;
+  let startMoveNum = tempGame.moveNumber();
+  let currentNum = startMoveNum;
+  let li = null;
+
+  history.forEach((move, index) => {
+    if (move.color === "w") {
+      li = document.createElement("li");
+      const numSpan = document.createElement("span");
+      numSpan.style.marginRight = "6px";
+      numSpan.style.color = "var(--text-muted)";
+      numSpan.textContent = `${currentNum}.`;
+      li.appendChild(numSpan);
+    } else if (index === 0 && move.color === "b") {
+      li = document.createElement("li");
+      const numSpan = document.createElement("span");
+      numSpan.style.marginRight = "6px";
+      numSpan.style.color = "var(--text-muted)";
+      numSpan.textContent = `${currentNum}...`;
+      li.appendChild(numSpan);
+    }
+
+    const mSpan = document.createElement("span");
+    mSpan.className = "move";
+    mSpan.textContent = move.san;
+    li.appendChild(mSpan);
+
+    if (move.color === "b" || index === history.length - 1) {
+      puzzleMovesEl.appendChild(li);
+      currentNum++;
+    }
+  });
+  if (
+    li &&
+    history.length % 2 !== 0 &&
+    history[history.length - 1].color === "w"
+  ) {
     puzzleMovesEl.appendChild(li);
   }
 }
 
-function recordPuzzleResult(won, ratingChange, usedHint = false) {
-  puzzleRating += ratingChange;
-  if (puzzleRating < 400) puzzleRating = 400;
+puzzleBoardEl?.addEventListener("pointerdown", (e) => {
+  if (e.button !== 0 || !currentPuzzle || puzzleViewPly !== null || puzzleDrag)
+    return;
+  if (puzzleGame.turn() !== puzzlePlayerColor) return;
 
-  if (puzzleRatingEl) puzzleRatingEl.textContent = puzzleRating;
-  localStorage.setItem("azurite-puzzle-rating", puzzleRating);
+  const name = puzzleSquareFromPoint(e.clientX, e.clientY);
+  if (!name) return;
+  e.preventDefault();
+
+  if (puzzleSelectedSquare && puzzleLegalMoves.some((m) => m.to === name)) {
+    executePuzzleMove(puzzleSelectedSquare, name);
+    return;
+  }
+
+  const piece = puzzleGame.get(name);
+  if (piece && piece.color === puzzleGame.turn()) {
+    const wasSelected = puzzleSelectedSquare === name;
+    puzzleSelectedSquare = name;
+    puzzleLegalMoves = puzzleGame.moves({ square: name, verbose: true });
+    renderPuzzleBoard();
+
+    puzzleDrag = {
+      from: name,
+      piece,
+      startX: e.clientX,
+      startY: e.clientY,
+      moved: false,
+      wasSelected,
+      ghost: null,
+      size: 0,
+    };
+    return;
+  }
+
+  puzzleSelectedSquare = null;
+  puzzleLegalMoves = [];
+  renderPuzzleBoard();
+});
+
+function executePuzzleMove(from, to) {
+  const moveUci = from + to;
+  const expectedUci = currentPuzzle.solution[puzzleSolutionIndex];
+
+  if (
+    moveUci === expectedUci ||
+    moveUci.slice(0, 4) === expectedUci.slice(0, 4)
+  ) {
+    const played = puzzleGame.move({
+      from,
+      to,
+      promotion: expectedUci[4] || "q",
+    });
+
+    if (puzzleGame.isCheckmate()) playSound("gameover");
+    else if (puzzleGame.inCheck()) playSound("check");
+    else if (played.captured) playSound("capture");
+    else playSound("move");
+
+    puzzleSelectedSquare = null;
+    puzzleLegalMoves = [];
+    puzzleSolutionIndex++;
+
+    renderPuzzleBoard({ from, to });
+    renderPuzzleMoves();
+
+    if (puzzleSolutionIndex >= currentPuzzle.solution.length) {
+      if (puzzleStatusEl)
+        puzzleStatusEl.textContent = "Puzzle Solved! Great job 🎉";
+      const ratingChange = puzzleHintUsedInCurrent ? 0 : 25;
+      recordPuzzleResult(true, ratingChange, puzzleHintUsedInCurrent);
+      setTimeout(fetchNewPuzzle, 2000);
+      return;
+    }
+
+    if (puzzleStatusEl)
+      puzzleStatusEl.textContent = "Correct! Opponent is responding...";
+    setTimeout(() => {
+      const replyUci = currentPuzzle.solution[puzzleSolutionIndex];
+      if (replyUci) {
+        const rFrom = replyUci.slice(0, 2);
+        const rTo = replyUci.slice(2, 4);
+        const rPromo = replyUci[4] || "q";
+
+        const replyPlayed = puzzleGame.move({
+          from: rFrom,
+          to: rTo,
+          promotion: rPromo,
+        });
+        puzzleSolutionIndex++;
+
+        if (puzzleGame.isCheckmate()) playSound("gameover");
+        else if (puzzleGame.inCheck()) playSound("check");
+        else if (replyPlayed.captured) playSound("capture");
+        else playSound("move");
+
+        renderPuzzleBoard({ from: rFrom, to: rTo });
+        renderPuzzleMoves();
+        if (puzzleStatusEl)
+          puzzleStatusEl.textContent = `Your turn. Find the next move.`;
+      }
+    }, 600);
+  } else {
+    playSound("gameover", 2);
+    if (puzzleStatusEl)
+      puzzleStatusEl.textContent = "Incorrect move! -15 Elo. Try again.";
+    puzzleSelectedSquare = null;
+    puzzleLegalMoves = [];
+    renderPuzzleBoard();
+    recordPuzzleResult(false, -15, false);
+  }
+}
+
+// HINT BUTONU
+document.getElementById("puzzle-btn-hint")?.addEventListener("click", () => {
+  if (!currentPuzzle) return;
+  const nextCorrectUci = currentPuzzle.solution[puzzleSolutionIndex];
+  if (!nextCorrectUci) return;
+
+  const from = nextCorrectUci.slice(0, 2);
+  const to = nextCorrectUci.slice(2, 4);
+
+  puzzleHintUsedInCurrent = true;
+  puzzleHintStep++;
+
+  const fromSquare = puzzleBoardEl.querySelector(`[data-square="${from}"]`);
+  if (fromSquare) fromSquare.classList.add("drill-hint");
+
+  if (puzzleHintStep >= 2) {
+    const toSquare = puzzleBoardEl.querySelector(`[data-square="${to}"]`);
+    if (toSquare) toSquare.classList.add("drill-hint");
+    puzzleStatusEl.textContent = `Hint (No Elo change): Move from ${from} to ${to}`;
+  } else {
+    puzzleStatusEl.textContent = `Hint (No Elo change): Move the piece on ${from}`;
+  }
+});
+
+function recordPuzzleResult(won, ratingChange, usedHint = false) {
+  if (!usedHint && ratingChange !== 0) {
+    puzzleRating += ratingChange;
+    if (puzzleRating < 400) puzzleRating = 400;
+    if (puzzleRatingEl) puzzleRatingEl.textContent = puzzleRating;
+    localStorage.setItem("azurite-puzzle-rating", puzzleRating);
+  }
 
   const resultObj = {
     won,
-    change: ratingChange,
+    change: usedHint ? 0 : ratingChange,
     hint: usedHint,
   };
-
   puzzleHistory.unshift(resultObj);
-  if (puzzleHistory.length > 10) puzzleHistory.pop(); // Son 10 bulmaca
+  if (puzzleHistory.length > 10) puzzleHistory.pop();
 
   localStorage.setItem("azurite-puzzle-history", JSON.stringify(puzzleHistory));
   renderPuzzleHistory();
@@ -4728,36 +5011,6 @@ function renderPuzzleHistory() {
     puzzleHistoryGrid.appendChild(box);
   });
 }
-
-// Hint (İpucu) Tuşu Mantığı
-document.getElementById("puzzle-btn-hint")?.addEventListener("click", () => {
-  if (!currentPuzzle) return;
-  const nextCorrectUci = currentPuzzle.solution[puzzleMoveIndex];
-  if (!nextCorrectUci) return;
-
-  const from = nextCorrectUci.slice(0, 2);
-  const to = nextCorrectUci.slice(2, 4);
-
-  puzzleHintStep++;
-
-  // 1. Tıkta başlangıç karesini işaretle
-  const fromSquare = puzzleBoardEl.querySelector(`[data-square="${from}"]`);
-  if (fromSquare) fromSquare.classList.add("drill-hint");
-
-  // 2. Tıkta hedef kaleyi de işaretle
-  if (puzzleHintStep >= 2) {
-    const toSquare = puzzleBoardEl.querySelector(`[data-square="${to}"]`);
-    if (toSquare) toSquare.classList.add("drill-hint");
-    puzzleStatusEl.textContent = `Hint: Move from ${from} to ${to}`;
-  } else {
-    puzzleStatusEl.textContent = `Hint: Move the piece on ${from}`;
-  }
-});
-
-// Skip (Atla) Tuşu Mantığı
-document.getElementById("puzzle-btn-skip")?.addEventListener("click", () => {
-  fetchNewPuzzle();
-});
 
 analyseBoardEl.addEventListener("pointerdown", (e) => {
   if (e.button !== 0 || analyseDrag) return;

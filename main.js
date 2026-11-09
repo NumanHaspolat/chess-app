@@ -104,7 +104,7 @@ let selectedSquare = null;
 let legalMoves = [];
 let drillHintSquares = [];
 
-let drag = null; // active press/drag state
+let drag = null;
 let hoverSquare = null;
 let repSuppressClick = false;
 let repDrag = null;
@@ -112,8 +112,8 @@ let repHoverSquare = null;
 let drillMistakeTimer = null;
 let drillCompleteTimer = null;
 let learnCompleteTimer = null;
-let viewPly = null; // null = live position, otherwise number of plies being viewed
-let view = game; // the position currently displayed on the board
+let viewPly = null;
+let view = game;
 let learnHintMove = null;
 let trainMode = false;
 let trainHintShown = false;
@@ -145,6 +145,8 @@ let puzzleDrag = null;
 let puzzleHoverSquare = null;
 let puzzleHintUsedInCurrent = false;
 let puzzleViewPly = null;
+let puzzleHistoryList = []; // <--- EKSİK OLAN DEĞİŞKEN EKLENDİ!
+
 let puzzleRating = Number(
   localStorage.getItem("azurite-puzzle-rating") || 1500,
 );
@@ -179,6 +181,7 @@ function formatAnalysisLine(line) {
     uci: line.pv[0],
   };
 }
+
 function renderAnalysisLines(lines) {
   analysisLinesEl.innerHTML = "";
 
@@ -289,11 +292,9 @@ function renderAnalyseAnalysisLines(lines) {
 let favoriteOpenings = new Set(
   JSON.parse(localStorage.getItem("azurite-favorites") || "[]"),
 );
-/* ---------- Coordinates helpers ---------- */
 
 function playSound(name, speed = 1) {
   const sound = SOUNDS[name];
-
   if (!sound) return;
 
   sound.pause();
@@ -313,14 +314,11 @@ function renderDrillCompleteOverlay() {
     const correct = drill.correctMoves ?? 0;
     const mistakes = drill.mistakes ?? 0;
     const total = correct + mistakes;
-
-    // Analiz sistemine benzer bir doğruluk (accuracy) hesabı
     const accuracy =
       total > 0
         ? Math.max(0, Math.min(100, Math.round((correct / total) * 100)))
         : 100;
 
-    // Pop-up içeriğini analiz raporundaki sınıflara benzer şekilde zenginleştiriyoruz
     drillCompleteStats.innerHTML = `
       <div class="analyse-accuracy" style="margin-bottom: 5px;">
         <strong style="font-size: 1.4rem; color: var(--accent);">${accuracy}%</strong>
@@ -333,6 +331,7 @@ function renderDrillCompleteOverlay() {
     `;
   }
 }
+
 function renderLearnTrainCompleteStats() {
   if (!learnCompleteStats) return;
 
@@ -361,8 +360,8 @@ export function playPromoteSound() {
     });
   }, 500);
 }
+
 function squareName(row, col) {
-  // row/col are screen positions (0 = top-left)
   if (orientation === "w") {
     return FILES[col] + (8 - row);
   }
@@ -381,7 +380,6 @@ function squareFromPoint(x, y) {
 function repSquareFromPoint(x, y) {
   const rect = repBoardEl.getBoundingClientRect();
   const size = rect.width / 8;
-
   const col = Math.floor((x - rect.left) / size);
   const row = Math.floor((y - rect.top) / size);
 
@@ -403,12 +401,10 @@ function findKingSquare(color) {
 function renderRepertoireBoard(animate = true) {
   if (!repBoardEl) return;
 
-  const currentGame = drill ? drillGame : repertoireGame;
   const displayGame = drill ? drillGame : syncRepView();
   const history = displayGame.history({ verbose: true });
   const lastMove = history[history.length - 1];
 
-  // Dışarıdan gelen animasyon objesini ({from, to}) veya son hamleyi kontrol et
   const animMove =
     typeof animate === "object" && animate !== null
       ? animate
@@ -427,7 +423,6 @@ function renderRepertoireBoard(animate = true) {
     }
   }
 
-  const boardGame = displayGame;
   repBoardEl.innerHTML = "";
 
   for (let row = 0; row < 8; row++) {
@@ -453,7 +448,7 @@ function renderRepertoireBoard(animate = true) {
         square.classList.add("selected");
       }
 
-      const playedLastMove = boardGame.history({ verbose: true }).at(-1);
+      const playedLastMove = displayGame.history({ verbose: true }).at(-1);
       if (
         playedLastMove &&
         (playedLastMove.from === squareName || playedLastMove.to === squareName)
@@ -467,7 +462,7 @@ function renderRepertoireBoard(animate = true) {
         if (legalMove.captured) square.classList.add("capture");
       }
 
-      const piece = boardGame.get(squareName);
+      const piece = displayGame.get(squareName);
       if (piece) {
         square.appendChild(createPieceEl(piece.color, piece.type));
       }
@@ -479,7 +474,6 @@ function renderRepertoireBoard(animate = true) {
     }
   }
 
-  // TAŞIN GERİ VE İLERİ PÜRÜZSÜZ KAYMA ANİMASYONU
   if (animMove && oldPieceRect && animMove.to) {
     const toSquare = repBoardEl.querySelector(`[data-square="${animMove.to}"]`);
     const newPiece = toSquare?.querySelector(".piece");
@@ -491,8 +485,7 @@ function renderRepertoireBoard(animate = true) {
 
       newPiece.style.transition = "none";
       newPiece.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-
-      newPiece.offsetHeight; // Reflow
+      newPiece.offsetHeight;
 
       requestAnimationFrame(() => {
         newPiece.style.transition = "transform 180ms ease";
@@ -504,8 +497,6 @@ function renderRepertoireBoard(animate = true) {
 
 function renderRepertoireMoves() {
   if (!repMovesEl) return;
-
-  // 1. Güncelleme öncesi mevcut scroll konumunu hafızaya alıyoruz
   const scrollTop = repMovesEl.scrollTop;
 
   const currentGame = drill ? drillGame : repertoireGame;
@@ -534,12 +525,10 @@ function renderRepertoireMoves() {
     repMovesEl.appendChild(li);
   }
 
-  // 2. Hamle listesi güncellendikten sonra eski scroll pozisyonunu geri yüklüyoruz
   repMovesEl.scrollTop = scrollTop;
 
   const activeEl = repMovesEl.querySelector(".move.active");
   if (activeEl) {
-    // Sadece aktif hamle ekranın dışındaysa akıllıca odaklanmasını sağlıyoruz
     const containerTop = repMovesEl.scrollTop;
     const containerBottom = containerTop + repMovesEl.clientHeight;
     const elemTop = activeEl.offsetTop - repMovesEl.offsetTop;
@@ -554,25 +543,18 @@ function endAnalyseDrag(e, cancelled = false) {
   if (!analyseDrag) return;
 
   const { from, moved, wasSelected, ghost } = analyseDrag;
-
   if (ghost) ghost.remove();
 
   setAnalyseHover(analyseHoverSquare, false);
   analyseHoverSquare = null;
-
   analyseDrag = null;
 
-  // Sadece tıklama yapıldıysa
   if (!moved) {
-    if (wasSelected) {
-      clearAnalyseSelection();
-    }
-
+    if (wasSelected) clearAnalyseSelection();
     renderAnalyseBoard();
     return;
   }
 
-  // Sürüklenen taş bırakıldı.
   const target = cancelled
     ? null
     : analyseSquareFromPoint(e.clientX, e.clientY);
@@ -582,12 +564,10 @@ function endAnalyseDrag(e, cancelled = false) {
     return;
   }
 
-  if (target !== from) {
-    clearAnalyseSelection();
-  }
-
+  if (target !== from) clearAnalyseSelection();
   renderAnalyseBoard();
 }
+
 function updateRepertoireBoard(animate = true) {
   renderRepertoireBoard(animate);
   renderRepertoireMoves();
@@ -601,7 +581,6 @@ function updateRepertoireBoard(animate = true) {
 
   renderRepertoireStrips(displayGame);
   renderRepertoireOpening(displayGame);
-
   requestEngineEvaluation(displayGame.fen(), "repertoire");
 }
 
@@ -611,13 +590,12 @@ function updateRepertoirePage(animate = true) {
   renderRepLibrary();
 }
 
-repBoardEl.addEventListener("pointerdown", (e) => {
+repBoardEl?.addEventListener("pointerdown", (e) => {
   if (e.button !== 0 || repDrag) return;
   if (drill && drill.phase !== "your-move") return;
 
   const name = repSquareFromPoint(e.clientX, e.clientY);
   if (!name) return;
-
   e.preventDefault();
 
   const currentGame = drill ? drillGame : repertoireGame;
@@ -625,10 +603,7 @@ repBoardEl.addEventListener("pointerdown", (e) => {
 
   if (repSelectedSquare) {
     const move = repLegalMoves.find((m) => m.to === name);
-
     if (move) {
-      const currentGame = drill ? drillGame : repertoireGame;
-
       const played = currentGame.move({
         from: repSelectedSquare,
         to: name,
@@ -645,7 +620,6 @@ repBoardEl.addEventListener("pointerdown", (e) => {
 
         if (drill) onDrillMove(played);
       }
-
       return;
     }
   }
@@ -654,10 +628,7 @@ repBoardEl.addEventListener("pointerdown", (e) => {
     const wasSelected = repSelectedSquare === name;
 
     repSelectedSquare = name;
-    repLegalMoves = currentGame.moves({
-      square: name,
-      verbose: true,
-    });
+    repLegalMoves = currentGame.moves({ square: name, verbose: true });
 
     renderRepertoireBoard();
 
@@ -680,14 +651,11 @@ function endRepDrag(e, cancelled = false) {
   const currentDrag = repDrag;
   const target = repSquareFromPoint(e.clientX, e.clientY);
 
-  if (currentDrag.ghost) {
-    currentDrag.ghost.remove();
-  }
+  if (currentDrag.ghost) currentDrag.ghost.remove();
 
   const origin = repBoardEl.querySelector(
     `[data-square="${currentDrag.from}"] .piece`,
   );
-
   if (origin) origin.classList.remove("dragging");
 
   setRepHover(repHoverSquare, false);
@@ -697,14 +665,12 @@ function endRepDrag(e, cancelled = false) {
   if (cancelled || !currentDrag.moved || !target) return;
 
   const move = repLegalMoves.find((m) => m.to === target);
-
   if (!move) {
     renderRepertoireBoard();
     return;
   }
 
   const currentGame = drill ? drillGame : repertoireGame;
-
   const played = currentGame.move({
     from: currentDrag.from,
     to: target,
@@ -722,13 +688,8 @@ function endRepDrag(e, cancelled = false) {
   }
 }
 
-window.addEventListener("pointerup", (e) => {
-  endRepDrag(e);
-});
-
-window.addEventListener("pointercancel", (e) => {
-  endRepDrag(e, true);
-});
+window.addEventListener("pointerup", (e) => endRepDrag(e));
+window.addEventListener("pointercancel", (e) => endRepDrag(e, true));
 
 window.addEventListener("pointermove", (e) => {
   if (!repDrag) return;
@@ -738,9 +699,7 @@ window.addEventListener("pointermove", (e) => {
       e.clientX - repDrag.startX,
       e.clientY - repDrag.startY,
     );
-
     if (distance < DRAG_THRESHOLD) return;
-
     startRepDrag();
   }
 
@@ -748,12 +707,11 @@ window.addEventListener("pointermove", (e) => {
   updateRepHover(repSquareFromPoint(e.clientX, e.clientY));
 });
 
-repBoardEl.addEventListener("click", (event) => {
+repBoardEl?.addEventListener("click", (event) => {
   if (repSuppressClick) {
     repSuppressClick = false;
     return;
   }
-
   if (repDrag) return;
 
   const square = event.target.closest(".square");
@@ -765,7 +723,6 @@ repBoardEl.addEventListener("click", (event) => {
 
   if (repSelectedSquare) {
     const move = repLegalMoves.find((m) => m.to === name);
-
     if (move) {
       const played = currentGame.move({
         from: repSelectedSquare,
@@ -787,10 +744,7 @@ repBoardEl.addEventListener("click", (event) => {
 
   if (piece && piece.color === currentGame.turn()) {
     repSelectedSquare = name;
-    repLegalMoves = currentGame.moves({
-      square: name,
-      verbose: true,
-    });
+    repLegalMoves = currentGame.moves({ square: name, verbose: true });
   } else {
     repSelectedSquare = null;
     repLegalMoves = [];
@@ -799,14 +753,14 @@ repBoardEl.addEventListener("click", (event) => {
   updateRepertoireBoard();
 });
 
-repBackBtn.addEventListener("click", () => {
+repBackBtn?.addEventListener("click", () => {
   repertoireGame.undo();
   repSelectedSquare = null;
   repLegalMoves = [];
   updateRepertoirePage(false);
 });
 
-repResetBtn.addEventListener("click", () => {
+repResetBtn?.addEventListener("click", () => {
   repertoireGame.reset();
   repViewPly = null;
   repSelectedSquare = null;
@@ -814,18 +768,16 @@ repResetBtn.addEventListener("click", () => {
   updateRepertoirePage();
 });
 
-repMovesEl.addEventListener("click", (e) => {
+repMovesEl?.addEventListener("click", (e) => {
   const moveEl = e.target.closest(".move");
   if (!moveEl || drill) return;
-
   goToRepPlyAnimated(Number(moveEl.dataset.ply));
 });
 
-repFlipBtn.addEventListener("click", () => {
+repFlipBtn?.addEventListener("click", () => {
   repOrientation = repOrientation === "w" ? "b" : "w";
   updateRepertoireBoard();
 });
-/* ---------- View (history navigation) ---------- */
 
 function syncRepView() {
   const moves = repertoireGame.history();
@@ -837,45 +789,21 @@ function syncRepView() {
   }
 
   const view = new Chess();
-
   for (let i = 0; i < repViewPly; i++) {
     view.move(moves[i]);
   }
-
   return view;
-}
-
-function goToRepPly(ply) {
-  const total = repertoireGame.history().length;
-
-  repViewPly = Math.max(0, Math.min(ply, total));
-
-  if (repViewPly >= total) {
-    repViewPly = null;
-  }
-
-  repSelectedSquare = null;
-  repLegalMoves = [];
-
-  updateRepertoirePage(false);
 }
 
 function goToPly(ply) {
   const total = game.history().length;
-
   viewPly = Math.max(0, Math.min(ply, total));
-
-  if (viewPly >= total) {
-    viewPly = null;
-  }
+  if (viewPly >= total) viewPly = null;
 
   selectedSquare = null;
   legalMoves = [];
-
   update(false);
 }
-
-/* ---------- Stockfish evaluation ---------- */
 
 let stockfishWorker = null;
 let engineReady = false;
@@ -899,7 +827,6 @@ function initStockfish() {
     stockfishWorker.onmessage = (event) => {
       const message = String(event.data).trim();
 
-      // Motor başlangıcı
       if (message === "uciok") {
         stockfishWorker.postMessage("isready");
         return;
@@ -907,14 +834,10 @@ function initStockfish() {
 
       if (message === "readyok") {
         engineReady = true;
-
-        if (pendingEngineFen) {
-          startEngineAnalysis(pendingEngineFen);
-        }
+        if (pendingEngineFen) startEngineAnalysis(pendingEngineFen);
         return;
       }
 
-      // Analiz sonuçları
       if (message.startsWith("info ")) {
         if (
           engineStopping ||
@@ -923,12 +846,10 @@ function initStockfish() {
         ) {
           return;
         }
-
         parseEngineInfo(message);
         return;
       }
 
-      // Mevcut analiz tamamlandı
       if (message.startsWith("bestmove")) {
         engineBusy = false;
         engineStopping = false;
@@ -942,13 +863,13 @@ function initStockfish() {
 
     stockfishWorker.onerror = (error) => {
       console.error("Stockfish error:", error);
-      evaluationScoreEl.textContent = "Engine error";
+      if (evaluationScoreEl) evaluationScoreEl.textContent = "Engine error";
     };
 
     stockfishWorker.postMessage("uci");
   } catch (error) {
     console.error("Could not start Stockfish:", error);
-    evaluationScoreEl.textContent = "Engine unavailable";
+    if (evaluationScoreEl) evaluationScoreEl.textContent = "Engine unavailable";
   }
 }
 
@@ -958,35 +879,23 @@ function requestEngineEvaluation(fen, target = "play") {
   const targetChanged = target !== requestedEvaluationTarget;
   const fenChanged = fen !== requestedEngineFen;
 
-  // Aynı pozisyon ve aynı hedef zaten analiz ediliyorsa tekrar başlatma.
   if (!fenChanged && !targetChanged) return;
 
   requestedEvaluationTarget = target;
   requestedEngineFen = fen;
   analysisFen = fen;
-
   analysisLinesByRank.clear();
 
-  if (target === "analyse") {
-    if (analyseAnalysisLinesEl) {
-      analyseAnalysisLinesEl.innerHTML = "";
-    }
-
-    if (analyseAnalysisStatusEl) {
+  if (target === "analyse" && analyseAnalysisLinesEl) {
+    analyseAnalysisLinesEl.innerHTML = "";
+    if (analyseAnalysisStatusEl)
       analyseAnalysisStatusEl.textContent = "Analyzing 5 lines...";
-    }
-  } else {
-    if (analysisLinesEl) {
-      analysisLinesEl.innerHTML = "";
-    }
-
-    if (analysisStatusEl) {
-      analysisStatusEl.textContent = "Analyzing 5 lines...";
-    }
+  } else if (analysisLinesEl) {
+    analysisLinesEl.innerHTML = "";
+    if (analysisStatusEl) analysisStatusEl.textContent = "Analyzing 5 lines...";
   }
 
   pendingEngineFen = fen;
-
   if (!engineReady) return;
 
   if (engineBusy) {
@@ -1003,67 +912,13 @@ function startEngineAnalysis(fen) {
 
   pendingEngineFen = null;
   activeEngineFen = fen;
-
   engineBusy = true;
   engineStopping = false;
-
   analysisLinesByRank.clear();
 
   stockfishWorker.postMessage("setoption name MultiPV value 5");
   stockfishWorker.postMessage(`position fen ${fen}`);
   stockfishWorker.postMessage(`go depth ${ENGINE_DEPTH}`);
-}
-function renderAnalysisLine(fen, pv, depth) {
-  if (!analysisLinesEl || !analysisStatusEl) return;
-  if (!pv || !pv.length) return;
-
-  const analysisGame = new Chess(fen);
-  const moves = [];
-
-  for (const uci of pv.slice(0, 10)) {
-    const from = uci.slice(0, 2);
-    const to = uci.slice(2, 4);
-    const promotion = uci[4];
-
-    const number = analysisGame.moveNumber();
-    const color = analysisGame.turn();
-
-    try {
-      const move = analysisGame.move({
-        from,
-        to,
-        promotion: promotion || "q",
-      });
-
-      if (!move) break;
-
-      moves.push({
-        number,
-        color,
-        san: move.san,
-      });
-    } catch {
-      break;
-    }
-  }
-
-  let output = "";
-
-  for (const move of moves) {
-    if (move.color === "w") {
-      output += `<span class="analysis-move-number">${move.number}.</span> `;
-    } else if (
-      moves[0]?.color === "b" ||
-      moves[moves.indexOf(move) - 1]?.color !== "w"
-    ) {
-      output += `<span class="analysis-move-number">${move.number}...</span> `;
-    }
-
-    output += `<span class="analysis-move">${move.san}</span> `;
-  }
-
-  analysisLinesEl.innerHTML = output;
-  analysisStatusEl.textContent = `Stockfish · Depth ${depth}`;
 }
 
 function parseEngineInfo(message) {
@@ -1072,12 +927,10 @@ function parseEngineInfo(message) {
 
   if (depth < 1) return;
   if (/\b(lowerbound|upperbound)\b/.test(message)) return;
-
   if (!activeEngineFen || activeEngineFen !== requestedEngineFen) return;
 
   const multipvMatch = message.match(/\bmultipv (\d+)/);
   const multipv = multipvMatch ? Number(multipvMatch[1]) : 1;
-
   if (multipv < 1 || multipv > 5) return;
 
   const pvMatch = message.match(/\bpv (.+)$/);
@@ -1088,40 +941,30 @@ function parseEngineInfo(message) {
 
   const sideToMove = activeEngineFen.split(" ")[1];
   let score;
-  let scoreType;
   let scoreText;
   let whiteScore;
 
   if (mateMatch) {
-    scoreType = "mate";
     score = Number(mateMatch[1]);
-
     if (sideToMove === "b") score = -score;
-
     whiteScore = score > 0 ? 1000 : -1000;
     scoreText = score > 0 ? `+M${score}` : `-M${Math.abs(score)}`;
   } else {
-    scoreType = "cp";
     score = Number(cpMatch[1]);
-
     if (sideToMove === "b") score = -score;
-
     whiteScore = score;
     const pawns = score / 100;
     scoreText = `${pawns > 0 ? "+" : ""}${pawns.toFixed(1)}`;
   }
 
-  // Varyasyonu sırasına göre kaydet.
   analysisLinesByRank.set(multipv, {
     fen: activeEngineFen,
     pv: pvMatch[1].trim().split(/\s+/).slice(0, 4),
     depth,
     score,
-    scoreType,
     scoreText,
   });
 
-  // Bes varyasyonu sıralı şekilde göster.
   const lines = [1, 2, 3, 4, 5]
     .map((rank) => analysisLinesByRank.get(rank))
     .filter(Boolean);
@@ -1144,11 +987,9 @@ function parseEngineInfo(message) {
 }
 
 function renderEvaluation(whiteScore, scoreText) {
-  // Eğer skor metninde mat varsa (örn: +M3 veya -M2)
-  let safePercent = 50; // varsayılan nötr
+  let safePercent = 50;
 
   if (scoreText.includes("M")) {
-    // White mate yaptıysa (pozitif M) bar %100 beyaz, Black mate yaptıysa %0 beyaz
     safePercent = scoreText.startsWith("+") ? 100 : 0;
   } else {
     const clamped = Math.max(-1000, Math.min(1000, whiteScore));
@@ -1164,13 +1005,12 @@ function renderEvaluation(whiteScore, scoreText) {
   ) {
     evaluationWhiteEl.style.height = `${safePercent}%`;
     evaluationBlackEl.style.height = `${100 - safePercent}%`;
-
     evaluationBarEl.style.flexDirection =
       orientation === "w" ? "column-reverse" : "column";
-
     evaluationScoreEl.textContent = scoreText;
   }
 }
+
 function renderAnalyseEvaluation(whiteScore, scoreText) {
   const bar = document.getElementById("analyse-evaluation-bar");
   const white = document.getElementById("analyse-evaluation-white");
@@ -1185,10 +1025,8 @@ function renderAnalyseEvaluation(whiteScore, scoreText) {
 
   white.style.height = `${safePercent}%`;
   black.style.height = `${100 - safePercent}%`;
-
   bar.style.flexDirection =
     analyseOrientation === "w" ? "column-reverse" : "column";
-
   score.textContent = scoreText;
 }
 
@@ -1205,20 +1043,16 @@ function renderRepertoireEvaluation(whiteScore, scoreText) {
   ) {
     repEvaluationWhiteEl.style.height = `${safePercent}%`;
     repEvaluationBlackEl.style.height = `${100 - safePercent}%`;
-
     repEvaluationBarEl.style.flexDirection =
       orientation === "w" ? "column-reverse" : "column";
-
     repEvaluationScoreEl.textContent = scoreText;
   }
 }
 
-/* ---------- Rendering ---------- */
 function renderBoard(animate = true) {
   const history = view.history({ verbose: true });
   const lastMove = history[history.length - 1];
 
-  // Gelen 'animate' parametresi bir obje mi ({from, to}) yoksa boolean mı kontrol et
   const animMove =
     typeof animate === "object" && animate !== null
       ? animate
@@ -1226,7 +1060,6 @@ function renderBoard(animate = true) {
         ? lastMove
         : null;
 
-  // Animasyondan önce taşın eski konumunu kaydet.
   let oldPieceRect = null;
 
   if (animMove && animMove.from) {
@@ -1234,20 +1067,15 @@ function renderBoard(animate = true) {
       `[data-square="${animMove.from}"]`,
     );
     const oldPiece = fromSquare?.querySelector(".piece");
-
-    if (oldPiece) {
-      oldPieceRect = oldPiece.getBoundingClientRect();
-    }
+    if (oldPiece) oldPieceRect = oldPiece.getBoundingClientRect();
   }
 
   boardEl.innerHTML = "";
 
-  // Learn okları için SVG katmanı
   const arrowLayer = document.createElementNS(
     "http://www.w3.org/2000/svg",
     "svg",
   );
-
   arrowLayer.classList.add("learn-arrow-layer");
   arrowLayer.setAttribute("viewBox", "0 0 8 8");
   arrowLayer.setAttribute("preserveAspectRatio", "none");
@@ -1262,27 +1090,17 @@ function renderBoard(animate = true) {
       const rankNumber = Number(name[1]);
 
       const squareEl = document.createElement("div");
-
       squareEl.className =
         "square " + ((fileIndex + rankNumber) % 2 === 0 ? "light" : "dark");
-
       squareEl.dataset.square = name;
 
-      if (drillHintSquares.includes(name)) {
+      if (drillHintSquares.includes(name)) squareEl.classList.add("drill-hint");
+      if (trainMode && trainHintSquares.includes(name))
         squareEl.classList.add("drill-hint");
-      }
-      if (trainMode && trainHintSquares.includes(name)) {
-        squareEl.classList.add("drill-hint");
-      }
 
       if (learnHintMove) {
-        if (name === learnHintMove.from) {
-          squareEl.classList.add("learn-from");
-        }
-
-        if (name === learnHintMove.to) {
-          squareEl.classList.add("learn-to");
-        }
+        if (name === learnHintMove.from) squareEl.classList.add("learn-from");
+        if (name === learnHintMove.to) squareEl.classList.add("learn-to");
       }
 
       if (lastMove && (name === lastMove.from || name === lastMove.to)) {
@@ -1293,26 +1111,17 @@ function renderBoard(animate = true) {
         squareEl.classList.add("train-correct");
       }
 
-      if (name === selectedSquare) {
-        squareEl.classList.add("selected");
-      }
-
-      if (name === checkSquare) {
-        squareEl.classList.add("check");
-      }
+      if (name === selectedSquare) squareEl.classList.add("selected");
+      if (name === checkSquare) squareEl.classList.add("check");
 
       const move = legalMoves.find((m) => m.to === name);
-
       if (move) {
         squareEl.classList.add("legal");
         if (move.captured) squareEl.classList.add("capture");
       }
 
       const piece = view.get(name);
-
-      if (piece) {
-        squareEl.appendChild(createPieceEl(piece.color, piece.type));
-      }
+      if (piece) squareEl.appendChild(createPieceEl(piece.color, piece.type));
 
       if (col === 0) addCoord(squareEl, "rank", name[1]);
       if (row === 7) addCoord(squareEl, "file", name[0]);
@@ -1321,84 +1130,17 @@ function renderBoard(animate = true) {
     }
   }
 
-  // Learn modunda önerilen hamle için ok çiz
-  if (learnHintMove) {
-    const files = "abcdefgh";
-
-    const fromCol = files.indexOf(learnHintMove.from[0]);
-    const fromRow = 8 - Number(learnHintMove.from[1]);
-
-    const toCol = files.indexOf(learnHintMove.to[0]);
-    const toRow = 8 - Number(learnHintMove.to[1]);
-
-    const dx = toCol - fromCol;
-    const dy = toRow - fromRow;
-    const length = Math.hypot(dx, dy);
-
-    if (length > 0) {
-      const offset = 0.22;
-
-      const arrow = document.createElementNS(
-        "http://www.w3.org/2000/svg",
-        "line",
-      );
-
-      arrow.setAttribute("x1", fromCol + 0.5);
-      arrow.setAttribute("y1", fromRow + 0.5);
-      arrow.setAttribute("x2", toCol + 0.5 - (dx / length) * offset);
-      arrow.setAttribute("y2", toRow + 0.5 - (dy / length) * offset);
-      arrow.setAttribute("marker-end", "url(#learn-arrow-head)");
-      arrow.classList.add("learn-arrow");
-
-      const defs = document.createElementNS(
-        "http://www.w3.org/2000/svg",
-        "defs",
-      );
-
-      const marker = document.createElementNS(
-        "http://www.w3.org/2000/svg",
-        "marker",
-      );
-
-      marker.setAttribute("id", "learn-arrow-head");
-      marker.setAttribute("markerWidth", "4");
-      marker.setAttribute("markerHeight", "4");
-      marker.setAttribute("refX", "3");
-      marker.setAttribute("refY", "2");
-      marker.setAttribute("orient", "auto");
-      marker.setAttribute("markerUnits", "userSpaceOnUse");
-
-      const head = document.createElementNS(
-        "http://www.w3.org/2000/svg",
-        "path",
-      );
-
-      head.setAttribute("d", "M 0 0 L 4 2 L 0 4 Z");
-      head.classList.add("learn-arrow-head");
-
-      marker.appendChild(head);
-      defs.appendChild(marker);
-
-      arrowLayer.appendChild(defs);
-      arrowLayer.appendChild(arrow);
-    }
-  }
-
-  // Yeni tahtadaki hedef taşını eski konumundan pürüzsüzce kaydır (İleri veya Geri).
   if (animMove && oldPieceRect && animMove.to) {
     const toSquare = boardEl.querySelector(`[data-square="${animMove.to}"]`);
     const newPiece = toSquare?.querySelector(".piece");
 
     if (newPiece) {
       const newRect = newPiece.getBoundingClientRect();
-
       const deltaX = oldPieceRect.left - newRect.left;
       const deltaY = oldPieceRect.top - newRect.top;
 
       newPiece.style.transition = "none";
       newPiece.style.transform = `translate(${deltaX}px, ${deltaY}px)`;
-
-      // Başlangıç konumunu tarayıcıya uygulat.
       newPiece.offsetHeight;
 
       requestAnimationFrame(() => {
@@ -1412,7 +1154,6 @@ function renderBoard(animate = true) {
 function analyseSquareFromPoint(x, y) {
   const rect = analyseBoardEl.getBoundingClientRect();
   const size = rect.width / 8;
-
   const col = Math.floor((x - rect.left) / size);
   const row = Math.floor((y - rect.top) / size);
 
@@ -1430,9 +1171,7 @@ function clearAnalyseSelection() {
 
 function startAnalyseDrag() {
   analyseDrag.moved = true;
-
   const size = analyseBoardEl.getBoundingClientRect().width / 8;
-
   const ghost = createPieceEl(
     analyseDrag.piece.color,
     analyseDrag.piece.type,
@@ -1441,7 +1180,6 @@ function startAnalyseDrag() {
 
   ghost.style.width = `${size}px`;
   ghost.style.height = `${size}px`;
-
   document.body.appendChild(ghost);
 
   analyseDrag.ghost = ghost;
@@ -1450,54 +1188,35 @@ function startAnalyseDrag() {
   const origin = analyseBoardEl.querySelector(
     `[data-square="${analyseDrag.from}"] .piece`,
   );
-
   if (origin) origin.classList.add("dragging");
 }
 
 function moveAnalyseGhost(x, y) {
   if (!analyseDrag?.ghost) return;
-
   analyseDrag.ghost.style.left = `${x - analyseDrag.size / 2}px`;
-
   analyseDrag.ghost.style.top = `${y - analyseDrag.size / 2}px`;
 }
 
 function setAnalyseHover(name, on) {
   if (!name) return;
-
   const square = analyseBoardEl.querySelector(`[data-square="${name}"]`);
-
-  if (square) {
-    square.classList.toggle("drag-over", on);
-  }
+  if (square) square.classList.toggle("drag-over", on);
 }
 
 function updateAnalyseHover(name) {
   if (name === analyseHoverSquare) return;
-
   setAnalyseHover(analyseHoverSquare, false);
-
   analyseHoverSquare = name;
-
   setAnalyseHover(name, true);
 }
 
 function makeAnalyseMove(from, to, promotion = "q", animate = true) {
   const target = analyseGame.get(to);
-
-  const move = analyseGame.move({
-    from,
-    to,
-    promotion,
-  });
+  const move = analyseGame.move({ from, to, promotion });
 
   if (!move) return false;
 
-  // Geçmişteki bir konumdan yeni hamle yapılırsa
-  // eski devam hamlelerini sil.
-
   if (analyseCurrentPly < analyseHistory.length) {
-    // Yüklü oyundan ilk sapma: ana hattı sakla
     if (analyseGameLoaded && !analyseMainLine) {
       analyseMainLine = {
         history: [...analyseHistory],
@@ -1511,37 +1230,27 @@ function makeAnalyseMove(from, to, promotion = "q", animate = true) {
         analyseCurrentPly,
       );
     }
-
     analyseMoveClasses = analyseMoveClasses.slice(0, analyseCurrentPly + 1);
   }
 
   updateVariationBar();
   analyseHistory = analyseHistory.slice(0, analyseCurrentPly);
   analyseHistory.push(move.san);
-
   analyseCurrentPly++;
 
-  if (analyseGame.isCheckmate()) {
-    playSound("gameover");
-  } else if (analyseGame.inCheck()) {
-    playSound("check");
-  } else if (move.flags.includes("k") || move.flags.includes("q")) {
+  if (analyseGame.isCheckmate()) playSound("gameover");
+  else if (analyseGame.inCheck()) playSound("check");
+  else if (move.flags.includes("k") || move.flags.includes("q"))
     playSound("castle");
-  } else if (move.flags.includes("p")) {
-    playSound("promote");
-  } else if (target || move.flags.includes("e")) {
-    playSound("capture");
-  } else {
-    playSound("move");
-  }
+  else if (move.flags.includes("p")) playSound("promote");
+  else if (target || move.flags.includes("e")) playSound("capture");
+  else playSound("move");
 
   clearAnalyseSelection();
-
   renderAnalyseBoard(animate);
   renderAnalyseMoves();
 
   const statusEl = document.getElementById("analyse-status");
-
   if (statusEl) {
     statusEl.textContent =
       `Move ${Math.ceil(analyseCurrentPly / 2)} · ` +
@@ -1549,7 +1258,6 @@ function makeAnalyseMove(from, to, promotion = "q", animate = true) {
   }
 
   requestEngineEvaluation(analyseGame.fen(), "analyse");
-
   return true;
 }
 
@@ -1582,7 +1290,6 @@ function renderAnalyseBoard(animate = false) {
 
   analyseBoardEl.innerHTML = "";
 
-  // BURASI EKSİK OLDUĞU İÇİN HATA VERİYORDU:
   const playedMove = analyseGame.history({ verbose: true }).at(-1);
   const currentClass = analyseMoveClasses[analyseCurrentPly];
   const badgeSquare = currentClass && playedMove ? playedMove.to : null;
@@ -1598,17 +1305,15 @@ function renderAnalyseBoard(animate = false) {
       const rankNumber = Number(name[1]);
 
       const squareEl = document.createElement("div");
-
       squareEl.className =
         "square " + ((fileIndex + rankNumber) % 2 === 0 ? "light" : "dark");
-
       squareEl.dataset.square = name;
+
       if (name === analyseSelectedSquare) {
         squareEl.classList.add("analyse-selected");
       }
 
       const legalMove = analyseLegalMoves.find((move) => move.to === name);
-
       if (legalMove) {
         squareEl.classList.add(
           analyseGame.get(name)
@@ -1618,12 +1323,8 @@ function renderAnalyseBoard(animate = false) {
       }
 
       const piece = analyseGame.get(name);
+      if (piece) squareEl.appendChild(createPieceEl(piece.color, piece.type));
 
-      if (piece) {
-        squareEl.appendChild(createPieceEl(piece.color, piece.type));
-      }
-
-      // Rozet görselini kareye ekleme
       if (name === badgeSquare) {
         const badge = document.createElement("span");
         badge.className = "move-badge";
@@ -1648,7 +1349,6 @@ function renderAnalyseBoard(animate = false) {
     const newPiece = analyseBoardEl.querySelector(
       `[data-square="${lastMove.to}"] .piece`,
     );
-
     if (newPiece) {
       const newRect = newPiece.getBoundingClientRect();
 
@@ -1672,7 +1372,6 @@ function addCoord(squareEl, type, text) {
 }
 
 function renderStatus() {
-  // Reviewing an earlier position
   if (viewPly !== null) {
     const total = game.history().length;
     statusEl.textContent =
@@ -1721,7 +1420,6 @@ function renderMoves() {
 
   const activeEl = movesEl.querySelector(".move.active");
   if (activeEl) {
-    // Bütün sayfayı kaydırmak yerine sadece .moves kutusunun içini kaydırır:
     movesEl.scrollTop = activeEl.offsetTop - movesEl.offsetTop - 10;
   }
 }
@@ -1730,7 +1428,6 @@ const analyseMovesEl = document.getElementById("analyse-moves");
 
 function renderAnalyseMoves() {
   if (!analyseMovesEl) return;
-
   analyseMovesEl.innerHTML = "";
 
   for (let i = 0; i < analyseHistory.length; i += 2) {
@@ -1741,8 +1438,6 @@ function renderAnalyseMoves() {
       if (!san) break;
 
       const el = createMoveEl(san, ply, analyseCurrentPly);
-
-      // İnceleme bittiyse hamlenin yanına renkli nokta ekle
       if (analyseMoveClasses[ply]) {
         el.dataset.cls = analyseMoveClasses[ply];
       }
@@ -1756,7 +1451,6 @@ function renderAnalyseMoves() {
 
   const activeEl = analyseMovesEl.querySelector(".move.active");
   if (activeEl) {
-    // Tüm sayfayı kaydırmak yerine sadece .moves listesinin içinde kaydırır
     analyseMovesEl.scrollTop =
       activeEl.offsetTop - analyseMovesEl.offsetTop - 10;
   }
@@ -1776,7 +1470,6 @@ function goToAnalysePly(ply, animate = true) {
   if (ply < 0 || ply > analyseHistory.length) return;
 
   const previousPly = analyseCurrentPly;
-
   analyseGame.reset();
 
   let lastPlayed = null;
@@ -1784,17 +1477,14 @@ function goToAnalysePly(ply, animate = true) {
     lastPlayed = analyseGame.move(analyseHistory[i]);
   }
 
-  // Sadece tek adımlık ileri/geri gitmede animasyon + ses
   let animation = false;
-
   if (animate && ply === previousPly + 1 && lastPlayed) {
     animation = { from: lastPlayed.from, to: lastPlayed.to };
     playSoundForMove(lastPlayed);
   } else if (animate && ply === previousPly - 1) {
     const undone = analyseGame.move(analyseHistory[ply]);
     analyseGame.undo();
-
-    animation = { from: undone.to, to: undone.from }; // taş geri kayar
+    animation = { from: undone.to, to: undone.from };
     playSoundForMove(undone);
   }
 
@@ -1805,7 +1495,6 @@ function goToAnalysePly(ply, animate = true) {
   renderAnalyseMoves();
 
   const statusEl = document.getElementById("analyse-status");
-
   if (statusEl) {
     statusEl.textContent =
       ply === 0
@@ -1818,10 +1507,8 @@ function goToAnalysePly(ply, animate = true) {
 
 document.getElementById("analyse-btn-undo")?.addEventListener("click", () => {
   if (analyseCurrentPly <= 0) return;
-
   analyseSelectedSquare = null;
   analyseLegalMoves = [];
-
   goToAnalysePly(analyseCurrentPly - 1);
 });
 
@@ -1831,7 +1518,7 @@ document.getElementById("analyse-btn-flip")?.addEventListener("click", () => {
 });
 
 document.getElementById("analyse-btn-reset")?.addEventListener("click", () => {
-  reviewRunId++; // devam eden incelemeyi iptal et
+  reviewRunId++;
   analyseMainLine = null;
   analyseGameLoaded = false;
   updateVariationBar();
@@ -1843,18 +1530,17 @@ document.getElementById("analyse-btn-reset")?.addEventListener("click", () => {
 
   document.getElementById("analyse-game-report").hidden = true;
   analyseGamesStatusEl.textContent = "";
-
   goToAnalysePly(0, false);
 });
 
 const REVIEW_DEPTH = 12;
 const PIECE_VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 
-let analyseMoveClasses = []; // index = ply (1'den başlar)
+let analyseMoveClasses = [];
 let reviewRunId = 0;
 let reviewEnginePromise = null;
 let reviewWorker = null;
-let analyseMainLine = null; // { history, classes, ply, shared }
+let analyseMainLine = null;
 let analyseGameLoaded = false;
 
 function updateVariationBar() {
@@ -1866,7 +1552,6 @@ document.getElementById("analyse-return-btn")?.addEventListener("click", () => {
   if (!analyseMainLine) return;
 
   const { history, classes, ply } = analyseMainLine;
-
   analyseHistory = history;
   analyseMoveClasses = classes;
   analyseMainLine = null;
@@ -1874,8 +1559,6 @@ document.getElementById("analyse-return-btn")?.addEventListener("click", () => {
   updateVariationBar();
   goToAnalysePly(ply, false);
 });
-
-/* ---------- Review motoru (canlı analizden ayrı worker) ---------- */
 
 function initReviewEngine() {
   if (reviewEnginePromise) return reviewEnginePromise;
@@ -1888,7 +1571,6 @@ function initReviewEngine() {
 
     const onMessage = (event) => {
       const msg = String(event.data).trim();
-
       if (msg === "uciok") {
         worker.postMessage("setoption name MultiPV value 2");
         worker.postMessage("isready");
@@ -1913,13 +1595,12 @@ function evaluateFen(fen, depth = REVIEW_DEPTH) {
   return job;
 }
 
-// Döndürür: { cp (BEYAZ gözünden), best (uci | null) }
 async function runEvaluation(fen, depth = REVIEW_DEPTH) {
   const worker = await initReviewEngine();
   const whiteToMove = fen.split(" ")[1] === "w";
 
   return new Promise((resolve) => {
-    const scores = {}; // multipv sırası -> cp (beyaz gözünden)
+    const scores = {};
 
     const onMessage = (event) => {
       const msg = String(event.data).trim();
@@ -1952,31 +1633,24 @@ async function runEvaluation(fen, depth = REVIEW_DEPTH) {
   });
 }
 
-/* ---------- Matematiksel Dengelemeler (Chess.com / Lichess Standardı) ---------- */
-
 function winPercent(cp) {
-  // Stockfish win-rate formula: centipawn değerini yumuşatılmış kazanma yüzdesine çevirir
   const c = Math.max(-1200, Math.min(1200, cp));
   return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * c)) - 1);
 }
 
 function moveAccuracy(winLoss) {
-  // Kayıp cezasını Chess.com standartlarına uyacak şekilde biraz daha sertleştiriyoruz
-  // Böylece küçük hatalar ve inaccurate hamleler yüzdeyi gerçekçi bir şekilde (~%65-%75 bandına) çekecek
   const acc = 100 * Math.exp(-0.0525 * Math.max(0, winLoss));
   return Math.max(0, Math.min(100, acc));
 }
 
 function combineAccuracy(accs, weights) {
   if (!accs.length) return null;
-
   const weightSum = weights.reduce((a, b) => a + b, 0);
   const weighted =
     accs.reduce((sum, a, i) => sum + a * weights[i], 0) / weightSum;
   const harmonic =
     accs.length / accs.reduce((sum, a) => sum + 1 / Math.max(a, 1), 0);
 
-  // Harmonik ve ağırlıklı ortalamayı dengeleyerek şişme yapmasını engelliyoruz
   return Math.min(100, Math.max(0, weighted * 0.55 + harmonic * 0.45));
 }
 
@@ -2000,7 +1674,6 @@ function volatilityWeights(winSeries) {
   return weights;
 }
 
-// Taş feda edildi mi? (kayıp >= 2 puan, rakip alırsa)
 function sacrificeValue(fenBefore, move) {
   if (move.piece === "k") return 0;
 
@@ -2017,7 +1690,6 @@ function sacrificeValue(fenBefore, move) {
   if (!captures.length) return 0;
 
   let worst = 0;
-
   for (const reply of captures) {
     const after = new Chess(chess.fen());
     after.move(reply.san);
@@ -2044,7 +1716,6 @@ function classifyMove({
   gap,
   isRecapture,
 }) {
-  // 1. Brilliant (!!): Fedalı üstün hamleler
   if (
     loss < 0.4 &&
     sacrifice <= -2 &&
@@ -2055,34 +1726,26 @@ function classifyMove({
     return "brilliant";
   }
 
-  // 2. Excellent (!): Best hamleden de öte mükemmel hamleler
   if (loss < 0.12 && winAfter > winBefore + 3 && !isRecapture) {
     return "excellent";
   }
 
-  // 3. Best (★): Motorun 1 numaralı önerisi
   if (uci === best || loss < 0.06) {
     return "best";
   }
 
-  // 4. Good: Sağlam ve doğru hamleler
   if (loss < 2.0) {
     return "good";
   }
 
-  // 5. Inaccuracy (?): Ufak konumsal sapmalar
   if (loss < 4.5) {
     return "inaccuracy";
   }
 
-  // 6. Mistake (?): Ciddi avantaj kaybı (Chess.com'daki "Fehler" sınıfı buraya kaydı)
   if (loss < 15.0) {
     return "mistake";
   }
 
-  // 7. Blunder (??): KESERKEN ÇOK SERT YAPTIK!
-  // Artık sadece 15+ puanlık devasa kayıplar veya kazanılan maçın tamamen çöpe atıldığı
-  // mutlak felaketler blunder sayılacak. Normal hatalar artık asla blunder olmayacak.
   if (loss >= 20.0 || (winBefore >= 50 && winAfter < 10)) {
     return "blunder";
   }
@@ -2119,24 +1782,16 @@ async function reviewGame(
     setText(`analyse-white-${key}`, "0");
     setText(`analyse-black-${key}`, "0");
   });
-  // ----------------------------------------
 
-  // Listeyi gizle ki ekranda kalabalık yapmasın
   const gamesContainer =
     document.getElementById("analyse-games-list") ||
     document.querySelector(".analyse-games-container");
-  if (gamesContainer) {
-    gamesContainer.style.display = "none";
-  }
+  if (gamesContainer) gamesContainer.style.display = "none";
 
   if (reportPanel) reportPanel.hidden = false;
   if (progressBox) progressBox.style.display = "flex";
   if (reportContent) reportContent.style.display = "none";
   if (progressText) progressText.textContent = "Analyzing game... (0%)";
-
-  if (window.innerWidth <= 1050) {
-    reportPanel?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
 
   const chess = new Chess();
   const moves = [];
@@ -2145,31 +1800,29 @@ async function reviewGame(
     const fenBefore = chess.fen();
     const m = chess.move(san);
 
-    moves.path ??
-      moves.push({
-        san: m.san,
-        color: m.color,
-        piece: m.piece,
-        captured: m.captured,
-        to: m.to,
-        uci: m.from + m.to + (m.promotion ?? ""),
-        fenBefore,
-        fenAfter: chess.fen(),
-        sacrifice: sacrificeValue(fenBefore, m),
-      });
+    moves.push({
+      san: m.san,
+      color: m.color,
+      piece: m.piece,
+      captured: m.captured,
+      to: m.to,
+      uci: m.from + m.to + (m.promotion ?? ""),
+      fenBefore,
+      fenAfter: chess.fen(),
+      sacrifice: sacrificeValue(fenBefore, m),
+    });
   }
+
   const total = moves.length;
   const evals = [];
 
   for (let i = 0; i <= total; i++) {
     if (runId !== reviewRunId) return;
 
-    // --- HER HAMLEDE YÜZDEYİ GÜNCELLE ---
     if (progressText && total > 0) {
       const percent = Math.round((i / total) * 100);
       progressText.textContent = `Analyzing game... (${percent}%)`;
     }
-    // ------------------------------------
 
     const fen = i === 0 ? moves[0].fenBefore : moves[i - 1].fenAfter;
     const pos = new Chess(fen);
@@ -2254,7 +1907,6 @@ async function reviewGame(
     analyseMoveClasses = classes;
   }
 
-  // Sonuçları ekrana bas
   renderAnalyseReport({
     totalMoves: total,
     summary,
@@ -2267,15 +1919,6 @@ async function reviewGame(
 
   if (progressBox) progressBox.style.display = "none";
   if (reportContent) reportContent.style.display = "block";
-
-  if (window.innerWidth <= 1050) {
-    setTimeout(() => {
-      document.getElementById("analyse-game-report")?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }, 100);
-  }
 }
 
 function setText(id, value) {
@@ -2312,7 +1955,6 @@ function renderAnalyseReport({
     ["b", "black"],
   ]) {
     const s = summary[color];
-
     setText(
       `analyse-${name}-accuracy`,
       s.accuracy === null ? "--%" : `${s.accuracy.toFixed(1)}%`,
@@ -2323,18 +1965,13 @@ function renderAnalyseReport({
     }
   }
 
-  // 1. "30 games found" veya durum yazısını analiz başlarken/biterken temizle
-  const statusEl =
-    document.getElementById("analyse-games-status") ||
-    document.querySelector(".analyse-games-status");
+  const statusEl = document.getElementById("analyse-games-status");
   if (statusEl) statusEl.textContent = "";
 
-  // 2. "YOU" rozetini doğrudan doğru oyuncu tarafına ekle
   updateYouBadge(whitePlayer, blackPlayer, targetUsername);
 }
 
 function updateYouBadge(whitePlayer, blackPlayer, targetUsername) {
-  // Önce sayfadaki tüm eski "YOU" rozetlerini tamamen temizle
   document.querySelectorAll(".report-you-badge").forEach((el) => el.remove());
 
   const currentUsername = (
@@ -2348,18 +1985,14 @@ function updateYouBadge(whitePlayer, blackPlayer, targetUsername) {
   const reportEl = document.getElementById("analyse-game-report");
   if (!reportEl || !currentUsername) return;
 
-  let userColor = null; // 'white' veya 'black'
-
+  let userColor = null;
   if (whitePlayer && blackPlayer) {
     if (whitePlayer.toLowerCase() === currentUsername) userColor = "white";
     else if (blackPlayer.toLowerCase() === currentUsername) userColor = "black";
   }
 
-  // Eğer renk eşleştiyse, sadece ilgili sütun başlığına (White veya Black h3 veya başlığına) ekle
   if (userColor) {
-    // Sütun başlıklarını hedef alıyoruz (Örn: White / Black yazan ana başlıklar)
     const headers = reportEl.querySelectorAll("h3, .column-title, th, strong");
-
     headers.forEach((header) => {
       const text = header.textContent.toLowerCase();
       if (
@@ -2374,8 +2007,6 @@ function updateYouBadge(whitePlayer, blackPlayer, targetUsername) {
     });
   }
 }
-
-/* ---------- Oyun yükleme ---------- */
 
 function loadAnalyseGame(
   pgn,
@@ -2394,7 +2025,6 @@ function loadAnalyseGame(
   }
 
   const sanMoves = chess.history();
-
   if (!sanMoves.length) {
     analyseGamesStatusEl.textContent = "This game has no moves.";
     return;
@@ -2411,20 +2041,12 @@ function loadAnalyseGame(
   clearAnalyseSelection();
 
   document.getElementById("analyse-game-report").hidden = true;
-
   goToAnalysePly(0, false);
 
-  document
-    .getElementById("analyse-board")
-    ?.scrollIntoView({ behavior: "smooth", block: "center" });
-
-  // Oyuna tıklandığında listeyi gizle ama arama yapılınca tekrar açılabilsin diye esnek yapalım
   const gamesContainer =
     document.getElementById("analyse-games-list") ||
     document.querySelector(".analyse-games-container");
-  if (gamesContainer) {
-    gamesContainer.style.display = "none";
-  }
+  if (gamesContainer) gamesContainer.style.display = "none";
 
   reviewGame(sanMoves, runId, whitePlayer, blackPlayer, targetUsername).catch(
     (error) => {
@@ -2438,13 +2060,10 @@ function renderAnalyseGamesList(items) {
   analyseGames = items;
   analyseGamesListEl.innerHTML = "";
 
-  // Yeni oyunlar geldiğinde liste container'ını tekrar görünür yap (Tekrar arama yapıldığında görünmesini sağlar)
   const gamesContainer =
     document.getElementById("analyse-games-list") ||
     document.querySelector(".analyse-games-container");
-  if (gamesContainer) {
-    gamesContainer.style.display = "block";
-  }
+  if (gamesContainer) gamesContainer.style.display = "block";
 
   items.forEach((item) => {
     const btn = document.createElement("button");
@@ -2484,16 +2103,12 @@ function renderAnalyseGamesList(items) {
   });
 }
 
-/* ---------- Chess.com ---------- */
-
 async function fetchChesscomGames(username) {
   const statusElement = document.getElementById("analyse-games-status");
-  if (statusElement) {
-    statusElement.textContent = ""; // Yazı tamamen silinir
-  }
+  if (statusElement) statusElement.textContent = "";
+
   const user = username.trim().toLowerCase();
   const base = `https://api.chess.com/pub/player/${encodeURIComponent(user)}`;
-
   const archivesRes = await fetch(`${base}/games/archives`);
 
   if (!archivesRes.ok) {
@@ -2524,7 +2139,6 @@ async function fetchChesscomGames(username) {
       const isWhite = g.white.username.toLowerCase() === user;
       const me = isWhite ? g.white : g.black;
       const opp = isWhite ? g.black : g.white;
-
       const result =
         me.result === "win" ? "Win" : opp.result === "win" ? "Loss" : "Draw";
 
@@ -2543,16 +2157,15 @@ async function fetchChesscomGames(username) {
 
 document
   .getElementById("fetch-chesscom-games")
-  ?.addEventListener("click", async () => {
+  ?.addEventListener("click", () => {
     executeFetchGames();
   });
 
-// ---> BURAYI EKLE: Kullanıcı username input alanındayken Enter tuşuna basarsa aramayı tetikle
 document
   .getElementById("chesscom-username")
   ?.addEventListener("keydown", async (event) => {
     if (event.key === "Enter") {
-      event.preventDefault(); // Sayfanın varsayılan form submit davranışını engelle
+      event.preventDefault();
       executeFetchGames();
     }
   });
@@ -2567,43 +2180,27 @@ async function executeFetchGames() {
   analyseGamesStatusEl.textContent = "Loading games…";
   analyseGamesListEl.innerHTML = "";
 
-  if (fetchButton) {
-    fetchButton.classList.add("fetch-loading");
-  }
+  if (fetchButton) fetchButton.classList.add("fetch-loading");
 
   try {
     const items = await fetchChesscomGames(username);
-
     analyseGamesStatusEl.textContent = items.length
       ? `${items.length} games found. Click one to analyse.`
       : "No games found.";
 
     renderAnalyseGamesList(items);
-
-    // Ekranı doğrudan kullanıcı adı input alanının (veya arama kutusunun üstünün) hizasına kaydır
-    if (usernameInput) {
-      usernameInput.scrollIntoView({
-        behavior: "smooth",
-        block: "center", // Veya "start"
-      });
-    }
   } catch (error) {
     analyseGamesStatusEl.textContent = error.message;
   } finally {
-    if (fetchButton) {
-      fetchButton.classList.remove("fetch-loading");
-    }
+    if (fetchButton) fetchButton.classList.remove("fetch-loading");
   }
 }
-
-/* ---------- PGN dosyası ---------- */
 
 analysePgnFileEl?.addEventListener("change", async () => {
   const file = analysePgnFileEl.files[0];
   if (!file) return;
 
   const text = await file.text();
-
   const items = splitGames(text).map((g, index) => {
     const h = g.headers;
     const headerText = Object.entries(h)
@@ -2625,8 +2222,6 @@ analysePgnFileEl?.addEventListener("change", async () => {
   renderAnalyseGamesList(items);
   analysePgnFileEl.value = "";
 });
-
-/* ---------- Material ---------- */
 
 function getMaterial(position) {
   const counts = {
@@ -2690,9 +2285,12 @@ function renderStrips() {
   renderStrip(stripTopEl, topColor, material);
 }
 
+// ==========================================
+// LICHESS PUZZLE MOTORU & TAHTA RENDER
+// ==========================================
+
 function renderPuzzleBoard(animate = false) {
   if (!puzzleBoardEl) return;
-
   puzzleBoardEl.innerHTML = "";
 
   for (let row = 0; row < 8; row++) {
@@ -2740,6 +2338,7 @@ function renderRepertoireStrips(position) {
   renderStrip(repStripBottomEl, bottomColor, material);
   renderStrip(repStripTopEl, topColor, material);
 }
+
 function syncView() {
   const moves = game.history();
   const total = moves.length;
@@ -2762,20 +2361,14 @@ function update(animate = true) {
   const showAnalysis =
     !document.querySelector("#play").hidden && !lesson && !trainMode;
 
-  if (analysisPanel) {
-    analysisPanel.hidden = !showAnalysis;
-  }
+  if (analysisPanel) analysisPanel.hidden = !showAnalysis;
 
   if (showAnalysis) {
     requestEngineEvaluation(view.fen(), "play");
   } else {
-    if (analysisLinesEl) {
-      analysisLinesEl.textContent = "";
-    }
-
-    if (analysisStatusEl) {
+    if (analysisLinesEl) analysisLinesEl.textContent = "";
+    if (analysisStatusEl)
       analysisStatusEl.textContent = "Analysis is available in normal Play.";
-    }
   }
 
   renderBoard(animate);
@@ -2793,7 +2386,6 @@ function update(animate = true) {
     renderRepertoireBoard(false);
   }
 }
-/* ---------- Game actions ---------- */
 
 function clearSelection() {
   selectedSquare = null;
@@ -2803,17 +2395,14 @@ function clearSelection() {
 function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
   if (lesson && !byDrill) {
     const expectedMove = lesson.variation.moves[lesson.index];
-
     if (!expectedMove) return;
 
-    // Train: hamleyi önce tahtada oynat, sonra doğruluğunu kontrol et.
     if (trainMode) {
       if (trainPhase !== "your-move") return;
 
       const move = game.move({ from, to, promotion });
       if (!move) return;
       viewPly = null;
-
       clearSelection();
 
       if (move.from !== expectedMove.from || move.to !== expectedMove.to) {
@@ -2822,17 +2411,15 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
       }
       playSound("promote", 2);
 
-      // Doğru hamle
       lesson.index++;
-
       trainCorrectSquares = [move.from, move.to];
 
       clearTimeout(trainCorrectTimer);
-
       trainCorrectTimer = setTimeout(() => {
         trainCorrectSquares = [];
         update(false);
       }, 350);
+
       trainCorrectMoves++;
       trainMistakeCount = 0;
       trainHintShown = false;
@@ -2843,12 +2430,9 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
       return;
     }
 
-    // Learn: mevcut doğrulama davranışı aynen korunur.
     const expected = game.move(expectedMove.san, { sloppy: true });
-
     if (expected) {
       game.undo();
-
       if (expected.from !== from || expected.to !== to) {
         playSound("move");
         return;
@@ -2859,24 +2443,17 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
   }
 
   const target = game.get(to);
-
   const move = game.move({ from, to, promotion });
   if (!move) return;
   viewPly = null;
 
-  if (game.isCheckmate()) {
-    playSound("gameover");
-  } else if (game.inCheck()) {
-    playSound("check");
-  } else if (move.flags.includes("k") || move.flags.includes("q")) {
+  if (game.isCheckmate()) playSound("gameover");
+  else if (game.inCheck()) playSound("check");
+  else if (move.flags.includes("k") || move.flags.includes("q"))
     playSound("castle");
-  } else if (move.flags.includes("p")) {
-    playSound("promote");
-  } else if (target || move.flags.includes("e")) {
-    playSound("capture");
-  } else {
-    playSound("move");
-  }
+  else if (move.flags.includes("p")) playSound("promote");
+  else if (target || move.flags.includes("e")) playSound("capture");
+  else playSound("move");
 
   if (lesson && !trainMode) {
     lesson.index++;
@@ -2887,7 +2464,6 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
   clearSelection();
   update(animate);
 
-  // ---> BURAYA EKLE: Learn veya Train modundayken her hamle bittiğinde eval bar'ı güncelle
   if (lesson) {
     requestEngineEvaluation(game.fen(), "play");
   }
@@ -2908,10 +2484,7 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
 
     learnCompleteTimer = setTimeout(() => {
       if (lesson && lesson.index >= lesson.variation.moves.length) {
-        if (trainMode) {
-          renderLearnTrainCompleteStats();
-        }
-
+        if (trainMode) renderLearnTrainCompleteStats();
         overlay.hidden = false;
       }
     }, 400);
@@ -2929,15 +2502,12 @@ function handleTrainMistake(expectedMove, playedMove) {
   trainTotalMistakes++;
   playSound("gameover", 2);
 
-  // İlk hata: taşın bulunduğu kare.
-  // İkinci ve sonraki hatalar: hedef kare.
   trainHintSquares =
     trainMistakeCount === 1
       ? [expectedMove.from]
       : [expectedMove.from, expectedMove.to];
 
   const boardWrap = boardEl.closest(".board-wrap");
-
   if (boardWrap) {
     boardWrap.classList.remove("board-shake");
     void boardWrap.offsetWidth;
@@ -2947,21 +2517,15 @@ function handleTrainMistake(expectedMove, playedMove) {
   update(false);
 
   clearTimeout(trainMistakeTimer);
-
   trainMistakeTimer = setTimeout(() => {
     if (!trainMode || trainPhase !== "mistake") return;
 
     game.undo();
-
     trainPhase = "your-move";
     clearSelection();
-
     update(false);
 
-    if (boardWrap) {
-      boardWrap.classList.remove("board-shake");
-    }
-
+    if (boardWrap) boardWrap.classList.remove("board-shake");
     trainMistakeTimer = null;
   }, 650);
 }
@@ -2971,16 +2535,13 @@ function continueTrain() {
 
   const moves = lesson.variation.moves;
 
-  // Varyant tamamlandı.
   if (lesson.index >= moves.length) {
     trainPhase = "complete";
 
     if (!lesson.trainSessionRecorded) {
       const total = trainCorrectMoves + trainTotalMistakes;
       const accuracy = total > 0 ? (trainCorrectMoves / total) * 100 : 100;
-
       recordTrain(lesson.opening, lesson.variation, accuracy);
-
       lesson.trainSessionRecorded = true;
       renderProfileProgress();
     }
@@ -3004,12 +2565,10 @@ function continueTrain() {
     return;
   }
 
-  // Sıradaki hamle rakibinse otomatik oynat.
   if (game.turn() !== lesson.opening.color[0]) {
     trainPhase = "opponent";
 
     clearTimeout(trainOpponentTimer);
-
     trainOpponentTimer = setTimeout(() => {
       if (!trainMode || !lesson || trainPhase !== "opponent") return;
 
@@ -3043,30 +2602,23 @@ function continueTrain() {
   trainPhase = "your-move";
   renderLearnPanel();
 }
-/* ---------- Pointer input (click + drag) ---------- */
 
-boardEl.addEventListener("pointerdown", (e) => {
+boardEl?.addEventListener("pointerdown", (e) => {
   if (lesson && !trainMode) return;
   if (trainMode && trainPhase !== "your-move") return;
   if (e.button !== 0 || drag) return;
-
-  // Moves can only be played on the live position
   if (viewPly !== null) return;
-
-  // During a drill the board only accepts moves when it is the player's turn
   if (drill && drill.phase !== "your-move") return;
 
   const name = squareFromPoint(e.clientX, e.clientY);
   if (!name) return;
   e.preventDefault();
 
-  // 1. A piece is selected and a legal destination was pressed -> click-to-move
   if (selectedSquare && legalMoves.some((m) => m.to === name)) {
     playMove(selectedSquare, name);
     return;
   }
 
-  // 2. Own piece pressed -> select it and arm a possible drag
   const piece = game.get(name);
   if (piece && piece.color === game.turn()) {
     const wasSelected = selectedSquare === name;
@@ -3087,7 +2639,6 @@ boardEl.addEventListener("pointerdown", (e) => {
     return;
   }
 
-  // 3. Anything else -> deselect
   clearSelection();
   renderBoard();
 });
@@ -3111,21 +2662,18 @@ window.addEventListener("pointermove", (e) => {
 window.addEventListener("pointerup", (e) => endDrag(e));
 window.addEventListener("pointercancel", (e) => endDrag(e, true));
 
-drillStopBtn.addEventListener("click", () => {
+drillStopBtn?.addEventListener("click", () => {
   const isRepertoireDrill = !!drill?.rep;
-
-  endDrill(); // Her şeyi temizle ve sıfırla
+  endDrill();
 
   if (isRepertoireDrill) {
     drillGame.reset();
     repertoireGame.reset();
-
     repViewPly = null;
     repSelectedSquare = null;
     repLegalMoves = [];
     drillHintSquares = [];
-
-    updateRepertoirePage(false); // Tahtayı ve repertuarı başlangıç pozisyonuna getir
+    updateRepertoirePage(false);
   } else {
     game.reset();
     viewPly = null;
@@ -3137,12 +2685,10 @@ drillStopBtn.addEventListener("click", () => {
   renderDrillCompleteOverlay();
 });
 
-drillContinueBtn.addEventListener("click", () => {
+drillContinueBtn?.addEventListener("click", () => {
   if (!drill) return;
-
   const rep = drill.rep;
   const availableLines = getAvailableDrillLines(rep);
-
   const nextLine = availableLines.find(
     (line) => !completedDrillLines.has(getLineId(line)),
   );
@@ -3159,7 +2705,6 @@ drillContinueBtn.addEventListener("click", () => {
 
 function startRepDrag() {
   repDrag.moved = true;
-
   const size = repBoardEl.getBoundingClientRect().width / 8;
   const ghost = createPieceEl(
     repDrag.piece.color,
@@ -3177,28 +2722,23 @@ function startRepDrag() {
   const origin = repBoardEl.querySelector(
     `[data-square="${repDrag.from}"] .piece`,
   );
-
   if (origin) origin.classList.add("dragging");
 }
 
 function moveRepGhost(x, y) {
   if (!repDrag?.ghost) return;
-
   repDrag.ghost.style.left = `${x - repDrag.size / 2}px`;
   repDrag.ghost.style.top = `${y - repDrag.size / 2}px`;
 }
 
 function setRepHover(name, active) {
   if (!name) return;
-
   const square = repBoardEl.querySelector(`[data-square="${name}"]`);
-
   if (square) square.classList.toggle("drag-over", active);
 }
 
 function updateRepHover(name) {
   if (name === repHoverSquare) return;
-
   setRepHover(repHoverSquare, false);
   repHoverSquare = name;
   setRepHover(name, true);
@@ -3206,7 +2746,6 @@ function updateRepHover(name) {
 
 function startDrag() {
   drag.moved = true;
-
   const size = boardEl.getBoundingClientRect().width / 8;
   const ghost = createPieceEl(drag.piece.color, drag.piece.type, "drag-ghost");
   ghost.style.width = `${size}px`;
@@ -3248,36 +2787,27 @@ function endDrag(e, cancelled = false) {
   hoverSquare = null;
   drag = null;
 
-  // Plain click on an own piece: pressing an already selected piece deselects it
   if (!moved) {
     if (wasSelected) clearSelection();
     renderBoard();
     return;
   }
 
-  // Dropped after a drag
   const target = cancelled ? null : squareFromPoint(e.clientX, e.clientY);
   if (target && legalMoves.some((m) => m.to === target)) {
     playMove(from, target, "q", false, false);
     return;
   }
 
-  // Dropped back on its own square keeps the selection, anywhere else clears it
   if (target !== from) clearSelection();
   renderBoard();
 }
 
-/* ---------- Notation list and keyboard navigation ---------- */
-
-movesEl.addEventListener("click", (e) => {
+movesEl?.addEventListener("click", (e) => {
   const moveEl = e.target.closest(".move");
   if (!moveEl) return;
   goToPly(Number(moveEl.dataset.ply));
 });
-
-// ==========================================
-// PLAY MODU ANİMASYONLU NAVİGASYON & SINIR KONTROLÜ
-// ==========================================
 
 document.getElementById("play-nav-first")?.addEventListener("click", () => {
   goToPlyAnimated(0);
@@ -3302,7 +2832,6 @@ function goToPlyAnimated(ply) {
   const total = sanMoves.length;
 
   if (total === 0 || ply < 0 || ply > total) return;
-
   const previousPly = viewPly ?? total;
   if (ply === previousPly) return;
 
@@ -3313,14 +2842,10 @@ function goToPlyAnimated(ply) {
   }
 
   let animation = false;
-
-  // 1 Adım İleri Giderken Animasyon
   if (ply === previousPly + 1 && lastPlayed) {
     animation = { from: lastPlayed.from, to: lastPlayed.to };
     playSoundForMove(lastPlayed);
-  }
-  // 1 Adım Geri Giderken Animasyon (Kareler Ters Yönde Kayar)
-  else if (ply === previousPly - 1) {
+  } else if (ply === previousPly - 1) {
     const undoneGame = new Chess();
     for (let i = 0; i < previousPly; i++) undoneGame.move(sanMoves[i]);
     const m = undoneGame.undo();
@@ -3341,14 +2866,6 @@ function goToPlyAnimated(ply) {
   renderOpening();
   renderMoves();
 }
-
-// ==========================================
-// REPERTOIRE MODU NAVİGASYON BUTONLARI
-// ==========================================
-
-// ==========================================
-// REPERTOIRE MODU ANİMASYONLU NAVİGASYON
-// ==========================================
 
 document.getElementById("rep-nav-first")?.addEventListener("click", () => {
   goToRepPlyAnimated(0);
@@ -3383,14 +2900,10 @@ function goToRepPlyAnimated(ply) {
   }
 
   let animation = false;
-
-  // 1 Adım İleri Giderken Animasyon
   if (ply === previousPly + 1 && lastPlayed) {
     animation = { from: lastPlayed.from, to: lastPlayed.to };
     playSoundForMove(lastPlayed);
-  }
-  // 1 Adım Geri Giderken Animasyon (Ters yönde pürüzsüz kayma)
-  else if (ply === previousPly - 1) {
+  } else if (ply === previousPly - 1) {
     const undoneMove = new Chess();
     for (let i = 0; i < previousPly; i++) undoneMove.move(history[i]);
     const m = undoneMove.undo();
@@ -3418,10 +2931,6 @@ function goToRepPlyAnimated(ply) {
   renderRepertoire();
   renderRepLibrary();
 }
-
-// ==========================================
-// TEK VE GÜVENLİ EVRENSEL KLAVYE DİNLEYİCİSİ (ÇAKIŞMA YOK)
-// ==========================================
 
 window.addEventListener("keydown", (e) => {
   if (
@@ -3451,7 +2960,6 @@ window.addEventListener("keydown", (e) => {
   if (!isRepPage && !isPlayPage && !isAnalysePage) return;
 
   let current, maxPly;
-
   if (isPlayPage) {
     const sanMoves = game.history();
     maxPly = sanMoves.length;
@@ -3466,7 +2974,6 @@ window.addEventListener("keydown", (e) => {
   }
 
   let nextPly = current;
-
   if (e.key === "ArrowLeft") nextPly = current - 1;
   else if (e.key === "ArrowRight") nextPly = current + 1;
   else if (e.key === "Home") nextPly = 0;
@@ -3474,36 +2981,29 @@ window.addEventListener("keydown", (e) => {
   else return;
 
   if (nextPly < 0 || nextPly > maxPly) return;
-
   e.preventDefault();
 
-  if (isPlayPage) {
-    goToPlyAnimated(nextPly);
-  } else if (isRepPage) {
-    goToRepPlyAnimated(nextPly);
-  } else if (isAnalysePage) {
-    goToAnalysePly(nextPly);
-  }
+  if (isPlayPage) goToPlyAnimated(nextPly);
+  else if (isRepPage) goToRepPlyAnimated(nextPly);
+  else if (isAnalysePage) goToAnalysePly(nextPly);
 });
 
-/* ---------- Buttons ---------- */
-
-undoBtnEl.addEventListener("click", () => {
-  if (drill) return; // undoing would desync the drill (use Try again instead)
+undoBtnEl?.addEventListener("click", () => {
+  if (drill) return;
   game.undo();
   viewPly = null;
   clearSelection();
   update(false);
 });
 
-document.getElementById("btn-flip").addEventListener("click", () => {
+document.getElementById("btn-flip")?.addEventListener("click", () => {
   orientation = orientation === "w" ? "b" : "w";
   update();
 });
 
-document.getElementById("btn-reset").addEventListener("click", () => {
+document.getElementById("btn-reset")?.addEventListener("click", () => {
   if (drill) {
-    startDrill(); // Reset during a drill restarts it
+    startDrill();
     return;
   }
   game.reset();
@@ -3512,15 +3012,11 @@ document.getElementById("btn-reset").addEventListener("click", () => {
   update();
 });
 
-/* ---------- Opening recognition (lichess chess-openings, CC0) ---------- */
-
 let openingBook = null;
 let curatedOpening = null;
 let openingLibrary = curatedOpening ? [curatedOpening] : [];
 let lesson = null;
 let savedPlayState = null;
-
-/* ---------- Opening learning progress ---------- */
 
 const OPENING_PROGRESS_KEY = "azurite-opening-progress";
 
@@ -3546,7 +3042,6 @@ function getOpeningProgress(opening, variation) {
   };
 
   const data = openingProgress[openingId];
-
   data.variations[variationId] ??= {
     name: variation.name,
     studied: false,
@@ -3555,9 +3050,7 @@ function getOpeningProgress(opening, variation) {
     progress: 0,
   };
 
-  // Eski kayıtları yeni yüzde sistemine uyarla.
   const variationData = data.variations[variationId];
-
   if (variationData.progress === undefined) {
     variationData.progress = Math.min(
       100,
@@ -3567,6 +3060,7 @@ function getOpeningProgress(opening, variation) {
 
   return variationData;
 }
+
 function saveOpeningProgress() {
   localStorage.setItem(OPENING_PROGRESS_KEY, JSON.stringify(openingProgress));
 }
@@ -3587,11 +3081,9 @@ function recordLearn(opening, variation) {
 
 function recordTrain(opening, variation, accuracy) {
   const variationData = getOpeningProgress(opening, variation);
-
   variationData.trainCount++;
 
   const earnedProgress = accuracy * 0.25;
-
   variationData.progress = Math.min(
     100,
     (variationData.progress || 0) + earnedProgress,
@@ -3611,7 +3103,6 @@ function renderProfileProgress() {
   const openings = Object.values(openingProgress).filter(
     (opening) => opening.studied,
   );
-
   const mastered = openings.reduce((total, opening) => {
     return (
       total +
@@ -3632,9 +3123,7 @@ function renderProfileProgress() {
 
   document.getElementById("profile-openings-count").textContent =
     openings.length;
-
   document.getElementById("profile-mastered-count").textContent = mastered;
-
   document.getElementById("profile-perfect-count").textContent =
     perfectTrainings;
 
@@ -3712,31 +3201,8 @@ function renderProfileProgress() {
   });
 }
 
-async function initCuratedOpenings() {
-  try {
-    const response = await fetch("assets/openings/index.json");
-
-    if (!response.ok) {
-      throw new Error("Could not load opening index.");
-    }
-
-    const files = await response.json();
-
-    openingLibrary = await Promise.all(
-      files.map((file) => loadOpening(file.replace(".json", ""), Chess)),
-    );
-
-    curatedOpening = openingLibrary[0] || null;
-
-    renderOpenings();
-  } catch (error) {
-    console.error("Could not load openings:", error);
-  }
-}
-
 function startTrain(opening) {
   if (drill) endDrill();
-
   if (lesson) exitLearn();
 
   startLearn(opening, false);
@@ -3753,13 +3219,10 @@ function startTrain(opening) {
 
   document.getElementById("learn-title").textContent =
     `${opening.name} · Train`;
-
   document.getElementById("train-hint").hidden = false;
 
   renderLearnPanel();
   update();
-
-  // ---> BURAYI EKLE: Antrenman başladığı an hamle sırasını kontrol et ve gerekirse ilk hamleyi yaptır
   continueTrain();
 }
 
@@ -3792,7 +3255,6 @@ function startCurrentLearnTrain() {
 
   showPage("play");
   update();
-
   continueTrain();
 }
 
@@ -3805,7 +3267,6 @@ function startLearn(opening, recordStudy = true) {
   };
 
   curatedOpening = opening;
-
   game.reset();
   viewPly = null;
   clearSelection();
@@ -3817,9 +3278,7 @@ function startLearn(opening, recordStudy = true) {
   };
 
   orientation = opening.color === "black" ? "b" : "w";
-
   const select = document.getElementById("learn-variation-select");
-
   select.innerHTML = "";
 
   opening.variations.forEach((variation) => {
@@ -3830,19 +3289,15 @@ function startLearn(opening, recordStudy = true) {
   });
 
   const firstVariation = opening.variations[0];
-
   if (firstVariation) {
     select.value = firstVariation.id;
-
     lesson.variation = firstVariation;
     lesson.index = 0;
   }
+
   if (recordStudy && firstVariation) {
     recordLearn(opening, firstVariation);
   }
-
-  showPage("play");
-  update();
 
   showPage("play");
   update();
@@ -3853,7 +3308,6 @@ function selectLearnVariation() {
 
   const select = document.getElementById("learn-variation-select");
   const variationId = select.value;
-
   const variation = lesson.opening.variations.find(
     (item) => item.id === variationId,
   );
@@ -3875,37 +3329,29 @@ function selectLearnVariation() {
   clearTimeout(trainOpponentTimer);
 
   learnHintMove = null;
-
-  const overlay = document.getElementById("learn-complete-overlay");
-  overlay.hidden = true;
-
+  document.getElementById("learn-complete-overlay").hidden = true;
   update();
 }
 
 function nextLessonMove() {
   if (!lesson || !lesson.variation) return;
 
-  // Geçmiş bir konum görüntüleniyorsa önce güncel konuma dön.
   if (viewPly !== null) {
     viewPly = null;
     update(false);
   }
 
   const moves = lesson.variation.moves;
-
   if (lesson.index >= moves.length) return;
 
   const moveData = moves[lesson.index];
-
   playMove(moveData.from, moveData.to, "q", false);
 }
+
 function previousLessonMove() {
   if (!lesson || !lesson.variation || lesson.index === 0) return;
 
-  // Geçmiş bir konum görüntüleniyorsa önce güncel konuma dön.
-  if (viewPly !== null) {
-    viewPly = null;
-  }
+  if (viewPly !== null) viewPly = null;
 
   game.undo();
   lesson.index--;
@@ -3916,6 +3362,7 @@ function previousLessonMove() {
 
 function exitLearn() {
   if (!lesson) return;
+
   trainMode = false;
   trainHintShown = false;
   trainHintSquares = [];
@@ -3931,21 +3378,13 @@ function exitLearn() {
   document.getElementById("learn-next").hidden = false;
 
   game.reset();
-
-  if (savedPlayState?.pgn) {
-    game.loadPgn(savedPlayState.pgn);
-  }
-
-  if (savedPlayState) {
-    orientation = savedPlayState.orientation;
-  }
+  if (savedPlayState?.pgn) game.loadPgn(savedPlayState.pgn);
+  if (savedPlayState) orientation = savedPlayState.orientation;
 
   lesson = null;
   savedPlayState = null;
-
   viewPly = null;
   clearSelection();
-
   update();
 }
 
@@ -3955,14 +3394,13 @@ function renderLearnPanel() {
 
   panel.hidden = !lesson;
   if (!lesson) return;
+
   const isTrain = trainMode;
 
   document.getElementById("learn-progress").hidden = isTrain;
   document.getElementById("learn-explanation").hidden = isTrain;
-
   document.getElementById("learn-back").hidden = isTrain;
   document.getElementById("learn-next").hidden = isTrain;
-
   document.getElementById("learn-exit").hidden = false;
 
   const hintButton = document.getElementById("train-hint");
@@ -3972,82 +3410,38 @@ function renderLearnPanel() {
   hintButton.classList.toggle("active", trainHintShown);
 
   document.getElementById("learn-title").textContent =
-    `${lesson.opening.name} · ${lesson.variation.name} · ${isTrain ? "Train" : "Learn"}`;
-
-  const select = document.getElementById("learn-variation-select");
+    `${lesson.opening.name} · ${lesson.variation?.name || ""} · ${isTrain ? "Train" : "Learn"}`;
 
   if (!lesson.variation) {
     document.getElementById("learn-progress").textContent =
       "Choose a variation to begin.";
-
     document.getElementById("learn-explanation").textContent =
       "Starting position. Press Next to begin.";
-
     document.getElementById("learn-back").disabled = true;
     document.getElementById("learn-next").disabled = true;
-
     return;
   }
 
   const moves = lesson.variation.moves;
   const currentMove = moves[lesson.index - 1];
 
-  document.getElementById("learn-title").textContent =
-    `${lesson.opening.name} · ${lesson.variation.name}`;
-
   document.getElementById("learn-progress").textContent =
     `Move ${lesson.index} / ${moves.length}`;
-
   document.getElementById("learn-explanation").textContent =
     currentMove?.explanation || "Starting position. Press Next to begin.";
-
   document.getElementById("learn-back").disabled = lesson.index === 0;
-
   document.getElementById("learn-next").disabled = lesson.index >= moves.length;
 }
 
-async function loadOpenings() {
-  try {
-    const response = await fetch("assets/openings/index.json");
-
-    if (!response.ok) {
-      throw new Error("Opening index could not be loaded.");
-    }
-
-    const files = await response.json();
-
-    const openings = await Promise.all(
-      files.map(async (file) => {
-        const openingResponse = await fetch(`assets/openings/${file}`);
-
-        if (!openingResponse.ok) {
-          throw new Error(`Could not load ${file}`);
-        }
-
-        return openingResponse.json();
-      }),
-    );
-
-    openingLibrary = openings;
-    curatedOpening = openingLibrary[0] || null;
-
-    renderOpenings();
-  } catch (error) {
-    console.error("Opening loading failed:", error);
-  }
-}
 function renderOpenings() {
   const list = document.querySelector("#openings-list");
-
   if (!list) return;
-
   list.innerHTML = "";
 
   const visibleOpenings = openingLibrary.filter((opening) => {
     if (openingFilter === "favorites") {
       return favoriteOpenings.has(opening.name);
     }
-
     return true;
   });
 
@@ -4079,16 +3473,10 @@ function renderOpenings() {
     const trainButton = document.createElement("button");
     trainButton.textContent = "Train";
 
-    learnButton.addEventListener("click", () => {
-      startLearn(opening);
-    });
-
-    trainButton.addEventListener("click", () => {
-      startTrain(opening);
-    });
+    learnButton.addEventListener("click", () => startLearn(opening));
+    trainButton.addEventListener("click", () => startTrain(opening));
 
     actions.append(learnButton, trainButton);
-
     card.append(
       title,
       createFavoriteButton(opening),
@@ -4100,6 +3488,7 @@ function renderOpenings() {
     list.append(card);
   });
 }
+
 function createFavoriteButton(opening) {
   const button = document.createElement("button");
   button.className = "opening-favorite";
@@ -4117,7 +3506,6 @@ function createFavoriteButton(opening) {
       "azurite-favorites",
       JSON.stringify([...favoriteOpenings]),
     );
-
     renderOpenings();
   });
 
@@ -4126,7 +3514,6 @@ function createFavoriteButton(opening) {
 
 function renderRepertoireOpening(position) {
   if (!repOpeningEl) return;
-
   repOpeningEl.classList.remove("dim");
 
   if (!openingBook) {
@@ -4135,14 +3522,12 @@ function renderRepertoireOpening(position) {
   }
 
   const sanMoves = position.history();
-
   if (sanMoves.length === 0) {
     repOpeningEl.textContent = "Starting position";
     return;
   }
 
   const hit = openingBook.find(sanMoves, Chess);
-
   if (!hit) {
     repOpeningEl.textContent = "No named opening";
     repOpeningEl.classList.add("dim");
@@ -4151,9 +3536,9 @@ function renderRepertoireOpening(position) {
 
   repOpeningEl.textContent = `${hit.eco} · ${hit.name}`;
 }
-// built after assets/openings.json has loaded
 
 function renderOpening() {
+  if (!openingEl) return;
   openingEl.classList.remove("dim");
 
   if (!openingBook) {
@@ -4175,7 +3560,6 @@ function renderOpening() {
   }
 
   openingEl.textContent = `${hit.eco} · ${hit.name}`;
-  // Dimmed when the current position is already past the last named position
 }
 
 fetch("./assets/openings.json")
@@ -4186,7 +3570,7 @@ fetch("./assets/openings.json")
   })
   .catch((err) => console.warn("Could not load openings.json", err));
 
-importRepBtnEl.addEventListener("click", () => {
+importRepBtnEl?.addEventListener("click", () => {
   pgnFileEl.click();
 });
 
@@ -4194,7 +3578,7 @@ const library = Library.load();
 let repNotice = { text: "", isError: false };
 let drill = null;
 let completedDrillLines = new Set();
-let drillLinePath = []; // null = not drilling, otherwise see startDrill()
+let drillLinePath = [];
 
 if (library.active) orientation = library.active.color;
 
@@ -4208,39 +3592,37 @@ function persist() {
   }
 }
 
-function colorName(color) {
-  return color === "w" ? "White" : "Black";
-}
-
 function renderRepertoire() {
   const repertoire = library.active;
-  undoBtnEl.disabled = !!drill;
-  drillBtnEl.hidden = true;
+  if (undoBtnEl) undoBtnEl.disabled = !!drill;
+  if (drillBtnEl) drillBtnEl.hidden = true;
 
-  repNoticeEl.textContent = repNotice.text;
-  repNoticeEl.classList.toggle("error", repNotice.isError);
-  repNextEl.innerHTML = "";
-  repCommentEl.textContent = "";
-  repTurnEl.textContent = "";
-  repTurnEl.classList.remove("off");
-  drillActionEl.hidden = true;
+  if (repNoticeEl) {
+    repNoticeEl.textContent = repNotice.text;
+    repNoticeEl.classList.toggle("error", repNotice.isError);
+  }
+
+  if (repNextEl) repNextEl.innerHTML = "";
+  if (repCommentEl) repCommentEl.textContent = "";
+  if (repTurnEl) {
+    repTurnEl.textContent = "";
+    repTurnEl.classList.remove("off");
+  }
+  if (drillActionEl) drillActionEl.hidden = true;
 
   if (!repertoire) {
-    repInfoEl.textContent = "No repertoire yet. Import a PGN file to start.";
+    if (repInfoEl)
+      repInfoEl.textContent = "No repertoire yet. Import a PGN file to start.";
     return;
   }
 
-  const { positions, moves } = repertoire.stats();
-  // repInfoEl.textContent = `${positions} positions, ${moves} moves`;
-
-  // Comment attached to the move that led to this position
   const last = repertoireGame.history({ verbose: true }).at(-1);
   if (last && last.before) {
     const edge = repertoire.getNode(last.before)?.edges.get(last.san);
-    if (edge && edge.comment) repCommentEl.textContent = edge.comment;
+    if (edge && edge.comment && repCommentEl)
+      repCommentEl.textContent = edge.comment;
   }
 
-  // While drilling the next moves stay hidden (that would give the answer away)
   if (drill) {
     renderDrillStatus();
     return;
@@ -4248,19 +3630,23 @@ function renderRepertoire() {
 
   const node = repertoire.getNode(repertoireGame.fen());
   if (!node) {
-    repTurnEl.textContent = "Out of repertoire";
-    repTurnEl.classList.add("off");
+    if (repTurnEl) {
+      repTurnEl.textContent = "Out of repertoire";
+      repTurnEl.classList.add("off");
+    }
     return;
   }
   if (node.edges.size === 0) {
-    repTurnEl.textContent = "End of line";
+    if (repTurnEl) repTurnEl.textContent = "End of line";
     return;
   }
 
-  repTurnEl.textContent =
-    repertoireGame.turn() === repertoire.color
-      ? "Your move"
-      : "Opponent's options";
+  if (repTurnEl) {
+    repTurnEl.textContent =
+      repertoireGame.turn() === repertoire.color
+        ? "Your move"
+        : "Opponent's options";
+  }
 
   let first = true;
   for (const edge of node.edges.values()) {
@@ -4269,22 +3655,19 @@ function renderRepertoire() {
     btn.dataset.san = edge.san;
     btn.textContent = edge.san;
     if (edge.comment) btn.title = edge.comment;
-    repNextEl.appendChild(btn);
+    repNextEl?.appendChild(btn);
     first = false;
   }
 }
 
-// Clicking a suggested move plays it on the repertoire board only.
-repNextEl.addEventListener("click", (e) => {
+repNextEl?.addEventListener("click", (e) => {
   if (drill) return;
-
   const btn = e.target.closest(".rep-move");
   if (!btn) return;
 
   const move = repertoireGame
     .moves({ verbose: true })
     .find((m) => m.san === btn.dataset.san);
-
   if (!move) return;
 
   repertoireGame.move({
@@ -4295,13 +3678,12 @@ repNextEl.addEventListener("click", (e) => {
 
   repSelectedSquare = null;
   repLegalMoves = [];
-
   updateRepertoirePage();
 });
 
-pgnFileEl.addEventListener("change", async () => {
+pgnFileEl?.addEventListener("change", async () => {
   const file = pgnFileEl.files[0];
-  pgnFileEl.value = ""; // allows importing the same file again
+  pgnFileEl.value = "";
   if (!file) return;
 
   const defaultName =
@@ -4344,10 +3726,6 @@ pgnFileEl.addEventListener("change", async () => {
   update();
 });
 
-/* ---------- Drill ---------- */
-// drill = { rep, phase, mistake, empty, timer }
-// phase: "your-move" | "opponent" | "mistake" | "complete"
-
 const OPPONENT_DELAY_MS = 500;
 
 function endDrill() {
@@ -4369,11 +3747,8 @@ function getAvailableDrillLines(rep) {
 
   function walk(fen, path, visited) {
     const node = rep.getNode(fen);
-
     if (!node || node.edges.size === 0) {
-      if (path.length > 0) {
-        lines.push([...path]);
-      }
+      if (path.length > 0) lines.push([...path]);
       return;
     }
 
@@ -4382,7 +3757,6 @@ function getAvailableDrillLines(rep) {
       const nextVisited = new Set(visited);
       nextVisited.add(node.key);
 
-      // Döngüye girilmesini önle.
       if (nextVisited.has(edge.to)) {
         lines.push(nextPath);
         continue;
@@ -4393,7 +3767,6 @@ function getAvailableDrillLines(rep) {
   }
 
   walk(startFen, [], new Set());
-
   return lines;
 }
 
@@ -4406,12 +3779,8 @@ function startDrill() {
   if (!rep) return;
 
   endDrill();
+  if (!completedDrillLines) completedDrillLines = new Set();
 
-  if (!completedDrillLines) {
-    completedDrillLines = new Set();
-  }
-
-  // Drill artık kendi oyun nesnesini kullanacak.
   repertoireGame.reset();
   drillGame.reset();
   drillHintSquares = [];
@@ -4434,8 +3803,7 @@ function startDrill() {
 
   advanceDrill();
 }
-// Decides what happens next at the live position: finish, wait for the player,
-// or let the opponent answer with a random repertoire move.
+
 function advanceDrill() {
   if (!drill || drill.phase === "complete") return;
 
@@ -4443,21 +3811,14 @@ function advanceDrill() {
 
   if (lineEnded(rep, drillGame.fen())) {
     drill.phase = "complete";
-
     playSound("promote");
-
     drill.empty = drillGame.history().length === 0;
 
-    if (drillCompleteTimer) {
-      clearTimeout(drillCompleteTimer);
-    }
-
-    drillCompleteOverlay.hidden = true;
+    if (drillCompleteTimer) clearTimeout(drillCompleteTimer);
+    if (drillCompleteOverlay) drillCompleteOverlay.hidden = true;
 
     drillCompleteTimer = setTimeout(() => {
-      if (drill?.phase === "complete") {
-        update();
-      }
+      if (drill?.phase === "complete") update();
     }, 400);
 
     update();
@@ -4491,11 +3852,9 @@ function advanceDrill() {
   }, OPPONENT_DELAY_MS);
 }
 
-// Called after the player moved during a drill
 function onDrillMove(move) {
   if (!drill) return;
 
-  // Doğru hamle
   if (judgeMove(drill.rep, move.before, move.san)) {
     clearTimeout(drillMistakeTimer);
     drillMistakeTimer = null;
@@ -4505,22 +3864,11 @@ function onDrillMove(move) {
     drill.hintShown = false;
     drillHintSquares = [];
     drill.alternatives = [];
-
     drill.mistake = null;
     renderDrillAlternatives();
 
     advanceDrill();
     return;
-  }
-  const sound = SOUNDS.move;
-  if (sound) {
-    sound.pause();
-    sound.currentTime = 0;
-  }
-  const capSound = SOUNDS.capture;
-  if (capSound) {
-    capSound.pause();
-    capSound.currentTime = 0;
   }
 
   drill.mistakes++;
@@ -4545,8 +3893,6 @@ function onDrillMove(move) {
 
   drill.phase = "mistake";
   drill.mistake = move.san;
-
-  // Sadece hata sesi çalsın (Çakışma önlendi)
   playSound("gameover", 2);
 
   const boardWrap =
@@ -4561,7 +3907,6 @@ function onDrillMove(move) {
   }
 
   clearTimeout(drillMistakeTimer);
-
   drillMistakeTimer = setTimeout(() => {
     if (!drill || drill.phase !== "mistake") return;
 
@@ -4571,13 +3916,9 @@ function onDrillMove(move) {
 
     drill.phase = "your-move";
     drill.mistake = null;
-
     update();
 
-    if (boardWrap) {
-      boardWrap.classList.remove("board-shake");
-    }
-
+    if (boardWrap) boardWrap.classList.remove("board-shake");
     drillMistakeTimer = null;
   }, 1000);
 
@@ -4596,19 +3937,17 @@ function retryDrill() {
 
   drill.phase = "your-move";
   drill.mistake = null;
-
   update();
 }
+
 function renderDrillStatus() {
   if (!repTurnEl) return;
-
-  // Sınıfları sıfırla
   repTurnEl.classList.remove("your-turn-glow", "off");
 
   switch (drill.phase) {
     case "your-move":
       repTurnEl.textContent = "Your turn! Make your repertoire move.";
-      repTurnEl.classList.add("your-turn-glow"); // Dikkat çeken animasyonlu sınıfı ekle
+      repTurnEl.classList.add("your-turn-glow");
       break;
     case "opponent":
       repTurnEl.textContent = "Opponent's move...";
@@ -4616,27 +3955,30 @@ function renderDrillStatus() {
     case "mistake":
       repTurnEl.textContent = `Mistake: ${drill.mistake} is not in your repertoire.`;
       repTurnEl.classList.add("off");
-      drillActionEl.textContent = "Try again";
-      drillActionEl.hidden = false;
+      if (drillActionEl) {
+        drillActionEl.textContent = "Try again";
+        drillActionEl.hidden = false;
+      }
       break;
     case "complete": {
       const total = drill.correctMoves + drill.mistakes;
       const accuracy = total
         ? Math.round((drill.correctMoves / total) * 100)
         : 100;
-
       repTurnEl.textContent = drill.empty
         ? "This repertoire has no moves."
         : `Line complete! ${accuracy}% accuracy`;
 
-      drillActionEl.textContent = "Restart";
-      drillActionEl.hidden = drill.empty;
+      if (drillActionEl) {
+        drillActionEl.textContent = "Restart";
+        drillActionEl.hidden = drill.empty;
+      }
       break;
     }
   }
 }
 
-drillBtnEl.addEventListener("click", () => {
+drillBtnEl?.addEventListener("click", () => {
   if (drill) {
     endDrill();
     update();
@@ -4646,13 +3988,7 @@ drillBtnEl.addEventListener("click", () => {
 });
 
 // ==========================================
-
-// ==========================================
-// LICHESS PUZZLE MOTORU (KUSURSUZ VE NET MANTIK)
-// ==========================================
-
-// ==========================================
-// LICHESS PUZZLE MOTORu & GÖSTERGE FONKSİYONLARI
+// LICHESS PUZZLE MOTORU & OLAYLAR
 // ==========================================
 
 function renderPuzzleMoves() {
@@ -4664,7 +4000,6 @@ function renderPuzzleMoves() {
   const listContainer = document.createElement("div");
   listContainer.className = "puzzle-moves-list";
 
-  // Çözüm adımlarını liste halinde gösteriyoruz
   currentPuzzle.solution.forEach((uci, index) => {
     const moveSpan = document.createElement("span");
     moveSpan.className =
@@ -4711,10 +4046,7 @@ async function fetchNewPuzzle() {
     const puzzleData = data.puzzle;
     if (!puzzleData || !puzzleData.fen) throw new Error("Invalid puzzle data");
 
-    // Lichess oyununun PGN bilgisini ayrıştırıyoruz
     const gameFull = new Chess();
-    // Lichess günlük bulmacalarında oyun pgn'si veya başlangıç konumu verilir
-    // Eğer puzzleData.game?.pgn varsa onu yüklüyoruz
     if (data.game && data.game.pgn) {
       gameFull.loadPgn(data.game.pgn);
       puzzleHistoryList = gameFull.history();
@@ -4722,7 +4054,6 @@ async function fetchNewPuzzle() {
       puzzleHistoryList = [];
     }
 
-    // Bulmaca FEN'ini yükle
     puzzleGame.load(puzzleData.fen);
 
     currentPuzzle = {
@@ -4739,7 +4070,7 @@ async function fetchNewPuzzle() {
     puzzleOrientation = puzzlePlayerColor;
     puzzleSolutionIndex = 0;
 
-    renderPuzzleBoard(false); // Sürükle-bırak/ilk açılışta animasyonsuz
+    renderPuzzleBoard(false);
     renderPuzzleMoves();
 
     if (puzzleStatusEl) {
@@ -4752,8 +4083,6 @@ async function fetchNewPuzzle() {
   }
 }
 
-
-// OYUNCU HAMLE YAPTIĞINDA (ANIMASYONSUZ & GÜVENLİ)
 function executePuzzleMove(from, to) {
   const moveUci = from + to;
   const expectedUci = currentPuzzle.solution[puzzleSolutionIndex];
@@ -4777,7 +4106,7 @@ function executePuzzleMove(from, to) {
     puzzleLegalMoves = [];
     puzzleSolutionIndex++;
 
-    renderPuzzleBoard(false); // Animasyonsuz render
+    renderPuzzleBoard(false);
     renderPuzzleMoves();
 
     if (puzzleSolutionIndex >= currentPuzzle.solution.length) {
@@ -4810,7 +4139,7 @@ function executePuzzleMove(from, to) {
         else if (replyPlayed.captured) playSound("capture");
         else playSound("move");
 
-        renderPuzzleBoard(false); // Animasyonsuz render
+        renderPuzzleBoard(false);
         renderPuzzleMoves();
 
         if (puzzleSolutionIndex >= currentPuzzle.solution.length) {
@@ -4837,6 +4166,7 @@ function executePuzzleMove(from, to) {
     recordPuzzleResult(false, -15, puzzleHintUsedInCurrent);
   }
 }
+
 document.getElementById("puzzle-btn-hint")?.addEventListener("click", () => {
   if (!currentPuzzle) return;
   const nextCorrectUci = currentPuzzle.solution[puzzleSolutionIndex];
@@ -4854,9 +4184,11 @@ document.getElementById("puzzle-btn-hint")?.addEventListener("click", () => {
   if (puzzleHintStep >= 2) {
     const toSquare = puzzleBoardEl.querySelector(`[data-square="${to}"]`);
     if (toSquare) toSquare.classList.add("drill-hint");
-    puzzleStatusEl.textContent = `Hint (No Elo change): Move from ${from} to ${to}`;
+    if (puzzleStatusEl)
+      puzzleStatusEl.textContent = `Hint (No Elo change): Move from ${from} to ${to}`;
   } else {
-    puzzleStatusEl.textContent = `Hint (No Elo change): Move the piece on ${from}`;
+    if (puzzleStatusEl)
+      puzzleStatusEl.textContent = `Hint (No Elo change): Move the piece on ${from}`;
   }
 });
 
@@ -4895,15 +4227,13 @@ function renderPuzzleHistory() {
   });
 }
 
-analyseBoardEl.addEventListener("pointerdown", (e) => {
+analyseBoardEl?.addEventListener("pointerdown", (e) => {
   if (e.button !== 0 || analyseDrag) return;
 
   const name = analyseSquareFromPoint(e.clientX, e.clientY);
   if (!name) return;
-
   e.preventDefault();
 
-  // Seçili taşın yasal hedefine tıklandı.
   if (
     analyseSelectedSquare &&
     analyseLegalMoves.some((move) => move.to === name)
@@ -4912,19 +4242,11 @@ analyseBoardEl.addEventListener("pointerdown", (e) => {
     return;
   }
 
-  // Kendi taşımıza tıklandı.
   const piece = analyseGame.get(name);
-
   if (piece && piece.color === analyseGame.turn()) {
     const wasSelected = analyseSelectedSquare === name;
-
     analyseSelectedSquare = name;
-
-    analyseLegalMoves = analyseGame.moves({
-      square: name,
-      verbose: true,
-    });
-
+    analyseLegalMoves = analyseGame.moves({ square: name, verbose: true });
     renderAnalyseBoard();
 
     analyseDrag = {
@@ -4937,11 +4259,9 @@ analyseBoardEl.addEventListener("pointerdown", (e) => {
       ghost: null,
       size: 0,
     };
-
     return;
   }
 
-  // Boş veya rakip taş: seçimi kaldır.
   clearAnalyseSelection();
   renderAnalyseBoard();
 });
@@ -4954,26 +4274,18 @@ window.addEventListener("pointermove", (e) => {
       e.clientX - analyseDrag.startX,
       e.clientY - analyseDrag.startY,
     );
-
     if (distance < ANALYSE_DRAG_THRESHOLD) return;
-
     startAnalyseDrag();
   }
 
   moveAnalyseGhost(e.clientX, e.clientY);
-
   updateAnalyseHover(analyseSquareFromPoint(e.clientX, e.clientY));
 });
 
-window.addEventListener("pointerup", (e) => {
-  endAnalyseDrag(e);
-});
+window.addEventListener("pointerup", (e) => endAnalyseDrag(e));
+window.addEventListener("pointercancel", (e) => endAnalyseDrag(e, true));
 
-window.addEventListener("pointercancel", (e) => {
-  endAnalyseDrag(e, true);
-});
-
-drillActionEl.addEventListener("click", () => {
+drillActionEl?.addEventListener("click", () => {
   if (!drill) return;
   if (drill.phase === "mistake") retryDrill();
   else if (drill.phase === "complete") startDrill();
@@ -4982,7 +4294,6 @@ drillActionEl.addEventListener("click", () => {
 function renderDrillAlternatives() {
   const panel = document.getElementById("drill-alternatives");
   if (!panel) return;
-
   panel.innerHTML = "";
 
   if (!drill || !drill.hintShown || !drill.alternatives?.length) {
@@ -4991,31 +4302,26 @@ function renderDrillAlternatives() {
   }
 
   panel.hidden = false;
-
   const title = document.createElement("h3");
   title.textContent = "Correct moves";
   panel.appendChild(title);
 
   drill.alternatives.forEach((edge, index) => {
     const item = document.createElement("div");
-
     item.className = "drill-alternative " + (index === 0 ? "main" : "other");
-
     item.textContent = `${index === 0 ? "Main move" : "Alternative"}: ${edge.san}`;
-
     panel.appendChild(item);
   });
 }
+
 function renderRepLibrary() {
   const container = document.getElementById("rep-library");
   const count = document.getElementById("rep-count");
 
   if (!container || !count) return;
-
   container.innerHTML = "";
 
   const repertoires = library.items;
-
   count.textContent = `${repertoires.length} Saved`;
 
   repertoires.forEach((rep) => {
@@ -5024,27 +4330,19 @@ function renderRepLibrary() {
 
     card.addEventListener("click", (event) => {
       if (event.target.closest("button")) return;
-
       if (library.active?.id === rep.id) return;
 
       endDrill();
       library.setActive(rep.id);
       persist();
 
-      if (library.active) {
-        orientation = library.active.color;
-      }
-
+      if (library.active) orientation = library.active.color;
       setNotice("");
       update();
     });
 
-    if (library.active?.id === rep.id) {
-      card.classList.add("active");
-    }
-    if (drill?.rep.id === rep.id) {
-      card.classList.add("drilling");
-    }
+    if (library.active?.id === rep.id) card.classList.add("active");
+    if (drill?.rep.id === rep.id) card.classList.add("drilling");
 
     const title = document.createElement("h3");
     title.textContent = rep.name;
@@ -5054,44 +4352,35 @@ function renderRepLibrary() {
 
     const cardDrillButton = document.createElement("button");
     const isDrillingThisRep = drill?.rep.id === rep.id;
-
     cardDrillButton.textContent = isDrillingThisRep ? "Stop" : "Drill";
     cardDrillButton.className = "rep-card-drill";
 
     cardDrillButton.addEventListener("click", () => {
       if (drill?.rep.id === rep.id) {
         endDrill();
-
         drillGame.reset();
         repertoireGame.reset();
-
         repViewPly = null;
         repSelectedSquare = null;
         repLegalMoves = [];
         drillHintSquares = [];
-
         updateRepertoirePage(false);
         return;
       }
 
       endDrill();
-
       library.setActive(rep.id);
       persist();
-
       orientation = rep.color;
       setNotice("");
-
       startDrill();
     });
 
     const renameButton = document.createElement("button");
     renameButton.textContent = "Rename";
-
     renameButton.addEventListener("click", () => {
       const name = prompt("Rename repertoire", rep.name);
       if (name === null) return;
-
       const trimmed = name.trim().slice(0, 60);
       if (!trimmed) return;
 
@@ -5102,11 +4391,8 @@ function renderRepLibrary() {
 
     const deleteButton = document.createElement("button");
     deleteButton.textContent = "Delete";
-
     deleteButton.addEventListener("click", () => {
-      if (!confirm(`Delete "${rep.name}"? This cannot be undone.`)) {
-        return;
-      }
+      if (!confirm(`Delete "${rep.name}"? This cannot be undone.`)) return;
 
       endDrill();
       library.remove(rep.id);
@@ -5118,18 +4404,15 @@ function renderRepLibrary() {
     const actions = document.createElement("div");
     actions.className = "rep-card-actions";
     actions.append(cardDrillButton, renameButton, deleteButton);
-
     card.append(title, positionCount, actions);
     container.appendChild(card);
   });
 }
 
-// Özel butona basıldığında gizli dosya seçiciyi tetikle
 document.getElementById("custom-upload-btn")?.addEventListener("click", () => {
   document.getElementById("pgn-upload")?.click();
 });
 
-// Navbar page navigation
 const navLinks = document.querySelectorAll(".nav-link");
 const brandLink = document.querySelector(".nav-brand");
 
@@ -5141,9 +4424,10 @@ const pages = {
   repertoire: document.querySelector("#repertoire"),
   profile: document.querySelector("#profile"),
 };
+
 function showPage(pageName) {
   Object.entries(pages).forEach(([name, element]) => {
-    element.hidden = name !== pageName;
+    if (element) element.hidden = name !== pageName;
   });
 
   navLinks.forEach((link) => {
@@ -5154,10 +4438,7 @@ function showPage(pageName) {
   });
 
   const isNormalPlay = pageName === "play" && !lesson && !trainMode;
-
-  if (analysisPanel) {
-    analysisPanel.hidden = !isNormalPlay;
-  }
+  if (analysisPanel) analysisPanel.hidden = !isNormalPlay;
 
   if (isNormalPlay) {
     const currentView = syncView();
@@ -5170,12 +4451,7 @@ function showPage(pageName) {
   }
   if (pageName === "repertoire") updateRepertoirePage();
   if (pageName === "profile") renderProfileProgress();
-
-  // --- BURAYI EKLE: Puzzles sayfasına geçildiğinde bulmacayı başlat ---
-  if (pageName === "puzzles") {
-    initPuzzle();
-  }
-  // -----------------------------------------------------------------
+  if (pageName === "puzzles") initPuzzle();
 }
 
 navLinks.forEach((link) => {
@@ -5187,7 +4463,7 @@ navLinks.forEach((link) => {
   });
 });
 
-brandLink.addEventListener("click", (event) => {
+brandLink?.addEventListener("click", (event) => {
   event.preventDefault();
   showPage("play");
   history.replaceState(null, "", "#play");
@@ -5195,37 +4471,32 @@ brandLink.addEventListener("click", (event) => {
 
 document
   .getElementById("learn-variation-select")
-  .addEventListener("change", selectLearnVariation);
-
-document.getElementById("learn-next").addEventListener("click", nextLessonMove);
-
+  ?.addEventListener("change", selectLearnVariation);
+document
+  .getElementById("learn-next")
+  ?.addEventListener("click", nextLessonMove);
 document
   .getElementById("learn-back")
-  .addEventListener("click", previousLessonMove);
+  ?.addEventListener("click", previousLessonMove);
+document.getElementById("learn-exit")?.addEventListener("click", exitLearn);
 
-document.getElementById("learn-exit").addEventListener("click", exitLearn);
-
-document.getElementById("filter-all").addEventListener("click", () => {
+document.getElementById("filter-all")?.addEventListener("click", () => {
   openingFilter = "all";
-
-  document.getElementById("filter-all").classList.add("active");
-  document.getElementById("filter-favorites").classList.remove("active");
-
+  document.getElementById("filter-all")?.classList.add("active");
+  document.getElementById("filter-favorites")?.classList.remove("active");
   renderOpenings();
 });
 
-document.getElementById("filter-favorites").addEventListener("click", () => {
+document.getElementById("filter-favorites")?.addEventListener("click", () => {
   openingFilter = "favorites";
-
-  document.getElementById("filter-favorites").classList.add("active");
-  document.getElementById("filter-all").classList.remove("active");
-
+  document.getElementById("filter-favorites")?.classList.add("active");
+  document.getElementById("filter-all")?.classList.remove("active");
   renderOpenings();
 });
 
 document
   .getElementById("learn-complete-close")
-  .addEventListener("click", () => {
+  ?.addEventListener("click", () => {
     document.getElementById("learn-complete-overlay").hidden = true;
 
     clearTimeout(learnCompleteTimer);
@@ -5242,7 +4513,7 @@ document
 
     game.reset();
     viewPly = null;
-    lesson.index = 0;
+    if (lesson) lesson.index = 0;
 
     clearSelection();
     update();
@@ -5250,17 +4521,9 @@ document
 
 document
   .getElementById("learn-complete-train")
-  .addEventListener("click", startCurrentLearnTrain);
+  ?.addEventListener("click", startCurrentLearnTrain);
 
 const hintButton = document.getElementById("train-hint");
-
-// ==========================================
-// MOBİL HAMBURGER MENÜ YÖNETİMİ
-// ==========================================
-
-// ==========================================
-// MOBİL HAMBURGER MENÜ YÖNETİMİ
-// ==========================================
 
 const menuToggle = document.getElementById("menu-toggle");
 const navLinksContainer = document.querySelector(".nav-links");
@@ -5271,14 +4534,12 @@ if (menuToggle && navLinksContainer) {
     navLinksContainer.classList.toggle("open");
   });
 
-  // Linke tıklandığında menüyü kapat
   navLinksContainer.querySelectorAll(".nav-link").forEach((link) => {
     link.addEventListener("click", () => {
       navLinksContainer.classList.remove("open");
     });
   });
 
-  // Dışarı tıklandığında menüyü kapat
   window.addEventListener("click", (e) => {
     if (
       !menuToggle.contains(e.target) &&
@@ -5288,56 +4549,68 @@ if (menuToggle && navLinksContainer) {
     }
   });
 }
-// Mobilde rapordan tahtaya geri dönme butonu
-// Game Report içindeki "See moves" butonuna basınca tahtaya geri kaydır
+
 document.getElementById("btn-back-to-board")?.addEventListener("click", () => {
   document.getElementById("analyse-board")?.scrollIntoView({
     behavior: "smooth",
     block: "center",
   });
 });
-// Mobil hamle navigasyon butonları işlevleri
+
 document.getElementById("analyse-nav-first")?.addEventListener("click", () => {
   goToAnalysePly(0);
 });
-
 document.getElementById("analyse-nav-prev")?.addEventListener("click", () => {
-  if (analyseCurrentPly > 0) {
-    goToAnalysePly(analyseCurrentPly - 1);
-  }
+  if (analyseCurrentPly > 0) goToAnalysePly(analyseCurrentPly - 1);
 });
-
 document.getElementById("analyse-nav-next")?.addEventListener("click", () => {
-  if (analyseCurrentPly < analyseHistory.length) {
+  if (analyseCurrentPly < analyseHistory.length)
     goToAnalysePly(analyseCurrentPly + 1);
-  }
 });
-
 document.getElementById("analyse-nav-last")?.addEventListener("click", () => {
   goToAnalysePly(analyseHistory.length);
 });
 
-hintButton.addEventListener("click", () => {
-  if (!trainMode || trainPhase !== "your-move") return;
+if (hintButton) {
+  hintButton.addEventListener("click", () => {
+    if (!trainMode || trainPhase !== "your-move") return;
 
-  trainHintShown = !trainHintShown;
-
-  if (trainHintShown) {
-    const move = lesson.variation.moves[lesson.index];
-    if (!move) {
-      trainHintShown = false;
-      return;
+    trainHintShown = !trainHintShown;
+    if (trainHintShown) {
+      const move = lesson?.variation?.moves[lesson.index];
+      if (!move) {
+        trainHintShown = false;
+        return;
+      }
+      trainHintSquares =
+        trainMistakeCount <= 1 ? [move.from] : [move.from, move.to];
+    } else {
+      trainHintSquares = [];
     }
 
-    trainHintSquares =
-      trainMistakeCount <= 1 ? [move.from] : [move.from, move.to];
-  } else {
-    trainHintSquares = [];
-  }
+    hintButton.classList.toggle("active", trainHintShown);
+    update(false);
+  });
+}
 
-  hintButton.classList.toggle("active", trainHintShown);
-  update(false);
-});
+async function initCuratedOpenings() {
+  try {
+    const response = await fetch("assets/openings/index.json");
+    if (!response.ok) {
+      throw new Error("Could not load opening index.");
+    }
+
+    const files = await response.json();
+    openingLibrary = await Promise.all(
+      files.map((file) => loadOpening(file.replace(".json", ""), Chess)),
+    );
+
+    curatedOpening = openingLibrary[0] || null;
+    renderOpenings();
+  } catch (error) {
+    console.error("Could not load openings:", error);
+  }
+}
 
 initStockfish();
 initCuratedOpenings();

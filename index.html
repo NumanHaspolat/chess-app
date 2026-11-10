@@ -402,7 +402,8 @@
         <div id="puzzle-status" class="status">Loading puzzle...</div>
         <div class="buttons">
           <button id="puzzle-btn-hint">Hint</button>
-          <button id="puzzle-btn-skip">Next</button>
+          <button id="puzzle-btn-solution">Solution</button>
+          <button id="puzzle-btn-skip">Skip</button>
         </div>
         <ol id="puzzle-moves" class="moves"></ol>
       </section>
@@ -448,9 +449,18 @@
             <option value="easy">Easy (1000–1400)</option>
             <option value="medium" selected>Medium (1400–1800)</option>
             <option value="hard">Hard (1800–2200)</option>
-            <option value="expert">Master (2200+)</option>
+            <option value="expert">Expert (2200+)</option>
           </select>
         </div>
+
+        <button
+          id="puzzle-btn-analyse"
+          class="import-rep-btn"
+          style="margin: 0 0 4px"
+          disabled
+        >
+          Analyse puzzle
+        </button>
 
         <h3 style="font-size: 1rem; color: var(--accent); margin: 20px 0 10px">
           Recent History

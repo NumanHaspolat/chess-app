@@ -16,6 +16,11 @@
   --legal-dot: rgba(6, 38, 48, 0.42);
   --check: rgba(255, 70, 70, 0.6);
   --font-pixel: "Tiny5 Duo", system-ui, sans-serif;
+  --border-color: var(--panel-border);
+  --panel-bg: var(--panel);
+  --text-color: var(--text);
+  --text-main: var(--text);
+  --bg-card: var(--panel);
 }
 
 * {
@@ -1384,7 +1389,7 @@ button:disabled {
 }
 
 .analysis-rank {
-  color: (var(--accent-strong));
+  color: var(--accent-strong);
   font-weight: 800;
   min-width: 28px;
 }
@@ -1749,7 +1754,7 @@ button:disabled {
   background: var(--accent);
 }
 
-css .analysis-rank,
+.analysis-rank,
 .analysis-score,
 .analysis-best-move {
   flex-shrink: 0;

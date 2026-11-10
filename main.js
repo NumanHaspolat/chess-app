@@ -4132,6 +4132,7 @@ if (puzzleBoardEl) {
   puzzleBoardEl.addEventListener("pointerdown", (e) => {
     if (e.button !== 0 || puzzleDrag) return;
     if (!currentPuzzle || isPuzzleMistakeState) return;
+    if (puzzleFinished || puzzleSolutionPlaying) return;
     if (puzzleViewPly !== null) return; // geçmiş pozisyona bakarken hamle yapılamaz
     if (puzzleGame.turn() !== puzzlePlayerColor) return;
 
@@ -4337,6 +4338,13 @@ document.getElementById("puzzle-nav-last")?.addEventListener("click", () => {
 async function initPuzzle() {
   renderPuzzleHistory();
   if (puzzleRatingEl) puzzleRatingEl.textContent = puzzleRating;
+
+  // Sayfaya geri dönünce (örn. Analyse'tan) mevcut puzzle'ı koru
+  if (puzzleHasPuzzle) {
+    renderPuzzleBoard(false);
+    renderPuzzleMoves();
+    return;
+  }
   await fetchNewPuzzle();
 }
 
@@ -4345,6 +4353,17 @@ async function initPuzzle() {
 // ==========================================
 
 let puzzleLoadId = 0;
+let puzzleFinished = false; // çözüldü ya da çözüm gösterildi
+let puzzleHasPuzzle = false; // yüklenmiş bir puzzle var mı (sayfaya dönünce yeniden çekmemek için)
+let puzzleSolutionPlaying = false;
+
+function setPuzzleFinished(value) {
+  puzzleFinished = value;
+  const analyseBtn = document.getElementById("puzzle-btn-analyse");
+  const solutionBtn = document.getElementById("puzzle-btn-solution");
+  if (analyseBtn) analyseBtn.disabled = !value;
+  if (solutionBtn) solutionBtn.disabled = value;
+}
 
 // Menüdeki seviye -> Elo aralığı + başlangıçta istenecek Lichess seviyesi
 const LICHESS_DIFFICULTIES = [
@@ -4361,7 +4380,10 @@ const PUZZLE_LEVELS = {
   hard: { min: 1800, max: 2200, api: 3 },
   expert: { min: 2200, max: Infinity, api: 4 },
 };
-const PUZZLE_MAX_ATTEMPTS = 8;
+const PUZZLE_MAX_ATTEMPTS = 4;
+const PUZZLE_ATTEMPT_DELAY_MS = 500; // istekler arası bekleme (rate limit için)
+const PUZZLE_RATE_LIMIT_MS = 60_000; // Lichess 429 verince 1 dakika bekle
+let puzzleCooldownUntil = 0;
 
 function puzzleDistanceToRange(rating, level) {
   if (rating < level.min) return level.min - rating;
@@ -4375,6 +4397,13 @@ async function fetchPuzzleInRange(level, loadId) {
   let best = null;
 
   for (let attempt = 1; attempt <= PUZZLE_MAX_ATTEMPTS; attempt++) {
+    if (attempt > 1) {
+      await new Promise((resolve) =>
+        setTimeout(resolve, PUZZLE_ATTEMPT_DELAY_MS),
+      );
+      if (loadId !== puzzleLoadId) return null;
+    }
+
     if (puzzleStatusEl && attempt > 1) {
       puzzleStatusEl.textContent = `Finding a puzzle (${level.min}${Number.isFinite(level.max) ? "–" + level.max : "+"})... ${attempt}/${PUZZLE_MAX_ATTEMPTS}`;
     }
@@ -4383,6 +4412,12 @@ async function fetchPuzzleInRange(level, loadId) {
       `https://lichess.org/api/puzzle/next?angle=mix&difficulty=${LICHESS_DIFFICULTIES[apiIndex]}`,
       { headers: { Accept: "application/json" }, cache: "no-store" },
     );
+    if (res.status === 429) {
+      puzzleCooldownUntil = Date.now() + PUZZLE_RATE_LIMIT_MS;
+      const err = new Error("Rate limited");
+      err.rateLimited = true;
+      throw err;
+    }
     if (!res.ok) throw new Error("API error " + res.status);
 
     const data = await res.json();
@@ -4405,8 +4440,28 @@ async function fetchPuzzleInRange(level, loadId) {
 
   return best ? best.data : null;
 }
+
+let puzzleCooldownTimer = null;
+
+function showPuzzleCooldown(loadId) {
+  clearTimeout(puzzleCooldownTimer);
+  const tick = () => {
+    if (loadId !== puzzleLoadId) return;
+    const left = Math.ceil((puzzleCooldownUntil - Date.now()) / 1000);
+    if (left <= 0) {
+      fetchNewPuzzle(); // süre doldu, otomatik tekrar dene
+      return;
+    }
+    if (puzzleStatusEl)
+      puzzleStatusEl.textContent = `Lichess rate limit reached. Retrying in ${left}s...`;
+    puzzleCooldownTimer = setTimeout(tick, 1000);
+  };
+  tick();
+}
+
 async function fetchNewPuzzle() {
   const loadId = ++puzzleLoadId;
+  clearTimeout(puzzleCooldownTimer);
 
   if (puzzleStatusEl)
     puzzleStatusEl.textContent = "Loading puzzle from Lichess...";
@@ -4422,7 +4477,15 @@ async function fetchNewPuzzle() {
   isPuzzleMistakeState = false;
   puzzleCorrectSquares = [];
   puzzleMistakeCount = 0;
+  puzzleSolutionPlaying = false;
+  puzzleHasPuzzle = false;
+  setPuzzleFinished(false);
   currentPuzzle = null; // yükleme bitene kadar tahta kilitli
+
+  if (Date.now() < puzzleCooldownUntil) {
+    showPuzzleCooldown(loadId);
+    return;
+  }
 
   const difficultySelect = document.getElementById("puzzle-difficulty-select");
   const level = PUZZLE_LEVELS[difficultySelect?.value] || PUZZLE_LEVELS.medium;
@@ -4473,6 +4536,7 @@ async function fetchNewPuzzle() {
 
     // Rakip hamlesi gelene kadar oyuncu hamle yapmasın
     const lockedPuzzle = currentPuzzle;
+    puzzleHasPuzzle = true;
     currentPuzzle = null;
 
     renderPuzzleBoard(false);
@@ -4500,6 +4564,7 @@ async function fetchNewPuzzle() {
         renderPuzzleBoard(true);
         renderPuzzleMoves();
       }
+      currentPuzzle.startPly = puzzleGame.history().length; // Analyse'ta buradan başlatılır
 
       if (puzzleStatusEl) {
         puzzleStatusEl.textContent = `Your turn! Find the move for ${puzzlePlayerColor === "w" ? "White" : "Black"}. (Rating: ${currentPuzzle.rating})`;
@@ -4508,9 +4573,12 @@ async function fetchNewPuzzle() {
   } catch (error) {
     if (loadId !== puzzleLoadId) return;
     console.error("Puzzle fetch error:", error);
+    if (error.rateLimited) {
+      showPuzzleCooldown(loadId);
+      return;
+    }
     if (puzzleStatusEl)
-      puzzleStatusEl.textContent =
-        "Too many requests, wait a few seconds. Click Skip.";
+      puzzleStatusEl.textContent = "Could not load puzzle. Click Skip.";
   }
 }
 
@@ -4553,8 +4621,9 @@ document.getElementById("puzzle-btn-close")?.addEventListener("click", () => {
 
 let puzzleMistakeCount = 0;
 
-const PUZZLE_K_WIN = 48;
-const PUZZLE_K_LOSS = 48;
+// Elo formülü: puzzle'ın ratingi ile oyuncunun ratingi arasındaki farka göre
+const PUZZLE_K_WIN = 64;
+const PUZZLE_K_LOSS = 64;
 
 function puzzleRatingDelta(won) {
   const opponent = currentPuzzle?.rating || puzzleRating;
@@ -4625,6 +4694,7 @@ function executePuzzleMove(from, to, animate = true) {
         recordPuzzleResult(true, ratingChange, puzzleHintUsedInCurrent);
         puzzleScoreRecorded = true;
       }
+      setPuzzleFinished(true);
 
       setTimeout(() => {
         showPuzzleCompletePopup();
@@ -4637,7 +4707,8 @@ function executePuzzleMove(from, to, animate = true) {
 
     const replyLoadId = puzzleLoadId;
     setTimeout(() => {
-      if (replyLoadId !== puzzleLoadId || !currentPuzzle) return;
+      if (replyLoadId !== puzzleLoadId || !currentPuzzle || puzzleFinished)
+        return;
       const replyUci = currentPuzzle.solution[puzzleSolutionIndex];
       if (replyUci) {
         const rFrom = replyUci.slice(0, 2);
@@ -4675,6 +4746,7 @@ function executePuzzleMove(from, to, animate = true) {
             recordPuzzleResult(true, ratingChange, puzzleHintUsedInCurrent);
             puzzleScoreRecorded = true;
           }
+          setPuzzleFinished(true);
 
           setTimeout(() => {
             showPuzzleCompletePopup();
@@ -4733,8 +4805,71 @@ function executePuzzleMove(from, to, animate = true) {
     }, 600);
   }
 }
+document
+  .getElementById("puzzle-btn-solution")
+  ?.addEventListener("click", async () => {
+    if (!currentPuzzle || puzzleFinished || puzzleSolutionPlaying) return;
+    if (isPuzzleMistakeState) return;
+
+    const loadId = puzzleLoadId;
+    puzzleSolutionPlaying = true;
+    puzzleViewPly = null;
+    puzzleSelectedSquare = null;
+    puzzleLegalMoves = [];
+    puzzleHintSquares = [];
+
+    if (!puzzleScoreRecorded) {
+      recordPuzzleResult(
+        false,
+        puzzleRatingDelta(false),
+        puzzleHintUsedInCurrent,
+      );
+      puzzleScoreRecorded = true;
+    }
+    if (puzzleStatusEl) puzzleStatusEl.textContent = "Showing the solution...";
+    renderPuzzleBoard(false);
+
+    while (puzzleSolutionIndex < currentPuzzle.solution.length) {
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      if (loadId !== puzzleLoadId) return; // skip / yeni puzzle geldi
+
+      const uci = currentPuzzle.solution[puzzleSolutionIndex];
+      const played = puzzleGame.move({
+        from: uci.slice(0, 2),
+        to: uci.slice(2, 4),
+        promotion: uci[4] || "q",
+      });
+      puzzleSolutionIndex++;
+      if (!played) continue;
+
+      puzzleHistoryList.push(played.san);
+      playSoundForMove(played);
+      renderPuzzleBoard(true);
+      renderPuzzleMoves();
+    }
+
+    puzzleSolutionPlaying = false;
+    setPuzzleFinished(true);
+    if (puzzleStatusEl)
+      puzzleStatusEl.textContent =
+        "Solution shown. You can analyse this puzzle.";
+  });
+
+document.getElementById("puzzle-btn-analyse")?.addEventListener("click", () => {
+  if (!puzzleFinished || !currentPuzzle) return;
+
+  const chess = new Chess();
+  for (const san of puzzleGame.history()) chess.move(san);
+  const startPly = currentPuzzle.startPly ?? 0;
+
+  showPage("analyse");
+  history.replaceState(null, "", "#analyse");
+  loadAnalyseGame(chess.pgn(), puzzlePlayerColor);
+  goToAnalysePly(startPly, false); // puzzle'ın başladığı pozisyondan başla
+});
+
 document.getElementById("puzzle-btn-hint")?.addEventListener("click", () => {
-  if (!currentPuzzle) return;
+  if (!currentPuzzle || puzzleFinished || puzzleSolutionPlaying) return;
   const nextCorrectUci = currentPuzzle.solution[puzzleSolutionIndex];
   if (!nextCorrectUci) return;
 

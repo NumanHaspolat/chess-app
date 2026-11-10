@@ -371,6 +371,22 @@
             <div id="puzzle-board" class="board"></div>
           </div>
           <div id="puzzle-strip-bottom" class="strip"></div>
+
+          <!-- PUZZLE BİTİŞ POP-UP OVERLAY (Tahtanın Ortasında Çıkması İçin Burada) -->
+          <div
+            id="puzzle-complete-overlay"
+            class="drill-complete-overlay"
+            hidden
+          >
+            <div class="drill-complete-card">
+              <h2 class="puzzle-solved-h">Puzzle Solved!</h2>
+              <p>Great job! Would you like to continue?</p>
+              <div class="drill-complete-buttons">
+                <button id="puzzle-btn-next">Next Puzzle</button>
+                <button id="puzzle-btn-close">Close</button>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="mobile-board-nav">
           <button id="puzzle-nav-first">«</button>

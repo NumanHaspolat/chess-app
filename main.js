@@ -4346,14 +4346,65 @@ async function initPuzzle() {
 
 let puzzleLoadId = 0;
 
-const PUZZLE_DIFFICULTY_MAP = {
-  easiest: "easiest",
-  easier: "easier",
-  normal: "normal",
-  harder: "harder",
-  hardest: "hardest",
+// Menüdeki seviye -> Elo aralığı + başlangıçta istenecek Lichess seviyesi
+const LICHESS_DIFFICULTIES = [
+  "easiest",
+  "easier",
+  "normal",
+  "harder",
+  "hardest",
+];
+const PUZZLE_LEVELS = {
+  beginner: { min: 600, max: 1000, api: 0 },
+  easy: { min: 1000, max: 1400, api: 1 },
+  medium: { min: 1400, max: 1800, api: 2 },
+  hard: { min: 1800, max: 2200, api: 3 },
+  expert: { min: 2200, max: Infinity, api: 4 },
 };
+const PUZZLE_MAX_ATTEMPTS = 8;
 
+function puzzleDistanceToRange(rating, level) {
+  if (rating < level.min) return level.min - rating;
+  if (rating > level.max) return rating - level.max;
+  return 0;
+}
+
+// Aralıkta bir puzzle bulana kadar dener; gelen rating düşük/yüksekse Lichess seviyesini ayarlar
+async function fetchPuzzleInRange(level, loadId) {
+  let apiIndex = level.api;
+  let best = null;
+
+  for (let attempt = 1; attempt <= PUZZLE_MAX_ATTEMPTS; attempt++) {
+    if (puzzleStatusEl && attempt > 1) {
+      puzzleStatusEl.textContent = `Finding a puzzle (${level.min}${Number.isFinite(level.max) ? "–" + level.max : "+"})... ${attempt}/${PUZZLE_MAX_ATTEMPTS}`;
+    }
+
+    const res = await fetch(
+      `https://lichess.org/api/puzzle/next?angle=mix&difficulty=${LICHESS_DIFFICULTIES[apiIndex]}`,
+      { headers: { Accept: "application/json" }, cache: "no-store" },
+    );
+    if (!res.ok) throw new Error("API error " + res.status);
+
+    const data = await res.json();
+    if (loadId !== puzzleLoadId) return null;
+
+    const rating = data?.puzzle?.rating;
+    if (typeof rating !== "number") {
+      if (!best) best = { data, distance: Infinity };
+      continue;
+    }
+
+    const distance = puzzleDistanceToRange(rating, level);
+    if (distance === 0) return data;
+    if (!best || distance < best.distance) best = { data, distance };
+
+    // Çok düşükse bir seviye yukarı, çok yüksekse bir seviye aşağı
+    if (rating < level.min) apiIndex = Math.min(apiIndex + 1, 4);
+    else apiIndex = Math.max(apiIndex - 1, 0);
+  }
+
+  return best ? best.data : null;
+}
 async function fetchNewPuzzle() {
   const loadId = ++puzzleLoadId;
 
@@ -4374,20 +4425,12 @@ async function fetchNewPuzzle() {
   currentPuzzle = null; // yükleme bitene kadar tahta kilitli
 
   const difficultySelect = document.getElementById("puzzle-difficulty-select");
-  const difficulty =
-    PUZZLE_DIFFICULTY_MAP[
-      difficultySelect ? difficultySelect.value : "normal"
-    ] || "normal";
+  const level = PUZZLE_LEVELS[difficultySelect?.value] || PUZZLE_LEVELS.medium;
 
   try {
-    const puzzleRes = await fetch(
-      `https://lichess.org/api/puzzle/next?angle=mix&difficulty=${difficulty}`,
-      { headers: { Accept: "application/json" }, cache: "no-store" },
-    );
-    if (!puzzleRes.ok) throw new Error("API error " + puzzleRes.status);
-
-    const data = await puzzleRes.json();
+    const data = await fetchPuzzleInRange(level, loadId);
     if (loadId !== puzzleLoadId) return; // arada skip/yeni istek geldiyse bunu çöpe at
+    if (!data) throw new Error("No puzzle returned");
 
     const puzzleData = data.puzzle;
     if (!puzzleData || !data.game || !data.game.pgn)
@@ -4466,7 +4509,8 @@ async function fetchNewPuzzle() {
     if (loadId !== puzzleLoadId) return;
     console.error("Puzzle fetch error:", error);
     if (puzzleStatusEl)
-      puzzleStatusEl.textContent = "Could not load puzzle. Click Skip.";
+      puzzleStatusEl.textContent =
+        "Too many requests, wait a few seconds. Click Skip.";
   }
 }
 

@@ -402,7 +402,7 @@
         <div id="puzzle-status" class="status">Loading puzzle...</div>
         <div class="buttons">
           <button id="puzzle-btn-hint">Hint</button>
-          <button id="puzzle-btn-skip">Skip</button>
+          <button id="puzzle-btn-skip">Next</button>
         </div>
         <ol id="puzzle-moves" class="moves"></ol>
       </section>
@@ -444,9 +444,11 @@
               font-family: var(--font-pixel);
             "
           >
-            <option value="easy">Easy (-200 Elo)</option>
-            <option value="normal" selected>Normal (Equal)</option>
-            <option value="hard">Hard (+200 Elo)</option>
+            <option value="easiest">Easiest</option>
+            <option value="easier">Easier</option>
+            <option value="normal" selected>Normal</option>
+            <option value="harder">Harder</option>
+            <option value="hardest">Hardest</option>
           </select>
         </div>
 

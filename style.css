@@ -2687,9 +2687,9 @@ css .analysis-rank,
   border: 1px solid rgba(255, 143, 143, 0.5);
 }
 .puzzle-history-box.hint {
-  background: rgba(247, 198, 49, 0.2);
-  color: #f7c631;
-  border: 1px solid rgba(247, 198, 49, 0.5);
+  background: #064352;
+  color: #00f7ff;
+  border: 1px solid rgba(49, 234, 247, 0.5);
 }
 
 .complete-overlay {

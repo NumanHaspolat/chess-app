@@ -598,9 +598,7 @@
         <button class="profile-tab active" data-tab="openings" role="tab">
           Openings
         </button>
-        <button class="profile-tab" data-tab="puzzles" role="tab">
-          Puzzles
-        </button>
+        <button class="profile-tab" data-tab="puzzles" role="tab">Puzzles</button>
         <button class="profile-tab" data-tab="settings" role="tab">
           Settings
         </button>
@@ -721,6 +719,40 @@
       <!-- SETTINGS -->
       <div class="profile-pane" data-pane="settings" hidden>
         <div class="profile-progress-section">
+          <h2>Appearance</h2>
+          <div class="profile-settings-card appearance-card">
+            <div class="appearance-group">
+              <h3 class="profile-subheading">Color theme</h3>
+              <div id="theme-swatches" class="swatch-grid"></div>
+            </div>
+
+            <div class="appearance-group">
+              <h3 class="profile-subheading">Board colors</h3>
+              <div id="board-swatches" class="swatch-grid"></div>
+            </div>
+
+            <div class="appearance-group">
+              <h3 class="profile-subheading">Custom colors</h3>
+              <div class="color-row">
+                <label for="setting-accent">Accent</label>
+                <input id="setting-accent" type="color" value="#3fdef3" />
+              </div>
+              <div class="color-row">
+                <label for="setting-light">Light squares</label>
+                <input id="setting-light" type="color" value="#bfdee3" />
+              </div>
+              <div class="color-row">
+                <label for="setting-dark">Dark squares</label>
+                <input id="setting-dark" type="color" value="#348aa0" />
+              </div>
+              <button id="btn-reset-appearance" type="button" class="color-reset">
+                Reset appearance
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="profile-progress-section">
           <h2>Sound</h2>
           <div class="profile-settings-card">
             <div class="settings-row">
@@ -733,9 +765,7 @@
                   max="100"
                   step="5"
                 />
-                <span id="setting-volume-value" class="settings-value"
-                  >80%</span
-                >
+                <span id="setting-volume-value" class="settings-value">80%</span>
               </div>
             </div>
             <div class="settings-row">

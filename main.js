@@ -308,18 +308,133 @@ function loadSettings() {
   try {
     const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
     return {
-      volume:
-        typeof saved.volume === "number"
-          ? Math.min(1, Math.max(0, saved.volume))
-          : 0.8,
+      volume: typeof saved.volume === "number" ? Math.min(1, Math.max(0, saved.volume)) : 0.8,
       muted: !!saved.muted,
+      theme: typeof saved.theme === "string" ? saved.theme : "azurite",
+      board: typeof saved.board === "string" ? saved.board : "teal",
+      customAccent: typeof saved.customAccent === "string" ? saved.customAccent : null,
+      customLight: typeof saved.customLight === "string" ? saved.customLight : null,
+      customDark: typeof saved.customDark === "string" ? saved.customDark : null,
     };
   } catch {
-    return { volume: 0.8, muted: false };
+    return {
+      volume: 0.8,
+      muted: false,
+      theme: "azurite",
+      board: "teal",
+      customAccent: null,
+      customLight: null,
+      customDark: null,
+    };
   }
 }
 
 let settings = loadSettings();
+
+// ---------- Görünüm: renk temaları ----------
+const THEMES = {
+  azurite: {
+    name: "Azurite",
+    vars: {
+      "--bg": "#0a1b22", "--bg-glow": "#12404a", "--panel": "#0f2a33",
+      "--panel-border": "#1b4652", "--control": "#17414d", "--control-hover": "#1f5565",
+      "--text": "#d6eeee", "--text-muted": "#7fa9ae",
+      "--accent": "rgb(45, 192, 212)", "--accent-strong": "#3fdef3",
+    },
+  },
+  midnight: {
+    name: "Midnight",
+    vars: {
+      "--bg": "#0b0f1f", "--bg-glow": "#1c2450", "--panel": "#12172e",
+      "--panel-border": "#252d57", "--control": "#1b2244", "--control-hover": "#262f5c",
+      "--text": "#e1e5f7", "--text-muted": "#8d96c4",
+      "--accent": "rgb(129, 140, 248)", "--accent-strong": "#a5b4fc",
+    },
+  },
+  forest: {
+    name: "Forest",
+    vars: {
+      "--bg": "#0b1a12", "--bg-glow": "#16402a", "--panel": "#102a1d",
+      "--panel-border": "#1f4a33", "--control": "#184230", "--control-hover": "#215a40",
+      "--text": "#dcefe3", "--text-muted": "#86ae95",
+      "--accent": "rgb(74, 200, 120)", "--accent-strong": "#6ee79b",
+    },
+  },
+  ember: {
+    name: "Ember",
+    vars: {
+      "--bg": "#1a0f0b", "--bg-glow": "#4a2312", "--panel": "#2a1710",
+      "--panel-border": "#4f2d1f", "--control": "#40241a", "--control-hover": "#58321f",
+      "--text": "#f3e4da", "--text-muted": "#b0907d",
+      "--accent": "rgb(240, 140, 60)", "--accent-strong": "#ffab5e",
+    },
+  },
+  rose: {
+    name: "Rose",
+    vars: {
+      "--bg": "#1a0b14", "--bg-glow": "#4a1236", "--panel": "#2a1020",
+      "--panel-border": "#4f1f3d", "--control": "#401a32", "--control-hover": "#58223f",
+      "--text": "#f4dfeb", "--text-muted": "#b07d99",
+      "--accent": "rgb(236, 92, 160)", "--accent-strong": "#ff7fbd",
+    },
+  },
+  graphite: {
+    name: "Graphite",
+    vars: {
+      "--bg": "#0f1113", "--bg-glow": "#262a30", "--panel": "#171a1e",
+      "--panel-border": "#2c3138", "--control": "#22262c", "--control-hover": "#2d323a",
+      "--text": "#e6e8eb", "--text-muted": "#8f959d",
+      "--accent": "rgb(170, 180, 195)", "--accent-strong": "#d2dae6",
+    },
+  },
+};
+
+const BOARD_THEMES = {
+  teal: { name: "Azurite", light: "#bfdee3", dark: "#348aa0" },
+  green: { name: "Green", light: "#eeeed2", dark: "#769656" },
+  wood: { name: "Wood", light: "#f0d9b5", dark: "#b58863" },
+  ice: { name: "Ice", light: "#dee3e6", dark: "#8ca2ad" },
+  purple: { name: "Purple", light: "#e5dcf0", dark: "#8a6fb0" },
+  mono: { name: "Mono", light: "#d9d9d9", dark: "#7a7a7a" },
+};
+
+function lightenHex(hex, amount = 0.3) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const mix = (c) => Math.round(c + (255 - c) * amount);
+  const r = mix((n >> 16) & 255);
+  const g = mix((n >> 8) & 255);
+  const b = mix(n & 255);
+  return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
+}
+
+function currentBoardColors() {
+  if (settings.board === "custom" && settings.customLight && settings.customDark) {
+    return { light: settings.customLight, dark: settings.customDark };
+  }
+  return BOARD_THEMES[settings.board] || BOARD_THEMES.teal;
+}
+
+function applyAppearance() {
+  const root = document.documentElement;
+  const theme = THEMES[settings.theme] || THEMES.azurite;
+
+  for (const [name, value] of Object.entries(theme.vars)) {
+    root.style.setProperty(name, value);
+  }
+
+  if (settings.customAccent) {
+    root.style.setProperty("--accent", settings.customAccent);
+    root.style.setProperty("--accent-strong", lightenHex(settings.customAccent, 0.3));
+  }
+
+  const board = currentBoardColors();
+  root.style.setProperty("--light", board.light);
+  root.style.setProperty("--dark", board.dark);
+}
+
+applyAppearance();
 
 function saveSettings() {
   try {
@@ -457,11 +572,7 @@ function renderRepertoireBoard(animate = true) {
     drillHintSquares.join(","),
     repOrientation,
   ].join("|");
-  if (
-    !animate &&
-    renderSig === lastRepRenderSig &&
-    repBoardEl.children.length
-  ) {
+  if (!animate && renderSig === lastRepRenderSig && repBoardEl.children.length) {
     return;
   }
   lastRepRenderSig = renderSig;
@@ -1787,6 +1898,27 @@ function materialDiff(chess, color) {
   return diff;
 }
 
+// Bir karedeki alış-veriş zincirinin, sırası gelen taraf için net kazancı (basit statik takas).
+function quiesceGain(chess, square, depth) {
+  if (depth <= 0) return 0;
+
+  const captures = chess
+    .moves({ verbose: true })
+    .filter((m) => m.to === square && m.captured);
+  if (!captures.length) return 0;
+
+  captures.sort((a, b) => PIECE_VAL[a.piece] - PIECE_VAL[b.piece]);
+
+  let best = 0; // almamak serbest
+  for (const m of captures.slice(0, 3)) {
+    chess.move({ from: m.from, to: m.to, promotion: m.promotion });
+    const value = PIECE_VAL[m.captured] - quiesceGain(chess, square, depth - 1);
+    chess.undo();
+    best = Math.max(best, value);
+  }
+  return best;
+}
+
 // Motorun ana varyantını oynatıp, takaslar bitince hamle yapanın materyal farkını ölçer.
 // Negatif sonuç = materyal feda edilmiş (örn. -3 = bir taş).
 function pvMaterialSwing(fenBefore, pvMoves, color) {
@@ -1796,6 +1928,7 @@ function pvMaterialSwing(fenBefore, pvMoves, color) {
   const start = materialDiff(chess, color);
   const diffs = [];
   const captures = [];
+  let lastTo = null;
 
   for (const uci of pvMoves.slice(0, 8)) {
     let mv = null;
@@ -1811,16 +1944,25 @@ function pvMaterialSwing(fenBefore, pvMoves, color) {
     if (!mv) break;
     diffs.push(materialDiff(chess, color));
     captures.push(!!mv.captured);
+    lastTo = mv.to;
   }
 
   if (diffs.length < 2) return 0;
 
-  // İlk "sakin" noktayı bul: rakibin en az bir hamlesi oynanmış ve bekleyen takas yok
-  for (let k = 1; k < diffs.length; k++) {
-    const nextIsCapture = k + 1 < captures.length && captures[k + 1];
-    if (!nextIsCapture) return diffs[k] - start;
+  // İlk "sakin" nokta: rakibin en az bir hamlesi oynanmış ve sıradaki hamle alma değil
+  for (let k = 1; k + 1 < diffs.length; k++) {
+    if (!captures[k + 1]) return diffs[k] - start;
   }
-  return diffs[diffs.length - 1] - start;
+
+  if (chess.isGameOver()) return diffs[diffs.length - 1] - start;
+
+  // Hat takasın ortasında kesildiyse, son karedeki alış-verişi tahmin ederek tamamla
+  let final = diffs[diffs.length - 1];
+  if (captures[captures.length - 1]) {
+    const gain = quiesceGain(chess, lastTo, 4);
+    final += (chess.turn() === color ? 1 : -1) * gain;
+  }
+  return final - start;
 }
 
 // Sınıflandırma (kaybedilen kazanma % eşikleri):
@@ -1838,17 +1980,19 @@ function classifyMove({
   isRecapture,
   sacrificeSwing,
   moverPiece,
+  cpBefore,
+  cpAfter,
 }) {
   const playedBest = uci === best;
 
-  // Brilliant: iyi (en iyiye yakın) bir hamle + gerçek materyal feda etme,
-  // pozisyon zaten kazanılmış değil ve hamleden sonra da kaybedilmiş değil
+  // Brilliant (chess.com tanımı): iyi bir taş feda etmek. Hamle en iyi ya da en iyiye yakın olmalı,
+  // hamleden sonra pozisyon kötü olmamalı ve hamleyi bulmasan da zaten tamamen kazanıyor olmamalısın.
   if (
     moverPiece !== "k" &&
     loss <= 2 &&
     sacrificeSwing <= -2 &&
-    winBefore < 90 &&
-    winAfter >= 50
+    winBefore < 88 &&
+    winAfter >= 47
   ) {
     return "brilliant";
   }
@@ -1858,21 +2002,29 @@ function classifyMove({
   const nearBest = loss <= 1;
   const onlyMove = gap >= 12 && !isRecapture && winBefore < 95;
   const smallSacrifice =
-    moverPiece !== "k" &&
-    sacrificeSwing <= -1 &&
-    winBefore < 92 &&
-    winAfter >= 45;
+    moverPiece !== "k" && sacrificeSwing <= -1 && winBefore < 92 && winAfter >= 45;
 
   if (nearBest && (onlyMove || smallSacrifice)) {
     return "excellent";
   }
 
-  // Motorun en iyisi ya da ona pratikte eşit
+  // Best: motorun en iyi hamlesi ya da onunla pratikte aynı seviye (kayıp < 0.5).
+  // Good: makul bir seçenek ama daha iyi hamleler var.
   if (playedBest || loss < 0.5) return "best";
   if (loss <= 5) return "good";
   if (loss <= 10) return "inaccuracy";
-  if (loss <= 20) return "mistake";
-  return "blunder";
+
+  // Blunder: bedava taş vermek, matı kaçırmak, mat yemek ya da oyunu tamamen çevirmek.
+  // Bunların dışındaki büyük hatalar "mistake" kalır.
+  const missedMate = cpBefore >= 3000 && cpAfter < 3000;
+  const allowsMate = cpAfter <= -3000 && cpBefore > -3000;
+  const hangsPiece = sacrificeSwing <= -3; // motorun hattında en az bir taş kaybı
+  const flipsGame = loss > 20 && winBefore >= 40 && winAfter <= 25;
+
+  if (allowsMate || missedMate || hangsPiece || flipsGame || loss >= 35) {
+    return "blunder";
+  }
+  return "mistake";
 }
 
 async function reviewGame(
@@ -1987,6 +2139,7 @@ async function reviewGame(
 
   moves.forEach((mv, i) => {
     const s = summary[mv.color];
+
     const sign = mv.color === "w" ? 1 : -1;
     const before = evals[i];
     const after = evals[i + 1];
@@ -2016,10 +2169,23 @@ async function reviewGame(
       i > 0 && moves[i - 1].captured && moves[i - 1].to === mv.to;
 
     // Brilliant için pahalı hesabı sadece iyi hamlelerde yap
-    const sacrificeSwing =
-      loss <= 2 && winBefore < 95 && winAfter >= 45
-        ? pvMaterialSwing(mv.fenBefore, pv, mv.color)
-        : 0;
+    const needSwing =
+      (loss <= 2 && winBefore < 95 && winAfter >= 45) || loss > 10;
+    const sacrificeSwing = needSwing
+      ? pvMaterialSwing(mv.fenBefore, pv, mv.color)
+      : 0;
+
+    if (sacrificeSwing <= -2 && loss <= 3) {
+      // Brilliant adayları (Console > Verbose seviyesinde görünür)
+      console.debug("[review] feda adayı", {
+        ply: i + 1,
+        san: mv.san,
+        loss: +loss.toFixed(1),
+        winBefore: +winBefore.toFixed(1),
+        winAfter: +winAfter.toFixed(1),
+        swing: sacrificeSwing,
+      });
+    }
 
     const cls = classifyMove({
       uci: mv.uci,
@@ -2031,8 +2197,11 @@ async function reviewGame(
       isRecapture,
       sacrificeSwing,
       moverPiece: mv.piece,
+      cpBefore: sign * before.cp,
+      cpAfter: sign * afterCp,
     });
 
+    // Teori hamlelerine rozet verilmez ama rapor sayımına motor değerlendirmesiyle girer
     if (i >= bookPlies) classes[i + 1] = cls;
 
     s[cls]++;
@@ -2465,9 +2634,7 @@ function goToPuzzlePly(ply) {
   // Sadece tek adım ileri giderken animasyon + ses
   const stepForward = target === previous + 1;
   if (Math.abs(target - previous) === 1) {
-    const moved = stepForward
-      ? verboseHistory[target - 1]
-      : verboseHistory[previous - 1];
+    const moved = stepForward ? verboseHistory[target - 1] : verboseHistory[previous - 1];
     if (moved) playSoundForMove(moved);
   }
 
@@ -4516,13 +4683,7 @@ function setPuzzleFinished(value) {
 }
 
 // Menüdeki seviye -> Elo aralığı + başlangıçta istenecek Lichess seviyesi
-const LICHESS_DIFFICULTIES = [
-  "easiest",
-  "easier",
-  "normal",
-  "harder",
-  "hardest",
-];
+const LICHESS_DIFFICULTIES = ["easiest", "easier", "normal", "harder", "hardest"];
 const PUZZLE_LEVELS = {
   beginner: { min: 600, max: 1000, api: 0 },
   easy: { min: 1000, max: 1400, api: 1 },
@@ -4549,9 +4710,7 @@ async function fetchPuzzleInRange(level, loadId) {
 
   for (let attempt = 1; attempt <= PUZZLE_MAX_ATTEMPTS; attempt++) {
     if (attempt > 1) {
-      await new Promise((resolve) =>
-        setTimeout(resolve, PUZZLE_ATTEMPT_DELAY_MS),
-      );
+      await new Promise((resolve) => setTimeout(resolve, PUZZLE_ATTEMPT_DELAY_MS));
       if (loadId !== puzzleLoadId) return null;
     }
 
@@ -4844,9 +5003,7 @@ function executePuzzleMove(from, to, animate = true) {
         puzzleStatusEl.textContent = "Puzzle Solved! Great job!";
 
       if (!puzzleScoreRecorded) {
-        const ratingChange = puzzleHintUsedInCurrent
-          ? 0
-          : puzzleRatingDelta(true);
+        const ratingChange = puzzleHintUsedInCurrent ? 0 : puzzleRatingDelta(true);
         recordPuzzleResult(true, ratingChange, puzzleHintUsedInCurrent);
         puzzleScoreRecorded = true;
       }
@@ -4896,9 +5053,7 @@ function executePuzzleMove(from, to, animate = true) {
             puzzleStatusEl.textContent = "Puzzle Solved! Great job!";
 
           if (!puzzleScoreRecorded) {
-            const ratingChange = puzzleHintUsedInCurrent
-              ? 0
-              : puzzleRatingDelta(true);
+            const ratingChange = puzzleHintUsedInCurrent ? 0 : puzzleRatingDelta(true);
             recordPuzzleResult(true, ratingChange, puzzleHintUsedInCurrent);
             puzzleScoreRecorded = true;
           }
@@ -5006,8 +5161,7 @@ document
     puzzleSolutionPlaying = false;
     setPuzzleFinished(true);
     if (puzzleStatusEl)
-      puzzleStatusEl.textContent =
-        "Solution shown. You can analyse this puzzle.";
+      puzzleStatusEl.textContent = "Solution shown. You can analyse this puzzle.";
   });
 
 document.getElementById("puzzle-btn-analyse")?.addEventListener("click", () => {
@@ -5153,14 +5307,10 @@ function recordPuzzleStats(won, usedHint, ratingChange = 0) {
   st.bestRating = Math.max(st.bestRating, puzzleRating);
   st.ratingHistory.push({ r: puzzleRating, t: Date.now() });
   if (st.ratingHistory.length > PUZZLE_RATING_HISTORY_MAX) {
-    st.ratingHistory.splice(
-      0,
-      st.ratingHistory.length - PUZZLE_RATING_HISTORY_MAX,
-    );
+    st.ratingHistory.splice(0, st.ratingHistory.length - PUZZLE_RATING_HISTORY_MAX);
   }
 
-  const key =
-    currentPuzzle?.levelKey === "master" ? "expert" : currentPuzzle?.levelKey;
+  const key = currentPuzzle?.levelKey === "master" ? "expert" : currentPuzzle?.levelKey;
   if (key) {
     const lv = (st.levels[key] ||= { played: 0, solved: 0 });
     lv.played++;
@@ -5252,12 +5402,13 @@ function renderPuzzleChart(history) {
     return;
   }
 
-  const W = 600;
-  const H = 220;
-  const padL = 44;
-  const padR = 14;
-  const padT = 14;
-  const padB = 24;
+  // Gerçek piksel boyutu: geniş ekranda yazılar büyümesin
+  const W = el.clientWidth > 0 ? Math.max(300, el.clientWidth - 28) : 600;
+  const H = 190;
+  const padL = 40;
+  const padR = 12;
+  const padT = 10;
+  const padB = 32;
 
   const values = history.map((p) => p.r);
   let min = Math.min(...values);
@@ -5273,9 +5424,7 @@ function renderPuzzleChart(history) {
   const x = (i) => padL + (i / (history.length - 1)) * (W - padL - padR);
   const y = (v) => padT + (1 - (v - min) / (max - min)) * (H - padT - padB);
 
-  const line = history
-    .map((p, i) => `${x(i).toFixed(1)},${y(p.r).toFixed(1)}`)
-    .join(" ");
+  const line = history.map((p, i) => `${x(i).toFixed(1)},${y(p.r).toFixed(1)}`).join(" ");
   const area = `${padL},${H - padB} ${line} ${x(history.length - 1).toFixed(1)},${H - padB}`;
 
   const ticks = [min, (min + max) / 2, max].map((v) => Math.round(v));
@@ -5287,19 +5436,82 @@ function renderPuzzleChart(history) {
     )
     .join("");
 
+  // Tarih ekseni: ilk ve son nokta (gün + ay + yıl) ile ay/yıl değişimleri
+  const last = history.length - 1;
+  const fullDate = (t) =>
+    new Date(t).toLocaleDateString(undefined, {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  const candidates = [{ i: 0, label: fullDate(history[0].t), anchor: "start" }];
+  let prevMonthKey = (() => {
+    const d = new Date(history[0].t);
+    return d.getFullYear() * 12 + d.getMonth();
+  })();
+  for (let i = 1; i < last; i++) {
+    const d = new Date(history[i].t);
+    const key = d.getFullYear() * 12 + d.getMonth();
+    if (key !== prevMonthKey) {
+      const newYear = d.getMonth() === 0;
+      candidates.push({
+        i,
+        label: d.toLocaleDateString(undefined, {
+          month: "short",
+          year: newYear ? "numeric" : undefined,
+        }),
+        anchor: "middle",
+      });
+      prevMonthKey = key;
+    }
+  }
+  candidates.push({ i: last, label: fullDate(history[last].t), anchor: "end" });
+
+  // Üst üste binmeyi önle: ilk ve son etiket korunur, aradakiler yeterince uzaksa kalır
+  const MIN_GAP = 72;
+  const kept = [];
+  for (const tick of candidates) {
+    const isLast = tick.i === last;
+    const px = x(tick.i);
+    const prev = kept[kept.length - 1];
+    if (!prev || px - x(prev.i) >= MIN_GAP) {
+      kept.push(tick);
+    } else if (isLast) {
+      // son etiket için yer aç: önceki (ilk değilse) etiketi at
+      if (kept.length > 1) kept.pop();
+      if (!kept.length || px - x(kept[kept.length - 1].i) >= MIN_GAP) kept.push(tick);
+    }
+  }
+
+  const dateAxis = kept
+    .map(
+      (t) => `
+      <line x1="${x(t.i).toFixed(1)}" x2="${x(t.i).toFixed(1)}" y1="${H - padB}" y2="${H - padB + 4}" class="chart-grid" style="stroke-dasharray:none"/>
+      <text x="${x(t.i).toFixed(1)}" y="${H - padB + 15}" class="chart-label" text-anchor="${t.anchor}">${t.label}</text>`,
+    )
+    .join("");
+
   const dots = history
     .map((p, i) => {
-      const last = i === history.length - 1;
-      return `<circle cx="${x(i).toFixed(1)}" cy="${y(p.r).toFixed(1)}" r="${last ? 5 : 3}" class="${last ? "chart-dot-last" : "chart-dot"}"><title>#${i}: ${p.r}</title></circle>`;
+      const isLast = i === history.length - 1;
+      const when = new Date(p.t).toLocaleString(undefined, {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+      return `<circle cx="${x(i).toFixed(1)}" cy="${y(p.r).toFixed(1)}" r="${isLast ? 5 : 3}" class="${isLast ? "chart-dot-last" : "chart-dot"}"><title>${p.r} · ${when}</title></circle>`;
     })
     .join("");
 
   el.innerHTML = `
-    <svg viewBox="0 0 ${W} ${H}" class="rating-chart" role="img" aria-label="Puzzle rating history">
+    <svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" class="rating-chart" role="img" aria-label="Puzzle rating history">
       ${grid}
       <polygon points="${area}" class="chart-area"/>
       <polyline points="${line}" class="chart-line"/>
       ${dots}
+      ${dateAxis}
     </svg>`;
 }
 
@@ -5313,10 +5525,7 @@ function renderPuzzleProfile() {
   set("pp-rating", puzzleRating);
   set("pp-best", Math.max(st.bestRating, puzzleRating));
   set("pp-solved", `${st.solved} / ${st.played}`);
-  set(
-    "pp-rate",
-    st.played ? `${Math.round((st.solved / st.played) * 100)}%` : "–",
-  );
+  set("pp-rate", st.played ? `${Math.round((st.solved / st.played) * 100)}%` : "–");
   set("pp-streak", st.streak);
   set("pp-best-streak", st.bestStreak);
   set("pp-hints", st.hinted);
@@ -5369,9 +5578,7 @@ function initSettingsPanel() {
   const sync = () => {
     if (volumeEl) volumeEl.value = Math.round(settings.volume * 100);
     if (volumeValueEl)
-      volumeValueEl.textContent = settings.muted
-        ? "Muted"
-        : `${Math.round(settings.volume * 100)}%`;
+      volumeValueEl.textContent = settings.muted ? "Muted" : `${Math.round(settings.volume * 100)}%`;
     if (muteEl) muteEl.checked = settings.muted;
     if (volumeEl) volumeEl.disabled = settings.muted;
   };
@@ -5390,69 +5597,149 @@ function initSettingsPanel() {
     sync();
   });
 
+  // ---------- Görünüm kontrolleri ----------
+  const themeGrid = document.getElementById("theme-swatches");
+  const boardGrid = document.getElementById("board-swatches");
+  const accentInput = document.getElementById("setting-accent");
+  const lightInput = document.getElementById("setting-light");
+  const darkInput = document.getElementById("setting-dark");
+
+  const renderAppearance = () => {
+    if (themeGrid) {
+      themeGrid.innerHTML = "";
+      for (const [key, theme] of Object.entries(THEMES)) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "swatch" + (settings.theme === key ? " active" : "");
+        btn.setAttribute("aria-pressed", settings.theme === key);
+        btn.innerHTML = `<span class="swatch-preview" style="background: linear-gradient(135deg, ${theme.vars["--panel"]} 50%, ${theme.vars["--accent-strong"]} 50%); border-color: ${theme.vars["--panel-border"]}"></span><span>${theme.name}</span>`;
+        btn.addEventListener("click", () => {
+          settings.theme = key;
+          settings.customAccent = null;
+          saveSettings();
+          applyAppearance();
+          renderAppearance();
+        });
+        themeGrid.appendChild(btn);
+      }
+    }
+
+    if (boardGrid) {
+      boardGrid.innerHTML = "";
+      for (const [key, b] of Object.entries(BOARD_THEMES)) {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "swatch" + (settings.board === key ? " active" : "");
+        btn.setAttribute("aria-pressed", settings.board === key);
+        btn.innerHTML = `<span class="swatch-preview board" style="background: conic-gradient(${b.light} 25%, ${b.dark} 0 50%, ${b.light} 0 75%, ${b.dark} 0) 0 0 / 50% 50%"></span><span>${b.name}</span>`;
+        btn.addEventListener("click", () => {
+          settings.board = key;
+          saveSettings();
+          applyAppearance();
+          renderAppearance();
+        });
+        boardGrid.appendChild(btn);
+      }
+    }
+
+    const theme = THEMES[settings.theme] || THEMES.azurite;
+    const board = currentBoardColors();
+    if (accentInput) accentInput.value = settings.customAccent || theme.vars["--accent-strong"];
+    if (lightInput) lightInput.value = board.light;
+    if (darkInput) darkInput.value = board.dark;
+  };
+  renderAppearance();
+
+  accentInput?.addEventListener("input", () => {
+    settings.customAccent = accentInput.value;
+    saveSettings();
+    applyAppearance();
+  });
+  const onBoardColor = () => {
+    settings.board = "custom";
+    settings.customLight = lightInput.value;
+    settings.customDark = darkInput.value;
+    saveSettings();
+    applyAppearance();
+  };
+  lightInput?.addEventListener("input", onBoardColor);
+  darkInput?.addEventListener("input", onBoardColor);
+  lightInput?.addEventListener("change", renderAppearance);
+  darkInput?.addEventListener("change", renderAppearance);
+
+  document.getElementById("btn-reset-appearance")?.addEventListener("click", () => {
+    settings.theme = "azurite";
+    settings.board = "teal";
+    settings.customAccent = null;
+    settings.customLight = null;
+    settings.customDark = null;
+    saveSettings();
+    applyAppearance();
+    renderAppearance();
+  });
+
   // Profile sekmeleri
   const tabs = document.querySelectorAll(".profile-tab");
   const panes = document.querySelectorAll(".profile-pane");
   const showTab = (name) => {
     tabs.forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
     panes.forEach((p) => (p.hidden = p.dataset.pane !== name));
+    if (name === "puzzles") renderPuzzleChart(puzzleStats.ratingHistory); // görünür olunca gerçek genişliğe göre çiz
     try {
       localStorage.setItem("azurite-profile-tab", name);
     } catch {}
   };
-  tabs.forEach((t) =>
-    t.addEventListener("click", () => showTab(t.dataset.tab)),
-  );
+  tabs.forEach((t) => t.addEventListener("click", () => showTab(t.dataset.tab)));
   let savedTab = "openings";
   try {
     savedTab = localStorage.getItem("azurite-profile-tab") || "openings";
   } catch {}
-  showTab(
-    [...tabs].some((t) => t.dataset.tab === savedTab) ? savedTab : "openings",
-  );
+  showTab([...tabs].some((t) => t.dataset.tab === savedTab) ? savedTab : "openings");
+
+  let chartResizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(chartResizeTimer);
+    chartResizeTimer = setTimeout(() => {
+      const pane = document.querySelector('[data-pane="puzzles"]');
+      if (pane && !pane.hidden && pane.offsetParent !== null) {
+        renderPuzzleChart(puzzleStats.ratingHistory);
+      }
+    }, 150);
+  });
 
   // Puzzle kayıt defteri kontrolleri
-  document
-    .getElementById("puzzle-log-filter")
-    ?.addEventListener("change", (e) => {
-      puzzleLogFilter = e.target.value;
-      puzzleLogVisible = 20;
-      renderPuzzleLog();
-    });
+  document.getElementById("puzzle-log-filter")?.addEventListener("change", (e) => {
+    puzzleLogFilter = e.target.value;
+    puzzleLogVisible = 20;
+    renderPuzzleLog();
+  });
   document.getElementById("puzzle-log-more")?.addEventListener("click", () => {
     puzzleLogVisible += 20;
     renderPuzzleLog();
   });
 
-  document
-    .getElementById("btn-export-puzzle-data")
-    ?.addEventListener("click", () => {
-      const data = {
-        exportedAt: new Date().toISOString(),
-        rating: puzzleRating,
-        stats: puzzleStats,
-        log: puzzleLog,
-      };
-      const blob = new Blob([JSON.stringify(data, null, 2)], {
-        type: "application/json",
-      });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "azurite-puzzle-data.json";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+  document.getElementById("btn-export-puzzle-data")?.addEventListener("click", () => {
+    const data = {
+      exportedAt: new Date().toISOString(),
+      rating: puzzleRating,
+      stats: puzzleStats,
+      log: puzzleLog,
+    };
+    const blob = new Blob([JSON.stringify(data, null, 2)], {
+      type: "application/json",
     });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "azurite-puzzle-data.json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
 
   resetBtn?.addEventListener("click", () => {
-    if (
-      !confirm(
-        "Reset puzzle rating, history, statistics and the puzzle log? This cannot be undone.",
-      )
-    )
-      return;
+    if (!confirm("Reset puzzle rating, history, statistics and the puzzle log? This cannot be undone.")) return;
     puzzleLog = [];
     savePuzzleLog();
 

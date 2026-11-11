@@ -12,7 +12,7 @@
   --light: #bfdee3;
   --dark: #348aa0;
   --selected: rgba(149, 225, 255, 0.65);
-  --last-move: rgba(45, 212, 191, 0.4);
+  --last-move: color-mix(in srgb, var(--accent) 40%, transparent);
   --legal-dot: rgba(6, 38, 48, 0.42);
   --check: rgba(255, 70, 70, 0.6);
   --font-pixel: "Tiny5 Duo", system-ui, sans-serif;
@@ -2690,9 +2690,9 @@ css .analysis-rank,
   border: 1px solid rgba(255, 143, 143, 0.5);
 }
 .puzzle-history-box.hint {
-  background: #003946;
-  color: #00c8cf;
-  border: 1px solid #00f7ff;
+  background: rgba(247, 198, 49, 0.2);
+  color: #f7c631;
+  border: 1px solid rgba(247, 198, 49, 0.5);
 }
 
 .complete-overlay {
@@ -2769,8 +2769,9 @@ css .analysis-rank,
 
 .rating-chart {
   display: block;
-  width: 100%;
+  max-width: 100%;
   height: auto;
+  margin: 0 auto;
 }
 
 .rating-chart .chart-grid {
@@ -2781,12 +2782,12 @@ css .analysis-rank,
 
 .rating-chart .chart-label {
   fill: var(--text-muted);
-  font-size: 11px;
+  font-size: 10px;
   font-family: var(--font-pixel);
 }
 
 .rating-chart .chart-area {
-  fill: rgba(63, 222, 243, 0.12);
+  fill: color-mix(in srgb, var(--accent-strong) 14%, transparent);
 }
 
 .rating-chart .chart-line {
@@ -3079,5 +3080,105 @@ css .analysis-rank,
   #profile .profile-note {
     width: 100%;
     max-width: 100%;
+  }
+}
+
+/* APPEARANCE SETTINGS */
+.appearance-card {
+  padding: 18px;
+}
+
+.appearance-group + .appearance-group {
+  margin-top: 8px;
+  padding-top: 4px;
+  border-top: 1px solid var(--panel-border);
+}
+
+.appearance-group .profile-subheading {
+  margin-top: 14px;
+}
+
+.swatch-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.swatch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  width: 92px;
+  padding: 10px 8px;
+  font-size: 0.85rem;
+}
+
+.swatch.active {
+  border-color: var(--accent-strong);
+  box-shadow: 0 0 0 1px var(--accent-strong);
+  color: var(--accent-strong);
+}
+
+.swatch-preview {
+  display: block;
+  width: 56px;
+  height: 34px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+}
+
+.swatch-preview.board {
+  width: 40px;
+  height: 40px;
+  border-radius: 4px;
+}
+
+.color-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 8px 0;
+}
+
+.color-row input[type="color"] {
+  width: 56px;
+  height: 32px;
+  padding: 2px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: var(--control);
+  cursor: pointer;
+}
+
+.color-reset {
+  margin-top: 8px;
+}
+
+/* PROFILE: mobilde kenarlara yapışmasın */
+@media (max-width: 800px) {
+  #profile .page-heading,
+  #profile .profile-tabs,
+  #profile .profile-overview,
+  #profile .profile-progress-section,
+  #profile .profile-note,
+  #profile .profile-puzzle-overview {
+    width: calc(100% - 32px);
+    max-width: calc(100% - 32px);
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  #profile .profile-tabs {
+    overflow-x: auto;
+  }
+
+  .profile-tab {
+    flex-shrink: 0;
+  }
+
+  .swatch {
+    width: calc(33.333% - 7px);
   }
 }

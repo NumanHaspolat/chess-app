@@ -33,6 +33,14 @@ const SOUNDS = {
   gameover: new Audio("./assets/audio/gameover.wav"),
 };
 
+// Eksik ses dosyası olursa (örn. capture.wav) move.wav'a düş
+for (const [name, audio] of Object.entries(SOUNDS)) {
+  if (name === "move") continue;
+  audio.addEventListener("error", () => {
+    SOUNDS[name] = SOUNDS.move;
+  });
+}
+
 const boardEl = document.getElementById("board");
 const analyseBoardEl = document.getElementById("analyse-board");
 const analyseGame = new Chess();
@@ -1325,6 +1333,17 @@ const BADGE_IMAGES = {
   blunder: "./assets/badges/blunder.png",
 };
 
+const BADGE_FALLBACK = {
+  brilliant: "!!",
+  great: "!",
+  best: "★",
+  excellent: "✓",
+  good: "✓",
+  inaccuracy: "?!",
+  mistake: "?",
+  blunder: "??",
+};
+
 function renderAnalyseBoard(animate = false) {
   if (!analyseBoardEl) return;
 
@@ -1386,6 +1405,11 @@ function renderAnalyseBoard(animate = false) {
         const img = document.createElement("img");
         img.src = BADGE_IMAGES[currentClass] || "";
         img.alt = currentClass;
+        // Rozet dosyası yoksa yazılı bir yedek göster
+        img.onerror = () => {
+          img.remove();
+          badge.textContent = BADGE_FALLBACK[currentClass] || "•";
+        };
         badge.appendChild(img);
 
         squareEl.appendChild(badge);
@@ -1587,6 +1611,17 @@ document.getElementById("analyse-btn-reset")?.addEventListener("click", () => {
 });
 
 const REVIEW_DEPTH = 14; // yüksek = daha doğru ama daha yavaş
+
+// "Great" rozeti için assets/badges/great.png gerekir. Dosyayı ekleyince true yap.
+const ENABLE_GREAT_MOVES = false;
+if (!ENABLE_GREAT_MOVES) {
+  for (const side of ["white", "black"]) {
+    const row = document
+      .getElementById(`analyse-${side}-great`)
+      ?.closest(".analyse-stat-row");
+    if (row) row.hidden = true;
+  }
+}
 const PIECE_VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 
 let analyseMoveClasses = [];
@@ -1788,8 +1823,11 @@ function pvMaterialSwing(fenBefore, pvMoves, color) {
   return diffs[diffs.length - 1] - start;
 }
 
-// chess.com tarzı sınıflandırma: kaybedilen "beklenen puan" (kazanma %) eşikleri
-//   best ≈ 0 · excellent ≤ 2 · good ≤ 5 · inaccuracy ≤ 10 · mistake ≤ 20 · blunder > 20
+// Sınıflandırma (kaybedilen kazanma % eşikleri):
+//   brilliant (!!)  : iyi hamle + büyük feda
+//   excellent (!)   : zor bulunan hamle (tek iyi hamle / küçük feda)
+//   best            : motorun en iyisi ya da kaybı ≤ 2
+//   good ≤ 5 · inaccuracy ≤ 10 · mistake ≤ 20 · blunder > 20
 function classifyMove({
   uci,
   best,
@@ -1815,13 +1853,22 @@ function classifyMove({
     return "brilliant";
   }
 
-  // Great: tek iyi hamle (diğer alternatifler belirgin kötü) ya da kritik bir hamle
-  if (loss <= 1.5 && gap >= 12 && !isRecapture && winBefore < 95) {
-    return "great";
+  // Excellent (!): zor bulunan hamle. Ya tek iyi hamle (alternatifler belirgin kötü)
+  // ya da küçük bir feda (genelde piyon). Brilliant (!!) kadar büyük değil.
+  const nearBest = loss <= 1;
+  const onlyMove = gap >= 12 && !isRecapture && winBefore < 95;
+  const smallSacrifice =
+    moverPiece !== "k" &&
+    sacrificeSwing <= -1 &&
+    winBefore < 92 &&
+    winAfter >= 45;
+
+  if (nearBest && (onlyMove || smallSacrifice)) {
+    return "excellent";
   }
 
-  if (playedBest || loss < 0.1) return "best";
-  if (loss <= 2) return "excellent";
+  // Motorun en iyisi ya da ona pratikte eşit
+  if (playedBest || loss < 0.5) return "best";
   if (loss <= 5) return "good";
   if (loss <= 10) return "inaccuracy";
   if (loss <= 20) return "mistake";
@@ -1932,7 +1979,7 @@ async function reviewGame(
   const weights = volatilityWeights(evals.map((e) => winPercent(e.cp)));
 
   let bookPlies = 0;
-  if (typeof openingBook !== "undefined" && openingBook) {
+  if (openingBook && typeof openingBook.lookup === "function") {
     while (bookPlies < total && openingBook.lookup(moves[bookPlies].fenAfter)) {
       bookPlies++;
     }
@@ -1940,14 +1987,6 @@ async function reviewGame(
 
   moves.forEach((mv, i) => {
     const s = summary[mv.color];
-
-    // Teori hamleleri: sınıflandırılmaz, doğruluğa kusursuz sayılır
-    if (i < bookPlies) {
-      s.accs.push(100);
-      s.weights.push(weights[i]);
-      return;
-    }
-
     const sign = mv.color === "w" ? 1 : -1;
     const before = evals[i];
     const after = evals[i + 1];
@@ -1978,7 +2017,7 @@ async function reviewGame(
 
     // Brilliant için pahalı hesabı sadece iyi hamlelerde yap
     const sacrificeSwing =
-      loss <= 2 && winBefore < 90 && winAfter >= 50
+      loss <= 2 && winBefore < 95 && winAfter >= 45
         ? pvMaterialSwing(mv.fenBefore, pv, mv.color)
         : 0;
 
@@ -1994,7 +2033,7 @@ async function reviewGame(
       moverPiece: mv.piece,
     });
 
-    classes[i + 1] = cls;
+    if (i >= bookPlies) classes[i + 1] = cls;
 
     s[cls]++;
     s.accs.push(moveAccuracy(loss));
@@ -2047,7 +2086,7 @@ function renderAnalyseReport({
 
   const idKey = {
     brilliant: "brilliant",
-    best: "best-moves",
+    best: "best",
     great: "great",
     excellent: "excellent",
     good: "good",
@@ -4935,15 +4974,14 @@ document
     puzzleLegalMoves = [];
     puzzleHintSquares = [];
 
+    // Çözümü görmek Hint gibi: Elo değişmez (daha önce yanlış yapıldıysa o kayıt zaten işlendi)
+    puzzleHintUsedInCurrent = true;
     if (!puzzleScoreRecorded) {
-      recordPuzzleResult(
-        false,
-        puzzleRatingDelta(false),
-        puzzleHintUsedInCurrent,
-      );
+      recordPuzzleResult(false, 0, true);
       puzzleScoreRecorded = true;
     }
-    if (puzzleStatusEl) puzzleStatusEl.textContent = "Showing the solution...";
+    if (puzzleStatusEl)
+      puzzleStatusEl.textContent = "Showing the solution... (No Elo change)";
     renderPuzzleBoard(false);
 
     while (puzzleSolutionIndex < currentPuzzle.solution.length) {

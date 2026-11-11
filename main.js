@@ -308,13 +308,19 @@ function loadSettings() {
   try {
     const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
     return {
-      volume: typeof saved.volume === "number" ? Math.min(1, Math.max(0, saved.volume)) : 0.8,
+      volume:
+        typeof saved.volume === "number"
+          ? Math.min(1, Math.max(0, saved.volume))
+          : 0.8,
       muted: !!saved.muted,
       theme: typeof saved.theme === "string" ? saved.theme : "azurite",
       board: typeof saved.board === "string" ? saved.board : "teal",
-      customAccent: typeof saved.customAccent === "string" ? saved.customAccent : null,
-      customLight: typeof saved.customLight === "string" ? saved.customLight : null,
-      customDark: typeof saved.customDark === "string" ? saved.customDark : null,
+      customAccent:
+        typeof saved.customAccent === "string" ? saved.customAccent : null,
+      customLight:
+        typeof saved.customLight === "string" ? saved.customLight : null,
+      customDark:
+        typeof saved.customDark === "string" ? saved.customDark : null,
     };
   } catch {
     return {
@@ -336,55 +342,91 @@ const THEMES = {
   azurite: {
     name: "Azurite",
     vars: {
-      "--bg": "#0a1b22", "--bg-glow": "#12404a", "--panel": "#0f2a33",
-      "--panel-border": "#1b4652", "--control": "#17414d", "--control-hover": "#1f5565",
-      "--text": "#d6eeee", "--text-muted": "#7fa9ae",
-      "--accent": "rgb(45, 192, 212)", "--accent-strong": "#3fdef3",
+      "--bg": "#0a1b22",
+      "--bg-glow": "#12404a",
+      "--panel": "#0f2a33",
+      "--panel-border": "#1b4652",
+      "--control": "#17414d",
+      "--control-hover": "#1f5565",
+      "--text": "#d6eeee",
+      "--text-muted": "#7fa9ae",
+      "--accent": "rgb(45, 192, 212)",
+      "--accent-strong": "#3fdef3",
     },
   },
   midnight: {
     name: "Midnight",
     vars: {
-      "--bg": "#0b0f1f", "--bg-glow": "#1c2450", "--panel": "#12172e",
-      "--panel-border": "#252d57", "--control": "#1b2244", "--control-hover": "#262f5c",
-      "--text": "#e1e5f7", "--text-muted": "#8d96c4",
-      "--accent": "rgb(129, 140, 248)", "--accent-strong": "#a5b4fc",
+      "--bg": "#0b0f1f",
+      "--bg-glow": "#1c2450",
+      "--panel": "#12172e",
+      "--panel-border": "#252d57",
+      "--control": "#1b2244",
+      "--control-hover": "#262f5c",
+      "--text": "#e1e5f7",
+      "--text-muted": "#8d96c4",
+      "--accent": "rgb(129, 140, 248)",
+      "--accent-strong": "#a5b4fc",
     },
   },
   forest: {
     name: "Forest",
     vars: {
-      "--bg": "#0b1a12", "--bg-glow": "#16402a", "--panel": "#102a1d",
-      "--panel-border": "#1f4a33", "--control": "#184230", "--control-hover": "#215a40",
-      "--text": "#dcefe3", "--text-muted": "#86ae95",
-      "--accent": "rgb(74, 200, 120)", "--accent-strong": "#6ee79b",
+      "--bg": "#0b1a12",
+      "--bg-glow": "#16402a",
+      "--panel": "#102a1d",
+      "--panel-border": "#1f4a33",
+      "--control": "#184230",
+      "--control-hover": "#215a40",
+      "--text": "#dcefe3",
+      "--text-muted": "#86ae95",
+      "--accent": "rgb(74, 200, 120)",
+      "--accent-strong": "#6ee79b",
     },
   },
   ember: {
     name: "Ember",
     vars: {
-      "--bg": "#1a0f0b", "--bg-glow": "#4a2312", "--panel": "#2a1710",
-      "--panel-border": "#4f2d1f", "--control": "#40241a", "--control-hover": "#58321f",
-      "--text": "#f3e4da", "--text-muted": "#b0907d",
-      "--accent": "rgb(240, 140, 60)", "--accent-strong": "#ffab5e",
+      "--bg": "#1a0f0b",
+      "--bg-glow": "#4a2312",
+      "--panel": "#2a1710",
+      "--panel-border": "#4f2d1f",
+      "--control": "#40241a",
+      "--control-hover": "#58321f",
+      "--text": "#f3e4da",
+      "--text-muted": "#b0907d",
+      "--accent": "rgb(240, 140, 60)",
+      "--accent-strong": "#ffab5e",
     },
   },
   rose: {
     name: "Rose",
     vars: {
-      "--bg": "#1a0b14", "--bg-glow": "#4a1236", "--panel": "#2a1020",
-      "--panel-border": "#4f1f3d", "--control": "#401a32", "--control-hover": "#58223f",
-      "--text": "#f4dfeb", "--text-muted": "#b07d99",
-      "--accent": "rgb(236, 92, 160)", "--accent-strong": "#ff7fbd",
+      "--bg": "#1a0b14",
+      "--bg-glow": "#4a1236",
+      "--panel": "#2a1020",
+      "--panel-border": "#4f1f3d",
+      "--control": "#401a32",
+      "--control-hover": "#58223f",
+      "--text": "#f4dfeb",
+      "--text-muted": "#b07d99",
+      "--accent": "rgb(236, 92, 160)",
+      "--accent-strong": "#ff7fbd",
     },
   },
   graphite: {
     name: "Graphite",
     vars: {
-      "--bg": "#0f1113", "--bg-glow": "#262a30", "--panel": "#171a1e",
-      "--panel-border": "#2c3138", "--control": "#22262c", "--control-hover": "#2d323a",
-      "--text": "#e6e8eb", "--text-muted": "#8f959d",
-      "--accent": "rgb(170, 180, 195)", "--accent-strong": "#d2dae6",
+      "--bg": "#0f1113",
+      "--bg-glow": "#262a30",
+      "--panel": "#171a1e",
+      "--panel-border": "#2c3138",
+      "--control": "#22262c",
+      "--control-hover": "#2d323a",
+      "--text": "#e6e8eb",
+      "--text-muted": "#8f959d",
+      "--accent": "rgb(170, 180, 195)",
+      "--accent-strong": "#d2dae6",
     },
   },
 };
@@ -410,7 +452,11 @@ function lightenHex(hex, amount = 0.3) {
 }
 
 function currentBoardColors() {
-  if (settings.board === "custom" && settings.customLight && settings.customDark) {
+  if (
+    settings.board === "custom" &&
+    settings.customLight &&
+    settings.customDark
+  ) {
     return { light: settings.customLight, dark: settings.customDark };
   }
   return BOARD_THEMES[settings.board] || BOARD_THEMES.teal;
@@ -426,7 +472,10 @@ function applyAppearance() {
 
   if (settings.customAccent) {
     root.style.setProperty("--accent", settings.customAccent);
-    root.style.setProperty("--accent-strong", lightenHex(settings.customAccent, 0.3));
+    root.style.setProperty(
+      "--accent-strong",
+      lightenHex(settings.customAccent, 0.3),
+    );
   }
 
   const board = currentBoardColors();
@@ -572,7 +621,11 @@ function renderRepertoireBoard(animate = true) {
     drillHintSquares.join(","),
     repOrientation,
   ].join("|");
-  if (!animate && renderSig === lastRepRenderSig && repBoardEl.children.length) {
+  if (
+    !animate &&
+    renderSig === lastRepRenderSig &&
+    repBoardEl.children.length
+  ) {
     return;
   }
   lastRepRenderSig = renderSig;
@@ -1976,6 +2029,7 @@ function classifyMove({
   loss,
   winBefore,
   winAfter,
+  winAlt, // oynanan hamle dışındaki en iyi alternatifin değeri (yoksa null = tek yasal/zorunlu hamle)
   gap,
   isRecapture,
   sacrificeSwing,
@@ -1987,11 +2041,14 @@ function classifyMove({
 
   // Brilliant (chess.com tanımı): iyi bir taş feda etmek. Hamle en iyi ya da en iyiye yakın olmalı,
   // hamleden sonra pozisyon kötü olmamalı ve hamleyi bulmasan da zaten tamamen kazanıyor olmamalısın.
+  // "Hamleyi bulmasan da zaten tamamen kazanıyor olmamalısın" = en iyi ALTERNATİF de kazanç olmamalı.
+  // (winBefore kullanılamaz: motor hamleyi bulduğu için feda sonrası matı zaten görür ve winBefore ~%100 çıkar.)
   if (
     moverPiece !== "k" &&
+    winAlt !== null &&
     loss <= 2 &&
     sacrificeSwing <= -2 &&
-    winBefore < 88 &&
+    winAlt < 88 &&
     winAfter >= 47
   ) {
     return "brilliant";
@@ -2000,9 +2057,13 @@ function classifyMove({
   // Excellent (!): zor bulunan hamle. Ya tek iyi hamle (alternatifler belirgin kötü)
   // ya da küçük bir feda (genelde piyon). Brilliant (!!) kadar büyük değil.
   const nearBest = loss <= 1;
-  const onlyMove = gap >= 12 && !isRecapture && winBefore < 95;
+  const onlyMove = winAlt !== null && gap >= 12 && !isRecapture;
   const smallSacrifice =
-    moverPiece !== "k" && sacrificeSwing <= -1 && winBefore < 92 && winAfter >= 45;
+    moverPiece !== "k" &&
+    winAlt !== null &&
+    sacrificeSwing <= -1 &&
+    winAlt < 88 &&
+    winAfter >= 45;
 
   if (nearBest && (onlyMove || smallSacrifice)) {
     return "excellent";
@@ -2165,12 +2226,17 @@ async function reviewGame(
 
     const gap =
       before.second == null ? 0 : winBefore - winPercent(sign * before.second);
+
+    // En iyi alternatif: oynanan hamle 1. çizgiyse 2. çizgi, değilse motorun 1. çizgisi
+    let altCp = null;
+    if (line1 && line1.pv[0] === mv.uci) altCp = line2 ? line2.cp : null;
+    else if (line1) altCp = line1.cp;
+    const winAlt = altCp === null ? null : winPercent(sign * altCp);
     const isRecapture =
       i > 0 && moves[i - 1].captured && moves[i - 1].to === mv.to;
 
     // Brilliant için pahalı hesabı sadece iyi hamlelerde yap
-    const needSwing =
-      (loss <= 2 && winBefore < 95 && winAfter >= 45) || loss > 10;
+    const needSwing = (loss <= 2 && winAfter >= 45) || loss > 10;
     const sacrificeSwing = needSwing
       ? pvMaterialSwing(mv.fenBefore, pv, mv.color)
       : 0;
@@ -2183,6 +2249,7 @@ async function reviewGame(
         loss: +loss.toFixed(1),
         winBefore: +winBefore.toFixed(1),
         winAfter: +winAfter.toFixed(1),
+        winAlt: winAlt === null ? null : +winAlt.toFixed(1),
         swing: sacrificeSwing,
       });
     }
@@ -2193,6 +2260,7 @@ async function reviewGame(
       loss,
       winBefore,
       winAfter,
+      winAlt,
       gap,
       isRecapture,
       sacrificeSwing,
@@ -2634,7 +2702,9 @@ function goToPuzzlePly(ply) {
   // Sadece tek adım ileri giderken animasyon + ses
   const stepForward = target === previous + 1;
   if (Math.abs(target - previous) === 1) {
-    const moved = stepForward ? verboseHistory[target - 1] : verboseHistory[previous - 1];
+    const moved = stepForward
+      ? verboseHistory[target - 1]
+      : verboseHistory[previous - 1];
     if (moved) playSoundForMove(moved);
   }
 
@@ -4683,7 +4753,13 @@ function setPuzzleFinished(value) {
 }
 
 // Menüdeki seviye -> Elo aralığı + başlangıçta istenecek Lichess seviyesi
-const LICHESS_DIFFICULTIES = ["easiest", "easier", "normal", "harder", "hardest"];
+const LICHESS_DIFFICULTIES = [
+  "easiest",
+  "easier",
+  "normal",
+  "harder",
+  "hardest",
+];
 const PUZZLE_LEVELS = {
   beginner: { min: 600, max: 1000, api: 0 },
   easy: { min: 1000, max: 1400, api: 1 },
@@ -4710,7 +4786,9 @@ async function fetchPuzzleInRange(level, loadId) {
 
   for (let attempt = 1; attempt <= PUZZLE_MAX_ATTEMPTS; attempt++) {
     if (attempt > 1) {
-      await new Promise((resolve) => setTimeout(resolve, PUZZLE_ATTEMPT_DELAY_MS));
+      await new Promise((resolve) =>
+        setTimeout(resolve, PUZZLE_ATTEMPT_DELAY_MS),
+      );
       if (loadId !== puzzleLoadId) return null;
     }
 
@@ -5003,7 +5081,9 @@ function executePuzzleMove(from, to, animate = true) {
         puzzleStatusEl.textContent = "Puzzle Solved! Great job!";
 
       if (!puzzleScoreRecorded) {
-        const ratingChange = puzzleHintUsedInCurrent ? 0 : puzzleRatingDelta(true);
+        const ratingChange = puzzleHintUsedInCurrent
+          ? 0
+          : puzzleRatingDelta(true);
         recordPuzzleResult(true, ratingChange, puzzleHintUsedInCurrent);
         puzzleScoreRecorded = true;
       }
@@ -5053,7 +5133,9 @@ function executePuzzleMove(from, to, animate = true) {
             puzzleStatusEl.textContent = "Puzzle Solved! Great job!";
 
           if (!puzzleScoreRecorded) {
-            const ratingChange = puzzleHintUsedInCurrent ? 0 : puzzleRatingDelta(true);
+            const ratingChange = puzzleHintUsedInCurrent
+              ? 0
+              : puzzleRatingDelta(true);
             recordPuzzleResult(true, ratingChange, puzzleHintUsedInCurrent);
             puzzleScoreRecorded = true;
           }
@@ -5161,7 +5243,8 @@ document
     puzzleSolutionPlaying = false;
     setPuzzleFinished(true);
     if (puzzleStatusEl)
-      puzzleStatusEl.textContent = "Solution shown. You can analyse this puzzle.";
+      puzzleStatusEl.textContent =
+        "Solution shown. You can analyse this puzzle.";
   });
 
 document.getElementById("puzzle-btn-analyse")?.addEventListener("click", () => {
@@ -5307,10 +5390,14 @@ function recordPuzzleStats(won, usedHint, ratingChange = 0) {
   st.bestRating = Math.max(st.bestRating, puzzleRating);
   st.ratingHistory.push({ r: puzzleRating, t: Date.now() });
   if (st.ratingHistory.length > PUZZLE_RATING_HISTORY_MAX) {
-    st.ratingHistory.splice(0, st.ratingHistory.length - PUZZLE_RATING_HISTORY_MAX);
+    st.ratingHistory.splice(
+      0,
+      st.ratingHistory.length - PUZZLE_RATING_HISTORY_MAX,
+    );
   }
 
-  const key = currentPuzzle?.levelKey === "master" ? "expert" : currentPuzzle?.levelKey;
+  const key =
+    currentPuzzle?.levelKey === "master" ? "expert" : currentPuzzle?.levelKey;
   if (key) {
     const lv = (st.levels[key] ||= { played: 0, solved: 0 });
     lv.played++;
@@ -5424,7 +5511,9 @@ function renderPuzzleChart(history) {
   const x = (i) => padL + (i / (history.length - 1)) * (W - padL - padR);
   const y = (v) => padT + (1 - (v - min) / (max - min)) * (H - padT - padB);
 
-  const line = history.map((p, i) => `${x(i).toFixed(1)},${y(p.r).toFixed(1)}`).join(" ");
+  const line = history
+    .map((p, i) => `${x(i).toFixed(1)},${y(p.r).toFixed(1)}`)
+    .join(" ");
   const area = `${padL},${H - padB} ${line} ${x(history.length - 1).toFixed(1)},${H - padB}`;
 
   const ticks = [min, (min + max) / 2, max].map((v) => Math.round(v));
@@ -5479,7 +5568,8 @@ function renderPuzzleChart(history) {
     } else if (isLast) {
       // son etiket için yer aç: önceki (ilk değilse) etiketi at
       if (kept.length > 1) kept.pop();
-      if (!kept.length || px - x(kept[kept.length - 1].i) >= MIN_GAP) kept.push(tick);
+      if (!kept.length || px - x(kept[kept.length - 1].i) >= MIN_GAP)
+        kept.push(tick);
     }
   }
 
@@ -5525,7 +5615,10 @@ function renderPuzzleProfile() {
   set("pp-rating", puzzleRating);
   set("pp-best", Math.max(st.bestRating, puzzleRating));
   set("pp-solved", `${st.solved} / ${st.played}`);
-  set("pp-rate", st.played ? `${Math.round((st.solved / st.played) * 100)}%` : "–");
+  set(
+    "pp-rate",
+    st.played ? `${Math.round((st.solved / st.played) * 100)}%` : "–",
+  );
   set("pp-streak", st.streak);
   set("pp-best-streak", st.bestStreak);
   set("pp-hints", st.hinted);
@@ -5578,7 +5671,9 @@ function initSettingsPanel() {
   const sync = () => {
     if (volumeEl) volumeEl.value = Math.round(settings.volume * 100);
     if (volumeValueEl)
-      volumeValueEl.textContent = settings.muted ? "Muted" : `${Math.round(settings.volume * 100)}%`;
+      volumeValueEl.textContent = settings.muted
+        ? "Muted"
+        : `${Math.round(settings.volume * 100)}%`;
     if (muteEl) muteEl.checked = settings.muted;
     if (volumeEl) volumeEl.disabled = settings.muted;
   };
@@ -5644,7 +5739,9 @@ function initSettingsPanel() {
 
     const theme = THEMES[settings.theme] || THEMES.azurite;
     const board = currentBoardColors();
-    if (accentInput) accentInput.value = settings.customAccent || theme.vars["--accent-strong"];
+    if (accentInput)
+      accentInput.value =
+        settings.customAccent || theme.vars["--accent-strong"];
     if (lightInput) lightInput.value = board.light;
     if (darkInput) darkInput.value = board.dark;
   };
@@ -5667,16 +5764,18 @@ function initSettingsPanel() {
   lightInput?.addEventListener("change", renderAppearance);
   darkInput?.addEventListener("change", renderAppearance);
 
-  document.getElementById("btn-reset-appearance")?.addEventListener("click", () => {
-    settings.theme = "azurite";
-    settings.board = "teal";
-    settings.customAccent = null;
-    settings.customLight = null;
-    settings.customDark = null;
-    saveSettings();
-    applyAppearance();
-    renderAppearance();
-  });
+  document
+    .getElementById("btn-reset-appearance")
+    ?.addEventListener("click", () => {
+      settings.theme = "azurite";
+      settings.board = "teal";
+      settings.customAccent = null;
+      settings.customLight = null;
+      settings.customDark = null;
+      saveSettings();
+      applyAppearance();
+      renderAppearance();
+    });
 
   // Profile sekmeleri
   const tabs = document.querySelectorAll(".profile-tab");
@@ -5689,12 +5788,16 @@ function initSettingsPanel() {
       localStorage.setItem("azurite-profile-tab", name);
     } catch {}
   };
-  tabs.forEach((t) => t.addEventListener("click", () => showTab(t.dataset.tab)));
+  tabs.forEach((t) =>
+    t.addEventListener("click", () => showTab(t.dataset.tab)),
+  );
   let savedTab = "openings";
   try {
     savedTab = localStorage.getItem("azurite-profile-tab") || "openings";
   } catch {}
-  showTab([...tabs].some((t) => t.dataset.tab === savedTab) ? savedTab : "openings");
+  showTab(
+    [...tabs].some((t) => t.dataset.tab === savedTab) ? savedTab : "openings",
+  );
 
   let chartResizeTimer = null;
   window.addEventListener("resize", () => {
@@ -5708,38 +5811,47 @@ function initSettingsPanel() {
   });
 
   // Puzzle kayıt defteri kontrolleri
-  document.getElementById("puzzle-log-filter")?.addEventListener("change", (e) => {
-    puzzleLogFilter = e.target.value;
-    puzzleLogVisible = 20;
-    renderPuzzleLog();
-  });
+  document
+    .getElementById("puzzle-log-filter")
+    ?.addEventListener("change", (e) => {
+      puzzleLogFilter = e.target.value;
+      puzzleLogVisible = 20;
+      renderPuzzleLog();
+    });
   document.getElementById("puzzle-log-more")?.addEventListener("click", () => {
     puzzleLogVisible += 20;
     renderPuzzleLog();
   });
 
-  document.getElementById("btn-export-puzzle-data")?.addEventListener("click", () => {
-    const data = {
-      exportedAt: new Date().toISOString(),
-      rating: puzzleRating,
-      stats: puzzleStats,
-      log: puzzleLog,
-    };
-    const blob = new Blob([JSON.stringify(data, null, 2)], {
-      type: "application/json",
+  document
+    .getElementById("btn-export-puzzle-data")
+    ?.addEventListener("click", () => {
+      const data = {
+        exportedAt: new Date().toISOString(),
+        rating: puzzleRating,
+        stats: puzzleStats,
+        log: puzzleLog,
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "azurite-puzzle-data.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "azurite-puzzle-data.json";
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
-  });
 
   resetBtn?.addEventListener("click", () => {
-    if (!confirm("Reset puzzle rating, history, statistics and the puzzle log? This cannot be undone.")) return;
+    if (
+      !confirm(
+        "Reset puzzle rating, history, statistics and the puzzle log? This cannot be undone.",
+      )
+    )
+      return;
     puzzleLog = [];
     savePuzzleLog();
 

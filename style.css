@@ -3017,13 +3017,14 @@ css .analysis-rank,
   }
 }
 
-/* TABLET (dikey): büyük tahta, puzzle panelleri yan yana */
+/* TABLET (dikey): büyük tahta üstte, altında paneller yan yana (tüm sayfalar) */
 @media (min-width: 560px) and (max-width: 1050px) and (orientation: portrait) {
   .app,
   #analyse.app,
   .repertoire-layout {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: stretch;
     width: calc(100% - 24px);
     max-width: none;
     margin: 12px auto 24px;
@@ -3044,29 +3045,60 @@ css .analysis-rank,
     --size: min(calc(100vw - 48px), 780px);
   }
 
-  .board-section,
-  .repertoire-board-section {
+  /* Tahta tüm genişliği kaplar, diğer paneller altında iki sütun */
+  .app > .board-section,
+  .repertoire-layout > .repertoire-board-section {
+    grid-column: 1 / -1;
+    order: -1;
     width: 100%;
   }
 
-  #puzzles.app {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    align-items: stretch;
-    gap: 16px;
-  }
-
-  #puzzles.app > .board-section {
-    grid-column: 1 / -1;
-    order: -1;
-  }
-
-  #puzzles.app > .moves-section,
-  #puzzles.app > .analysis-panel {
+  .app > .moves-section,
+  .app > .analysis-panel,
+  .app > .learn-section,
+  .repertoire-layout > .repertoire-moves-section,
+  .repertoire-layout > .repertoire-management-section {
     width: 100%;
     min-width: 0;
     margin: 0;
+    grid-column: auto;
     order: 0;
+  }
+
+  /* Learn/Train açıkken hamle listesi (telefondaki gizleme tablette uygulanmaz) */
+  main.app#play:has(#learn-panel:not([hidden])) .moves-section {
+    display: block !important;
+    visibility: visible;
+    position: static;
+    pointer-events: auto;
+    height: auto;
+    overflow: visible;
+  }
+
+  main.app#play:has(#learn-panel:not([hidden])) {
+    align-items: stretch;
+    padding: 0;
+  }
+
+  #learn-panel {
+    max-width: none;
+    height: 100%;
+  }
+
+  /* Boş learn bölümü boşluk bırakmasın */
+  .learn-section:not(:has(#learn-panel:not([hidden]))) {
+    display: none;
+  }
+
+  /* Analyse: oyun içe aktarma ve rapor tam genişlikte kalsın */
+  #analyse .analyse-games-section {
+    width: 100%;
+    margin: 16px 0 0;
+  }
+
+  #analyse > .analysis-panel,
+  #analyse > #analyse-analysis-panel {
+    margin-top: 0;
   }
 }
 
@@ -3180,5 +3212,29 @@ css .analysis-rank,
 
   .swatch {
     width: calc(33.333% - 7px);
+  }
+}
+
+/* Tablet genişliğinde (hamburger menüden önce) üst menü sıkışmasın */
+@media (min-width: 801px) and (max-width: 1050px) {
+  .navbar {
+    padding: 0 16px;
+  }
+
+  .nav-brand {
+    font-size: 1.5rem;
+    letter-spacing: 1px;
+    flex-shrink: 0;
+    margin-right: 12px;
+  }
+
+  .nav-links {
+    gap: 2px;
+  }
+
+  .nav-link {
+    padding: 8px 10px;
+    font-size: 0.92rem;
+    white-space: nowrap;
   }
 }

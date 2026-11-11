@@ -282,6 +282,11 @@
               </div>
 
               <div class="analyse-stat-row">
+                <span>Great</span>
+                <strong id="analyse-white-great">0</strong>
+              </div>
+
+              <div class="analyse-stat-row">
                 <span>Excellent</span>
                 <strong id="analyse-white-excellent">0</strong>
               </div>
@@ -324,6 +329,11 @@
               <div class="analyse-stat-row">
                 <span>Brilliant</span>
                 <strong id="analyse-black-brilliant">0</strong>
+              </div>
+
+              <div class="analyse-stat-row">
+                <span>Great</span>
+                <strong id="analyse-black-great">0</strong>
               </div>
 
               <div class="analyse-stat-row">
@@ -581,29 +591,173 @@
     <section id="profile" class="page-section" hidden>
       <div class="page-heading">
         <h1>Profile</h1>
-        <p>Your training progress and statistics.</p>
+        <p>Your training progress, statistics and settings.</p>
       </div>
 
-      <div class="profile-overview">
-        <div class="profile-stat-card">
-          <span class="profile-stat-label">Studied Openings</span>
-          <strong id="profile-openings-count">0</strong>
+      <div class="profile-tabs" role="tablist">
+        <button class="profile-tab active" data-tab="openings" role="tab">
+          Openings
+        </button>
+        <button class="profile-tab" data-tab="puzzles" role="tab">
+          Puzzles
+        </button>
+        <button class="profile-tab" data-tab="settings" role="tab">
+          Settings
+        </button>
+      </div>
+
+      <!-- OPENINGS -->
+      <div class="profile-pane" data-pane="openings">
+        <div class="profile-overview">
+          <div class="profile-stat-card">
+            <span class="profile-stat-label">Studied Openings</span>
+            <strong id="profile-openings-count">0</strong>
+          </div>
+
+          <div class="profile-stat-card">
+            <span class="profile-stat-label">Mastered Variations</span>
+            <strong id="profile-mastered-count">0</strong>
+          </div>
+
+          <div class="profile-stat-card">
+            <span class="profile-stat-label">Perfect Trainings</span>
+            <strong id="profile-perfect-count">0</strong>
+          </div>
         </div>
 
-        <div class="profile-stat-card">
-          <span class="profile-stat-label">Mastered Variations</span>
-          <strong id="profile-mastered-count">0</strong>
-        </div>
-
-        <div class="profile-stat-card">
-          <span class="profile-stat-label">Perfect Trainings</span>
-          <strong id="profile-perfect-count">0</strong>
+        <div class="profile-progress-section">
+          <h2>Opening Progress</h2>
+          <div id="profile-opening-progress"></div>
         </div>
       </div>
 
-      <div class="profile-progress-section">
-        <h2>Opening Progress</h2>
-        <div id="profile-opening-progress"></div>
+      <!-- PUZZLES -->
+      <div class="profile-pane" data-pane="puzzles" hidden>
+        <div class="profile-overview profile-puzzle-overview">
+          <div class="profile-stat-card">
+            <span class="profile-stat-label">Current Elo</span>
+            <strong id="pp-rating">1500</strong>
+          </div>
+          <div class="profile-stat-card">
+            <span class="profile-stat-label">Best Elo</span>
+            <strong id="pp-best">1500</strong>
+          </div>
+          <div class="profile-stat-card">
+            <span class="profile-stat-label">Success Rate</span>
+            <strong id="pp-rate">–</strong>
+          </div>
+          <div class="profile-stat-card">
+            <span class="profile-stat-label">Solved / Played</span>
+            <strong id="pp-solved">0 / 0</strong>
+          </div>
+          <div class="profile-stat-card">
+            <span class="profile-stat-label">Current Streak</span>
+            <strong id="pp-streak">0</strong>
+          </div>
+          <div class="profile-stat-card">
+            <span class="profile-stat-label">Best Streak</span>
+            <strong id="pp-best-streak">0</strong>
+          </div>
+          <div class="profile-stat-card">
+            <span class="profile-stat-label">Avg. Time</span>
+            <strong id="pp-time">–</strong>
+          </div>
+          <div class="profile-stat-card">
+            <span class="profile-stat-label">Today</span>
+            <strong id="pp-today">0</strong>
+          </div>
+          <div class="profile-stat-card">
+            <span class="profile-stat-label">Hints Used</span>
+            <strong id="pp-hints">0</strong>
+          </div>
+        </div>
+        <p class="profile-note">
+          A streak counts puzzles solved without hints and without mistakes.
+          Average time covers your last 50 puzzles.
+        </p>
+
+        <div class="profile-progress-section">
+          <h3 class="profile-subheading">Rating history</h3>
+          <div id="profile-puzzle-chart" class="profile-chart-card"></div>
+
+          <h3 class="profile-subheading">By difficulty</h3>
+          <div id="profile-puzzle-levels"></div>
+
+          <div class="log-header">
+            <h3 class="profile-subheading">Puzzle log</h3>
+            <select id="puzzle-log-filter" aria-label="Filter puzzle log">
+              <option value="all">All</option>
+              <option value="solved">Solved</option>
+              <option value="failed">Failed</option>
+              <option value="hint">Hint used</option>
+            </select>
+          </div>
+
+          <div class="log-table-wrap">
+            <table class="puzzle-log-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Puzzle</th>
+                  <th>Rating</th>
+                  <th>Level</th>
+                  <th>Result</th>
+                  <th>Elo</th>
+                  <th>Time</th>
+                </tr>
+              </thead>
+              <tbody id="puzzle-log-body"></tbody>
+            </table>
+          </div>
+          <p id="puzzle-log-empty" class="profile-empty">
+            No puzzles here yet. Solve some puzzles to build your log.
+          </p>
+          <button id="puzzle-log-more" class="log-more-btn" hidden>
+            Show more
+          </button>
+        </div>
+      </div>
+
+      <!-- SETTINGS -->
+      <div class="profile-pane" data-pane="settings" hidden>
+        <div class="profile-progress-section">
+          <h2>Sound</h2>
+          <div class="profile-settings-card">
+            <div class="settings-row">
+              <label for="setting-volume">Volume</label>
+              <div class="settings-control">
+                <input
+                  id="setting-volume"
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                />
+                <span id="setting-volume-value" class="settings-value"
+                  >80%</span
+                >
+              </div>
+            </div>
+            <div class="settings-row">
+              <label for="setting-mute">Mute all sounds</label>
+              <input id="setting-mute" type="checkbox" />
+            </div>
+          </div>
+        </div>
+
+        <div class="profile-progress-section">
+          <h2>Data</h2>
+          <div class="profile-settings-card">
+            <div class="settings-row">
+              <label>Export puzzle data (JSON)</label>
+              <button id="btn-export-puzzle-data" type="button">Export</button>
+            </div>
+            <div class="settings-row">
+              <label>Reset puzzle rating, stats and log</label>
+              <button id="btn-reset-puzzle-stats" type="button">Reset</button>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
 

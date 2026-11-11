@@ -293,9 +293,40 @@ let favoriteOpenings = new Set(
   JSON.parse(localStorage.getItem("azurite-favorites") || "[]"),
 );
 
+// ---------- Ayarlar (ses) ----------
+const SETTINGS_KEY = "azurite-settings";
+
+function loadSettings() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
+    return {
+      volume:
+        typeof saved.volume === "number"
+          ? Math.min(1, Math.max(0, saved.volume))
+          : 0.8,
+      muted: !!saved.muted,
+    };
+  } catch {
+    return { volume: 0.8, muted: false };
+  }
+}
+
+let settings = loadSettings();
+
+function saveSettings() {
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  } catch {}
+}
+
+function effectiveVolume() {
+  return settings.muted ? 0 : settings.volume;
+}
+
 function playSound(name, speed = 1) {
   const sound = SOUNDS[name];
   if (!sound) return;
+  sound.volume = effectiveVolume();
 
   sound.pause();
   sound.currentTime = 0;
@@ -353,7 +384,7 @@ export function playPromoteSound() {
 
   promoteSoundTimer = setTimeout(() => {
     const audio = new Audio("./assets/audio/promote.wav");
-    audio.volume = 0.6;
+    audio.volume = 0.6 * effectiveVolume();
 
     audio.play().catch((error) => {
       console.warn("Promote sound could not play:", error);
@@ -398,12 +429,34 @@ function findKingSquare(color) {
   return king ? king.square : null;
 }
 
+let lastRepRenderSig = null;
+let drillAnimateNext = false; // rakip hamlesi gibi sistem hamleleri için animasyon isteği
+
 function renderRepertoireBoard(animate = true) {
   if (!repBoardEl) return;
 
   const displayGame = drill ? drillGame : syncRepView();
   const history = displayGame.history({ verbose: true });
   const lastMove = history[history.length - 1];
+
+  // Aynı pozisyon zaten çizildiyse (ve animasyon istenmiyorsa) tahtayı yeniden kurma:
+  // devam eden taş animasyonu silinmesin.
+  const renderSig = [
+    displayGame.fen(),
+    lastMove ? lastMove.from + lastMove.to : "",
+    repSelectedSquare,
+    repLegalMoves.map((m) => m.to).join(","),
+    drillHintSquares.join(","),
+    repOrientation,
+  ].join("|");
+  if (
+    !animate &&
+    renderSig === lastRepRenderSig &&
+    repBoardEl.children.length
+  ) {
+    return;
+  }
+  lastRepRenderSig = renderSig;
 
   const animMove =
     typeof animate === "object" && animate !== null
@@ -1533,7 +1586,7 @@ document.getElementById("analyse-btn-reset")?.addEventListener("click", () => {
   goToAnalysePly(0, false);
 });
 
-const REVIEW_DEPTH = 12;
+const REVIEW_DEPTH = 14; // yüksek = daha doğru ama daha yavaş
 const PIECE_VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 
 let analyseMoveClasses = [];
@@ -1600,7 +1653,7 @@ async function runEvaluation(fen, depth = REVIEW_DEPTH) {
   const whiteToMove = fen.split(" ")[1] === "w";
 
   return new Promise((resolve) => {
-    const scores = {};
+    const lines = {}; // rank -> { cp (beyaz bakışı), pv: [uci...] }
 
     const onMessage = (event) => {
       const msg = String(event.data).trim();
@@ -1609,20 +1662,28 @@ async function runEvaluation(fen, depth = REVIEW_DEPTH) {
         const rank = Number(msg.match(/\bmultipv (\d+)/)?.[1] ?? 1);
         const cp = msg.match(/\bscore cp (-?\d+)/);
         const mate = msg.match(/\bscore mate (-?\d+)/);
+        const pvMatch = msg.match(/\bpv (.+)$/);
         let value = null;
 
         if (cp) value = Number(cp[1]);
         else if (mate) value = Number(mate[1]) > 0 ? 3000 : -3000;
 
-        if (value !== null) scores[rank] = whiteToMove ? value : -value;
+        if (value !== null) {
+          lines[rank] = {
+            cp: whiteToMove ? value : -value,
+            pv: pvMatch ? pvMatch[1].trim().split(/\s+/).slice(0, 10) : [],
+          };
+        }
       } else if (msg.startsWith("bestmove")) {
         worker.removeEventListener("message", onMessage);
         const best = msg.split(" ")[1];
 
         resolve({
-          cp: scores[1] ?? 0,
-          second: scores[2] ?? null,
+          cp: lines[1]?.cp ?? 0,
+          second: lines[2]?.cp ?? null,
           best: best && best !== "(none)" ? best : null,
+          lines, // { 1: {cp, pv}, 2: {cp, pv} }
+          pv: lines[1]?.pv ?? [],
         });
       }
     };
@@ -1633,30 +1694,36 @@ async function runEvaluation(fen, depth = REVIEW_DEPTH) {
   });
 }
 
+// Lichess/chess.com tarzı: centipawn -> kazanma yüzdesi (beklenen puan x 100)
 function winPercent(cp) {
   const c = Math.max(-1200, Math.min(1200, cp));
   return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * c)) - 1);
 }
 
+// Hamle doğruluğu: kazanma yüzdesi kaybına göre (Lichess formülü)
 function moveAccuracy(winLoss) {
-  const acc = 100 * Math.exp(-0.0525 * Math.max(0, winLoss));
+  const acc =
+    103.1668100711649 * Math.exp(-0.04354415386753951 * Math.max(0, winLoss)) -
+    3.166924740191411 +
+    1;
   return Math.max(0, Math.min(100, acc));
 }
 
+// Oyun doğruluğu: oynaklık ağırlıklı ortalama ile harmonik ortalamanın ortalaması
 function combineAccuracy(accs, weights) {
   if (!accs.length) return null;
-  const weightSum = weights.reduce((a, b) => a + b, 0);
+  const weightSum = weights.reduce((a, b) => a + b, 0) || 1;
   const weighted =
     accs.reduce((sum, a, i) => sum + a * weights[i], 0) / weightSum;
   const harmonic =
     accs.length / accs.reduce((sum, a) => sum + 1 / Math.max(a, 1), 0);
 
-  return Math.min(100, Math.max(0, weighted * 0.55 + harmonic * 0.45));
+  return Math.min(100, Math.max(0, (weighted + harmonic) / 2));
 }
 
 function volatilityWeights(winSeries) {
   const total = winSeries.length - 1;
-  const size = Math.max(2, Math.min(6, Math.round(total / 12)));
+  const size = Math.max(2, Math.min(8, Math.floor(winSeries.length / 10)));
   const weights = [];
 
   for (let i = 0; i < total; i++) {
@@ -1668,89 +1735,97 @@ function volatilityWeights(winSeries) {
       win.reduce((a, b) => a + (b - mean) ** 2, 0) / win.length,
     );
 
-    weights.push(Math.max(0.5, Math.min(4, sd)));
+    weights.push(Math.max(0.5, Math.min(12, sd)));
   }
 
   return weights;
 }
 
-function sacrificeValue(fenBefore, move) {
-  if (move.piece === "k") return 0;
-
-  const chess = new Chess(fenBefore);
-  chess.move(move.san);
-
-  const gained = move.captured ? PIECE_VAL[move.captured] : 0;
-  const lost = PIECE_VAL[move.piece];
-
-  const captures = chess
-    .moves({ verbose: true })
-    .filter((m) => m.to === move.to && m.captured);
-
-  if (!captures.length) return 0;
-
-  let worst = 0;
-  for (const reply of captures) {
-    const after = new Chess(chess.fen());
-    after.move(reply.san);
-
-    const recapture = after
-      .moves({ verbose: true })
-      .some((m) => m.to === move.to && m.captured);
-
-    const net = gained - lost + (recapture ? PIECE_VAL[reply.piece] : 0);
-    worst = Math.min(worst, net);
+function materialDiff(chess, color) {
+  let diff = 0;
+  for (const row of chess.board()) {
+    for (const p of row) {
+      if (!p || p.type === "k") continue;
+      diff += (p.color === color ? 1 : -1) * PIECE_VAL[p.type];
+    }
   }
-
-  return worst;
+  return diff;
 }
 
+// Motorun ana varyantını oynatıp, takaslar bitince hamle yapanın materyal farkını ölçer.
+// Negatif sonuç = materyal feda edilmiş (örn. -3 = bir taş).
+function pvMaterialSwing(fenBefore, pvMoves, color) {
+  if (!pvMoves || pvMoves.length < 2) return 0;
+
+  const chess = new Chess(fenBefore);
+  const start = materialDiff(chess, color);
+  const diffs = [];
+  const captures = [];
+
+  for (const uci of pvMoves.slice(0, 8)) {
+    let mv = null;
+    try {
+      mv = chess.move({
+        from: uci.slice(0, 2),
+        to: uci.slice(2, 4),
+        promotion: uci[4] || undefined,
+      });
+    } catch {
+      mv = null;
+    }
+    if (!mv) break;
+    diffs.push(materialDiff(chess, color));
+    captures.push(!!mv.captured);
+  }
+
+  if (diffs.length < 2) return 0;
+
+  // İlk "sakin" noktayı bul: rakibin en az bir hamlesi oynanmış ve bekleyen takas yok
+  for (let k = 1; k < diffs.length; k++) {
+    const nextIsCapture = k + 1 < captures.length && captures[k + 1];
+    if (!nextIsCapture) return diffs[k] - start;
+  }
+  return diffs[diffs.length - 1] - start;
+}
+
+// chess.com tarzı sınıflandırma: kaybedilen "beklenen puan" (kazanma %) eşikleri
+//   best ≈ 0 · excellent ≤ 2 · good ≤ 5 · inaccuracy ≤ 10 · mistake ≤ 20 · blunder > 20
 function classifyMove({
   uci,
   best,
   loss,
-  sacrifice,
-  piece,
   winBefore,
   winAfter,
   gap,
   isRecapture,
+  sacrificeSwing,
+  moverPiece,
 }) {
+  const playedBest = uci === best;
+
+  // Brilliant: iyi (en iyiye yakın) bir hamle + gerçek materyal feda etme,
+  // pozisyon zaten kazanılmış değil ve hamleden sonra da kaybedilmiş değil
   if (
-    loss < 0.4 &&
-    sacrifice <= -2 &&
-    "nbrq".includes(piece) &&
-    winAfter >= 35 &&
-    winBefore < 80
+    moverPiece !== "k" &&
+    loss <= 2 &&
+    sacrificeSwing <= -2 &&
+    winBefore < 90 &&
+    winAfter >= 50
   ) {
     return "brilliant";
   }
 
-  if (loss < 0.12 && winAfter > winBefore + 3 && !isRecapture) {
-    return "excellent";
+  // Great: tek iyi hamle (diğer alternatifler belirgin kötü) ya da kritik bir hamle
+  if (loss <= 1.5 && gap >= 12 && !isRecapture && winBefore < 95) {
+    return "great";
   }
 
-  if (uci === best || loss < 0.06) {
-    return "best";
-  }
-
-  if (loss < 2.0) {
-    return "good";
-  }
-
-  if (loss < 4.5) {
-    return "inaccuracy";
-  }
-
-  if (loss < 15.0) {
-    return "mistake";
-  }
-
-  if (loss >= 20.0 || (winBefore >= 50 && winAfter < 10)) {
-    return "blunder";
-  }
-
-  return "mistake";
+  if (playedBest || loss < 0.1) return "best";
+  if (loss <= 2) return "excellent";
+  if (loss <= 5) return "good";
+  if (loss <= 10) return "inaccuracy";
+  if (loss <= 20) return "mistake";
+  return "blunder";
 }
 
 async function reviewGame(
@@ -1809,7 +1884,6 @@ async function reviewGame(
       uci: m.from + m.to + (m.promotion ?? ""),
       fenBefore,
       fenAfter: chess.fen(),
-      sacrifice: sacrificeValue(fenBefore, m),
     });
   }
 
@@ -1842,6 +1916,7 @@ async function reviewGame(
   for (const color of ["w", "b"]) {
     summary[color] = {
       brilliant: 0,
+      great: 0,
       excellent: 0,
       best: 0,
       good: 0,
@@ -1864,32 +1939,63 @@ async function reviewGame(
   }
 
   moves.forEach((mv, i) => {
-    if (i < bookPlies) return;
+    const s = summary[mv.color];
+
+    // Teori hamleleri: sınıflandırılmaz, doğruluğa kusursuz sayılır
+    if (i < bookPlies) {
+      s.accs.push(100);
+      s.weights.push(weights[i]);
+      return;
+    }
+
     const sign = mv.color === "w" ? 1 : -1;
-    const winBefore = winPercent(sign * evals[i].cp);
-    const winAfter = winPercent(sign * evals[i + 1].cp);
+    const before = evals[i];
+    const after = evals[i + 1];
+    const winBefore = winPercent(sign * before.cp);
+
+    // Oynanan hamle motorun 1. ya da 2. çizgisiyle aynıysa, aynı aramadaki değeri kullan.
+    // (Gürültüden dolayı "en iyi hamle"ye hata verilmesini engeller.)
+    let afterCp = after.cp;
+    let pv = [mv.uci, ...(after.pv || [])];
+    const line1 = before.lines?.[1];
+    const line2 = before.lines?.[2];
+
+    if (line1 && line1.pv[0] === mv.uci) {
+      afterCp = line1.cp;
+      pv = line1.pv;
+    } else if (line2 && line2.pv[0] === mv.uci) {
+      afterCp = line2.cp;
+      pv = line2.pv;
+    }
+
+    const winAfter = winPercent(sign * afterCp);
     const loss = Math.max(0, winBefore - winAfter);
 
-    const second = evals[i].second;
-    const gap = second == null ? 0 : winBefore - winPercent(sign * second);
+    const gap =
+      before.second == null ? 0 : winBefore - winPercent(sign * before.second);
     const isRecapture =
       i > 0 && moves[i - 1].captured && moves[i - 1].to === mv.to;
 
+    // Brilliant için pahalı hesabı sadece iyi hamlelerde yap
+    const sacrificeSwing =
+      loss <= 2 && winBefore < 90 && winAfter >= 50
+        ? pvMaterialSwing(mv.fenBefore, pv, mv.color)
+        : 0;
+
     const cls = classifyMove({
       uci: mv.uci,
-      best: evals[i].best,
+      best: before.best,
       loss,
-      sacrifice: mv.sacrifice,
-      piece: mv.piece,
       winBefore,
       winAfter,
       gap,
       isRecapture,
+      sacrificeSwing,
+      moverPiece: mv.piece,
     });
 
     classes[i + 1] = cls;
 
-    const s = summary[mv.color];
     s[cls]++;
     s.accs.push(moveAccuracy(loss));
     s.weights.push(weights[i]);
@@ -2520,7 +2626,9 @@ function update(animate = true) {
   renderLearnPanel();
 
   if (drill) {
-    renderRepertoireBoard(false);
+    const animateDrill = drillAnimateNext;
+    drillAnimateNext = false;
+    renderRepertoireBoard(animateDrill);
   }
 }
 
@@ -3234,6 +3342,8 @@ function getVariationProgress(variationData) {
 }
 
 function renderProfileProgress() {
+  renderPuzzleProfile();
+
   const container = document.getElementById("profile-opening-progress");
   if (!container) return;
 
@@ -3983,6 +4093,7 @@ function advanceDrill() {
 
     if (played) {
       playSound(played.captured ? "capture" : "move");
+      drillAnimateNext = true; // rakip hamlesi kayarak gelsin
       update(false);
       advanceDrill();
     }
@@ -4380,6 +4491,7 @@ const PUZZLE_LEVELS = {
   hard: { min: 1800, max: 2200, api: 3 },
   expert: { min: 2200, max: Infinity, api: 4 },
 };
+PUZZLE_LEVELS.master = PUZZLE_LEVELS.expert; // menüde "Master" yazıyorsa da çalışsın
 const PUZZLE_MAX_ATTEMPTS = 4;
 const PUZZLE_ATTEMPT_DELAY_MS = 500; // istekler arası bekleme (rate limit için)
 const PUZZLE_RATE_LIMIT_MS = 60_000; // Lichess 429 verince 1 dakika bekle
@@ -4489,6 +4601,9 @@ async function fetchNewPuzzle() {
 
   const difficultySelect = document.getElementById("puzzle-difficulty-select");
   const level = PUZZLE_LEVELS[difficultySelect?.value] || PUZZLE_LEVELS.medium;
+  const levelKey = PUZZLE_LEVELS[difficultySelect?.value]
+    ? difficultySelect.value
+    : "medium";
 
   try {
     const data = await fetchPuzzleInRange(level, loadId);
@@ -4521,6 +4636,7 @@ async function fetchNewPuzzle() {
       id: puzzleData.id,
       solution,
       rating: puzzleData.rating || puzzleRating,
+      levelKey,
     };
 
     // Tahtayı rakibin son hamlesinden önceki konuma kur
@@ -4565,6 +4681,7 @@ async function fetchNewPuzzle() {
         renderPuzzleMoves();
       }
       currentPuzzle.startPly = puzzleGame.history().length; // Analyse'ta buradan başlatılır
+      currentPuzzle.startedAt = Date.now(); // çözme süresi için
 
       if (puzzleStatusEl) {
         puzzleStatusEl.textContent = `Your turn! Find the move for ${puzzlePlayerColor === "w" ? "White" : "Black"}. (Rating: ${currentPuzzle.rating})`;
@@ -4894,6 +5011,7 @@ document.getElementById("puzzle-btn-hint")?.addEventListener("click", () => {
 });
 
 function recordPuzzleResult(won, ratingChange, usedHint = false) {
+  const ratingBefore = puzzleRating;
   if (!usedHint && ratingChange !== 0) {
     puzzleRating += ratingChange;
     if (puzzleRating < 400) puzzleRating = 400;
@@ -4911,7 +5029,411 @@ function recordPuzzleResult(won, ratingChange, usedHint = false) {
 
   localStorage.setItem("azurite-puzzle-history", JSON.stringify(puzzleHistory));
   renderPuzzleHistory();
+  recordPuzzleStats(won, usedHint, puzzleRating - ratingBefore);
 }
+
+// ==========================================
+// PUZZLE İSTATİSTİKLERİ (Profile sayfası)
+// ==========================================
+const PUZZLE_STATS_KEY = "azurite-puzzle-stats";
+const PUZZLE_RATING_HISTORY_MAX = 100;
+const PUZZLE_LEVEL_LABELS = {
+  beginner: "Beginner (600–1000)",
+  easy: "Easy (1000–1400)",
+  medium: "Medium (1400–1800)",
+  hard: "Hard (1800–2200)",
+  expert: "Master (2200+)",
+};
+
+function defaultPuzzleStats() {
+  return {
+    ratingHistory: [{ r: puzzleRating, t: Date.now() }],
+    played: 0,
+    solved: 0,
+    failed: 0,
+    hinted: 0,
+    bestRating: puzzleRating,
+    streak: 0,
+    bestStreak: 0,
+    levels: {},
+  };
+}
+
+function loadPuzzleStats() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(PUZZLE_STATS_KEY));
+    if (saved && Array.isArray(saved.ratingHistory)) {
+      return { ...defaultPuzzleStats(), ...saved };
+    }
+  } catch {}
+  return defaultPuzzleStats();
+}
+
+let puzzleStats = loadPuzzleStats();
+
+// Detaylı puzzle kayıt defteri (cihazda, localStorage): her puzzle için bir satır
+const PUZZLE_LOG_KEY = "azurite-puzzle-log";
+const PUZZLE_LOG_MAX = 500;
+
+function loadPuzzleLog() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(PUZZLE_LOG_KEY));
+    if (Array.isArray(saved)) return saved;
+  } catch {}
+  return [];
+}
+
+let puzzleLog = loadPuzzleLog();
+
+function savePuzzleLog() {
+  try {
+    localStorage.setItem(PUZZLE_LOG_KEY, JSON.stringify(puzzleLog));
+  } catch {}
+}
+
+function savePuzzleStats() {
+  try {
+    localStorage.setItem(PUZZLE_STATS_KEY, JSON.stringify(puzzleStats));
+  } catch {}
+}
+
+function recordPuzzleStats(won, usedHint, ratingChange = 0) {
+  const st = puzzleStats;
+  st.played++;
+  if (won) st.solved++;
+  else st.failed++;
+  if (usedHint) st.hinted++;
+
+  // Seri: yardımsız çözülen puzzle'lar. Yanlış ya da hint kullanımı seriyi bozar.
+  if (won && !usedHint) {
+    st.streak++;
+    st.bestStreak = Math.max(st.bestStreak, st.streak);
+  } else {
+    st.streak = 0;
+  }
+
+  st.bestRating = Math.max(st.bestRating, puzzleRating);
+  st.ratingHistory.push({ r: puzzleRating, t: Date.now() });
+  if (st.ratingHistory.length > PUZZLE_RATING_HISTORY_MAX) {
+    st.ratingHistory.splice(
+      0,
+      st.ratingHistory.length - PUZZLE_RATING_HISTORY_MAX,
+    );
+  }
+
+  const key =
+    currentPuzzle?.levelKey === "master" ? "expert" : currentPuzzle?.levelKey;
+  if (key) {
+    const lv = (st.levels[key] ||= { played: 0, solved: 0 });
+    lv.played++;
+    if (won) lv.solved++;
+  }
+
+  savePuzzleStats();
+
+  const startedAt = currentPuzzle?.startedAt;
+  puzzleLog.unshift({
+    id: currentPuzzle?.id ?? null,
+    puzzleRating: currentPuzzle?.rating ?? null,
+    level: key ?? null,
+    won,
+    hint: !!usedHint,
+    change: ratingChange,
+    ratingAfter: puzzleRating,
+    t: Date.now(),
+    ms: startedAt ? Math.min(Date.now() - startedAt, 3_600_000) : null,
+  });
+  if (puzzleLog.length > PUZZLE_LOG_MAX) puzzleLog.length = PUZZLE_LOG_MAX;
+  savePuzzleLog();
+}
+
+function formatDuration(ms) {
+  if (ms == null) return "–";
+  const total = Math.round(ms / 1000);
+  const m = Math.floor(total / 60);
+  const sec = String(total % 60).padStart(2, "0");
+  return `${m}:${sec}`;
+}
+
+let puzzleLogFilter = "all";
+let puzzleLogVisible = 20;
+
+function renderPuzzleLog() {
+  const body = document.getElementById("puzzle-log-body");
+  const moreBtn = document.getElementById("puzzle-log-more");
+  const emptyEl = document.getElementById("puzzle-log-empty");
+  if (!body) return;
+
+  const rows = puzzleLog.filter((e) => {
+    if (puzzleLogFilter === "solved") return e.won && !e.hint;
+    if (puzzleLogFilter === "failed") return !e.won;
+    if (puzzleLogFilter === "hint") return e.hint;
+    return true;
+  });
+
+  body.innerHTML = "";
+  rows.slice(0, puzzleLogVisible).forEach((e) => {
+    const tr = document.createElement("tr");
+    const date = new Date(e.t).toLocaleString(undefined, {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    const result = e.hint ? "Hint" : e.won ? "Solved" : "Failed";
+    const resultClass = e.hint ? "hint" : e.won ? "win" : "loss";
+    const change = e.hint ? "0" : `${e.change > 0 ? "+" : ""}${e.change}`;
+    const levelLabel = (PUZZLE_LEVEL_LABELS[e.level] || "–").split(" (")[0];
+
+    const idCell = e.id
+      ? `<a href="https://lichess.org/training/${encodeURIComponent(e.id)}" target="_blank" rel="noopener noreferrer">${e.id}</a>`
+      : "–";
+
+    tr.innerHTML = `
+      <td>${date}</td>
+      <td>${idCell}</td>
+      <td>${e.puzzleRating ?? "–"}</td>
+      <td>${levelLabel}</td>
+      <td><span class="log-result ${resultClass}">${result}</span></td>
+      <td class="log-change ${e.change > 0 ? "up" : e.change < 0 ? "down" : ""}">${change}</td>
+      <td>${formatDuration(e.ms)}</td>`;
+    body.appendChild(tr);
+  });
+
+  if (emptyEl) emptyEl.hidden = rows.length > 0;
+  if (moreBtn) moreBtn.hidden = rows.length <= puzzleLogVisible;
+}
+
+function renderPuzzleChart(history) {
+  const el = document.getElementById("profile-puzzle-chart");
+  if (!el) return;
+
+  if (history.length < 2) {
+    el.innerHTML =
+      '<p class="profile-empty">Solve a few puzzles to see your rating graph.</p>';
+    return;
+  }
+
+  const W = 600;
+  const H = 220;
+  const padL = 44;
+  const padR = 14;
+  const padT = 14;
+  const padB = 24;
+
+  const values = history.map((p) => p.r);
+  let min = Math.min(...values);
+  let max = Math.max(...values);
+  if (max - min < 40) {
+    min -= 20;
+    max += 20;
+  }
+  const span = max - min;
+  min -= span * 0.1;
+  max += span * 0.1;
+
+  const x = (i) => padL + (i / (history.length - 1)) * (W - padL - padR);
+  const y = (v) => padT + (1 - (v - min) / (max - min)) * (H - padT - padB);
+
+  const line = history
+    .map((p, i) => `${x(i).toFixed(1)},${y(p.r).toFixed(1)}`)
+    .join(" ");
+  const area = `${padL},${H - padB} ${line} ${x(history.length - 1).toFixed(1)},${H - padB}`;
+
+  const ticks = [min, (min + max) / 2, max].map((v) => Math.round(v));
+  const grid = ticks
+    .map(
+      (v) => `
+      <line x1="${padL}" x2="${W - padR}" y1="${y(v)}" y2="${y(v)}" class="chart-grid"/>
+      <text x="${padL - 6}" y="${y(v) + 4}" class="chart-label" text-anchor="end">${v}</text>`,
+    )
+    .join("");
+
+  const dots = history
+    .map((p, i) => {
+      const last = i === history.length - 1;
+      return `<circle cx="${x(i).toFixed(1)}" cy="${y(p.r).toFixed(1)}" r="${last ? 5 : 3}" class="${last ? "chart-dot-last" : "chart-dot"}"><title>#${i}: ${p.r}</title></circle>`;
+    })
+    .join("");
+
+  el.innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" class="rating-chart" role="img" aria-label="Puzzle rating history">
+      ${grid}
+      <polygon points="${area}" class="chart-area"/>
+      <polyline points="${line}" class="chart-line"/>
+      ${dots}
+    </svg>`;
+}
+
+function renderPuzzleProfile() {
+  const st = puzzleStats;
+  const set = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  };
+
+  set("pp-rating", puzzleRating);
+  set("pp-best", Math.max(st.bestRating, puzzleRating));
+  set("pp-solved", `${st.solved} / ${st.played}`);
+  set(
+    "pp-rate",
+    st.played ? `${Math.round((st.solved / st.played) * 100)}%` : "–",
+  );
+  set("pp-streak", st.streak);
+  set("pp-best-streak", st.bestStreak);
+  set("pp-hints", st.hinted);
+
+  const timed = puzzleLog.filter((e) => e.ms != null).slice(0, 50);
+  set(
+    "pp-time",
+    timed.length
+      ? formatDuration(timed.reduce((sum, e) => sum + e.ms, 0) / timed.length)
+      : "–",
+  );
+
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+  set("pp-today", puzzleLog.filter((e) => e.t >= startOfDay.getTime()).length);
+
+  renderPuzzleLog();
+
+  renderPuzzleChart(st.ratingHistory);
+
+  const levelsEl = document.getElementById("profile-puzzle-levels");
+  if (levelsEl) {
+    levelsEl.innerHTML = "";
+    for (const [key, label] of Object.entries(PUZZLE_LEVEL_LABELS)) {
+      const lv = st.levels[key] || { played: 0, solved: 0 };
+      const percent = lv.played ? Math.round((lv.solved / lv.played) * 100) : 0;
+
+      const row = document.createElement("div");
+      row.className = "profile-variation-row";
+      row.innerHTML = `
+        <div class="profile-variation-header">
+          <span>${label}</span>
+          <span>${lv.solved} / ${lv.played}${lv.played ? ` · ${percent}%` : ""}</span>
+        </div>
+        <div class="profile-progress-track">
+          <div class="profile-progress-fill" style="width:${percent}%"></div>
+        </div>`;
+      levelsEl.appendChild(row);
+    }
+  }
+}
+
+// ---------- Ayarlar paneli ----------
+function initSettingsPanel() {
+  const volumeEl = document.getElementById("setting-volume");
+  const volumeValueEl = document.getElementById("setting-volume-value");
+  const muteEl = document.getElementById("setting-mute");
+  const resetBtn = document.getElementById("btn-reset-puzzle-stats");
+
+  const sync = () => {
+    if (volumeEl) volumeEl.value = Math.round(settings.volume * 100);
+    if (volumeValueEl)
+      volumeValueEl.textContent = settings.muted
+        ? "Muted"
+        : `${Math.round(settings.volume * 100)}%`;
+    if (muteEl) muteEl.checked = settings.muted;
+    if (volumeEl) volumeEl.disabled = settings.muted;
+  };
+  sync();
+
+  volumeEl?.addEventListener("input", () => {
+    settings.volume = Number(volumeEl.value) / 100;
+    saveSettings();
+    sync();
+  });
+  volumeEl?.addEventListener("change", () => playSound("move")); // sesi duyup ayarla
+
+  muteEl?.addEventListener("change", () => {
+    settings.muted = muteEl.checked;
+    saveSettings();
+    sync();
+  });
+
+  // Profile sekmeleri
+  const tabs = document.querySelectorAll(".profile-tab");
+  const panes = document.querySelectorAll(".profile-pane");
+  const showTab = (name) => {
+    tabs.forEach((t) => t.classList.toggle("active", t.dataset.tab === name));
+    panes.forEach((p) => (p.hidden = p.dataset.pane !== name));
+    try {
+      localStorage.setItem("azurite-profile-tab", name);
+    } catch {}
+  };
+  tabs.forEach((t) =>
+    t.addEventListener("click", () => showTab(t.dataset.tab)),
+  );
+  let savedTab = "openings";
+  try {
+    savedTab = localStorage.getItem("azurite-profile-tab") || "openings";
+  } catch {}
+  showTab(
+    [...tabs].some((t) => t.dataset.tab === savedTab) ? savedTab : "openings",
+  );
+
+  // Puzzle kayıt defteri kontrolleri
+  document
+    .getElementById("puzzle-log-filter")
+    ?.addEventListener("change", (e) => {
+      puzzleLogFilter = e.target.value;
+      puzzleLogVisible = 20;
+      renderPuzzleLog();
+    });
+  document.getElementById("puzzle-log-more")?.addEventListener("click", () => {
+    puzzleLogVisible += 20;
+    renderPuzzleLog();
+  });
+
+  document
+    .getElementById("btn-export-puzzle-data")
+    ?.addEventListener("click", () => {
+      const data = {
+        exportedAt: new Date().toISOString(),
+        rating: puzzleRating,
+        stats: puzzleStats,
+        log: puzzleLog,
+      };
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: "application/json",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "azurite-puzzle-data.json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+
+  resetBtn?.addEventListener("click", () => {
+    if (
+      !confirm(
+        "Reset puzzle rating, history, statistics and the puzzle log? This cannot be undone.",
+      )
+    )
+      return;
+    puzzleLog = [];
+    savePuzzleLog();
+
+    puzzleRating = 1500;
+    puzzleHistory = [];
+    try {
+      localStorage.setItem("azurite-puzzle-rating", puzzleRating);
+      localStorage.setItem("azurite-puzzle-history", "[]");
+    } catch {}
+    puzzleStats = defaultPuzzleStats();
+    savePuzzleStats();
+
+    if (puzzleRatingEl) puzzleRatingEl.textContent = puzzleRating;
+    renderPuzzleHistory();
+    renderPuzzleProfile();
+  });
+}
+
+initSettingsPanel();
 
 function renderPuzzleHistory() {
   if (!puzzleHistoryGrid) return;

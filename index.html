@@ -598,7 +598,9 @@
         <button class="profile-tab active" data-tab="openings" role="tab">
           Openings
         </button>
-        <button class="profile-tab" data-tab="puzzles" role="tab">Puzzles</button>
+        <button class="profile-tab" data-tab="puzzles" role="tab">
+          Puzzles
+        </button>
         <button class="profile-tab" data-tab="settings" role="tab">
           Settings
         </button>
@@ -745,7 +747,11 @@
                 <label for="setting-dark">Dark squares</label>
                 <input id="setting-dark" type="color" value="#348aa0" />
               </div>
-              <button id="btn-reset-appearance" type="button" class="color-reset">
+              <button
+                id="btn-reset-appearance"
+                type="button"
+                class="color-reset"
+              >
                 Reset appearance
               </button>
             </div>
@@ -765,12 +771,91 @@
                   max="100"
                   step="5"
                 />
-                <span id="setting-volume-value" class="settings-value">80%</span>
+                <span id="setting-volume-value" class="settings-value"
+                  >80%</span
+                >
               </div>
             </div>
             <div class="settings-row">
               <label for="setting-mute">Mute all sounds</label>
               <input id="setting-mute" type="checkbox" />
+            </div>
+          </div>
+        </div>
+
+        <div class="profile-progress-section">
+          <h2>Board &amp; Gameplay</h2>
+          <div class="profile-settings-card">
+            <div class="settings-row">
+              <label for="setting-anim-speed">Animation speed</label>
+              <select id="setting-anim-speed">
+                <option value="off">Off</option>
+                <option value="fast">Fast</option>
+                <option value="normal">Normal</option>
+                <option value="slow">Slow</option>
+              </select>
+            </div>
+            <div class="settings-row">
+              <label for="setting-coords">Show coordinates</label
+              ><input id="setting-coords" type="checkbox" />
+            </div>
+            <div class="settings-row">
+              <label for="setting-legal-dots">Show legal-move dots</label
+              ><input id="setting-legal-dots" type="checkbox" />
+            </div>
+            <div class="settings-row">
+              <label for="setting-last-move">Highlight last move</label
+              ><input id="setting-last-move" type="checkbox" />
+            </div>
+            <div class="settings-row">
+              <label for="setting-promo-ask"
+                >Choose promotion piece (otherwise queen)</label
+              ><input id="setting-promo-ask" type="checkbox" />
+            </div>
+          </div>
+        </div>
+
+        <div class="profile-progress-section">
+          <h2>Puzzles</h2>
+          <div class="profile-settings-card">
+            <div class="settings-row">
+              <label for="setting-default-puzzle">Default difficulty</label>
+              <select id="setting-default-puzzle">
+                <option value="beginner">Beginner</option>
+                <option value="easy">Easy</option>
+                <option value="medium">Medium</option>
+                <option value="hard">Hard</option>
+                <option value="expert">Master</option>
+              </select>
+            </div>
+            <div class="settings-row">
+              <label for="setting-auto-next"
+                >Auto-load next puzzle after solving</label
+              ><input id="setting-auto-next" type="checkbox" />
+            </div>
+          </div>
+        </div>
+
+        <div class="profile-progress-section">
+          <h2>Engine</h2>
+          <div class="profile-settings-card">
+            <div class="settings-row">
+              <label for="setting-review-depth">Game review depth</label>
+              <select id="setting-review-depth">
+                <option value="12">12 (fast)</option>
+                <option value="14">14 (default)</option>
+                <option value="16">16 (accurate)</option>
+                <option value="18">18 (slow)</option>
+              </select>
+            </div>
+            <div class="settings-row">
+              <label for="setting-live-depth">Live analysis depth</label>
+              <select id="setting-live-depth">
+                <option value="10">10 (fast)</option>
+                <option value="13">13 (default)</option>
+                <option value="16">16</option>
+                <option value="18">18 (slow)</option>
+              </select>
             </div>
           </div>
         </div>

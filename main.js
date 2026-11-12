@@ -321,6 +321,24 @@ function loadSettings() {
         typeof saved.customLight === "string" ? saved.customLight : null,
       customDark:
         typeof saved.customDark === "string" ? saved.customDark : null,
+      reviewDepth: [12, 14, 16, 18].includes(saved.reviewDepth)
+        ? saved.reviewDepth
+        : 14,
+      liveDepth: [10, 13, 16, 18].includes(saved.liveDepth)
+        ? saved.liveDepth
+        : 13,
+      animSpeed: ["off", "fast", "normal", "slow"].includes(saved.animSpeed)
+        ? saved.animSpeed
+        : "normal",
+      showCoords: saved.showCoords !== false,
+      showLegalDots: saved.showLegalDots !== false,
+      showLastMove: saved.showLastMove !== false,
+      defaultPuzzleLevel:
+        typeof saved.defaultPuzzleLevel === "string"
+          ? saved.defaultPuzzleLevel
+          : "medium",
+      autoNextPuzzle: !!saved.autoNextPuzzle,
+      promotionAsk: !!saved.promotionAsk,
     };
   } catch {
     return {
@@ -331,6 +349,15 @@ function loadSettings() {
       customAccent: null,
       customLight: null,
       customDark: null,
+      reviewDepth: 14,
+      liveDepth: 13,
+      animSpeed: "normal",
+      showCoords: true,
+      showLegalDots: true,
+      showLastMove: true,
+      defaultPuzzleLevel: "medium",
+      autoNextPuzzle: false,
+      promotionAsk: false,
     };
   }
 }
@@ -481,6 +508,63 @@ function applyAppearance() {
   const board = currentBoardColors();
   root.style.setProperty("--light", board.light);
   root.style.setProperty("--dark", board.dark);
+
+  document.body?.classList.toggle("hide-coords", !settings.showCoords);
+  document.body?.classList.toggle("hide-legal-dots", !settings.showLegalDots);
+  document.body?.classList.toggle("hide-last-move", !settings.showLastMove);
+}
+
+// Animasyon hızı (ms). 0 = kapalı
+function animMs() {
+  return (
+    { off: 0, fast: 90, normal: 180, slow: 320 }[settings.animSpeed] ?? 180
+  );
+}
+function animTransition() {
+  const ms = animMs();
+  return ms === 0 ? "none" : `transform ${ms}ms ease`;
+}
+
+// Terfi seçimi: ayar açıksa küçük bir seçim penceresi gösterir, değilse vezir
+function isPromotionMove(chessObj, from, to) {
+  const p = chessObj.get(from);
+  if (!p || p.type !== "p") return false;
+  return (
+    (p.color === "w" && to[1] === "8") || (p.color === "b" && to[1] === "1")
+  );
+}
+function askPromotion(color) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "promo-overlay";
+    const box = document.createElement("div");
+    box.className = "promo-box";
+    const glyph = { q: "♛", r: "♜", b: "♝", n: "♞" };
+    for (const t of ["q", "r", "b", "n"]) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.textContent = glyph[t];
+      btn.setAttribute("aria-label", t);
+      btn.addEventListener("click", () => {
+        overlay.remove();
+        resolve(t);
+      });
+      box.appendChild(btn);
+    }
+    overlay.appendChild(box);
+    overlay.addEventListener("click", (e) => {
+      if (e.target === overlay) {
+        overlay.remove();
+        resolve(null);
+      }
+    });
+    document.body.appendChild(overlay);
+  });
+}
+async function pickPromotion(chessObj, from, to) {
+  if (!settings.promotionAsk || !isPromotionMove(chessObj, from, to))
+    return "q";
+  return askPromotion(chessObj.get(from).color);
 }
 
 applyAppearance();
@@ -713,7 +797,7 @@ function renderRepertoireBoard(animate = true) {
       newPiece.offsetHeight;
 
       requestAnimationFrame(() => {
-        newPiece.style.transition = "transform 180ms ease";
+        newPiece.style.transition = animTransition();
         newPiece.style.transform = "translate(0, 0)";
       });
     }
@@ -785,7 +869,10 @@ function endAnalyseDrag(e, cancelled = false) {
     : analyseSquareFromPoint(e.clientX, e.clientY);
 
   if (target && analyseLegalMoves.some((move) => move.to === target)) {
-    makeAnalyseMove(from, target, "q", false);
+    pickPromotion(analyseGame, from, target).then((p) => {
+      if (p) makeAnalyseMove(from, target, p, false);
+      else renderAnalyseBoard();
+    });
     return;
   }
 
@@ -1040,7 +1127,7 @@ let activeEngineFen = null;
 let requestedEngineFen = null;
 let analysisLinesByRank = new Map();
 
-const ENGINE_DEPTH = 13;
+const ENGINE_DEPTH_DEFAULT = 13;
 let requestedEvaluationTarget = "play";
 
 function initStockfish() {
@@ -1143,7 +1230,9 @@ function startEngineAnalysis(fen) {
 
   stockfishWorker.postMessage("setoption name MultiPV value 5");
   stockfishWorker.postMessage(`position fen ${fen}`);
-  stockfishWorker.postMessage(`go depth ${ENGINE_DEPTH}`);
+  stockfishWorker.postMessage(
+    `go depth ${settings.liveDepth || ENGINE_DEPTH_DEFAULT}`,
+  );
 }
 
 function parseEngineInfo(message) {
@@ -1369,7 +1458,7 @@ function renderBoard(animate = true) {
       newPiece.offsetHeight;
 
       requestAnimationFrame(() => {
-        newPiece.style.transition = "transform 180ms ease";
+        newPiece.style.transition = animTransition();
         newPiece.style.transform = "translate(0, 0)";
       });
     }
@@ -1598,7 +1687,7 @@ function renderAnalyseBoard(animate = false) {
       newPiece.offsetHeight;
 
       requestAnimationFrame(() => {
-        newPiece.style.transition = "transform 180ms ease";
+        newPiece.style.transition = animTransition();
         newPiece.style.transform = "translate(0, 0)";
       });
     }
@@ -1662,6 +1751,13 @@ function renderMoves() {
   const activeEl = movesEl.querySelector(".move.active");
   if (activeEl) {
     movesEl.scrollTop = activeEl.offsetTop - movesEl.offsetTop - 10;
+    // Telefonda Learn/Train: hamle şeridi yatay, aktif hamleye kaydır
+    if (movesEl.scrollWidth > movesEl.clientWidth) {
+      movesEl.scrollLeft = Math.max(
+        0,
+        activeEl.offsetLeft - movesEl.offsetLeft - movesEl.clientWidth + 90,
+      );
+    }
   }
 }
 
@@ -1774,7 +1870,8 @@ document.getElementById("analyse-btn-reset")?.addEventListener("click", () => {
   goToAnalysePly(0, false);
 });
 
-const REVIEW_DEPTH = 14; // yüksek = daha doğru ama daha yavaş
+const REVIEW_DEPTH_DEFAULT = 14; // yüksek = daha doğru ama daha yavaş
+const reviewDepth = () => settings.reviewDepth || REVIEW_DEPTH_DEFAULT;
 
 // "Great" rozeti için assets/badges/great.png gerekir. Dosyayı ekleyince true yap.
 const ENABLE_GREAT_MOVES = false;
@@ -1841,13 +1938,13 @@ function initReviewEngine() {
 
 let evalQueue = Promise.resolve();
 
-function evaluateFen(fen, depth = REVIEW_DEPTH) {
+function evaluateFen(fen, depth = reviewDepth()) {
   const job = evalQueue.then(() => runEvaluation(fen, depth));
   evalQueue = job.catch(() => {});
   return job;
 }
 
-async function runEvaluation(fen, depth = REVIEW_DEPTH) {
+async function runEvaluation(fen, depth = reviewDepth()) {
   const worker = await initReviewEngine();
   const whiteToMove = fen.split(" ")[1] === "w";
 
@@ -2018,6 +2115,97 @@ function pvMaterialSwing(fenBefore, pvMoves, color) {
   return final - start;
 }
 
+// İleriye bakış: motorun hattı sonuna kadar oynanınca feda edilen materyal GERİ ALINMIYOR mu?
+// Pozitif sayı = hat sonunda hâlâ o kadar materyal geride (ya da rakip değil, hamle yapan mat ediyor = 99).
+// Feda hemen geri alınıyorsa (takas) ya da küçük bir oyalamaysa brilliant sayılmaz.
+function persistentDeficit(fenBefore, pvMoves, color) {
+  if (!pvMoves || pvMoves.length < 3) return 0;
+  const chess = new Chess(fenBefore);
+  const start = materialDiff(chess, color);
+  let lastCapture = false;
+  let lastTo = null;
+  let played = 0;
+
+  for (const uci of pvMoves.slice(0, 10)) {
+    let mv = null;
+    try {
+      mv = chess.move({
+        from: uci.slice(0, 2),
+        to: uci.slice(2, 4),
+        promotion: uci[4] || undefined,
+      });
+    } catch {
+      mv = null;
+    }
+    if (!mv) break;
+    played++;
+    lastCapture = !!mv.captured;
+    lastTo = mv.to;
+  }
+  if (played < 3) return 0;
+
+  if (chess.isCheckmate()) {
+    // sırası gelen taraf mat olmuş: hamle yapan taraf kazandıysa fedası karşılığını almıştır
+    return chess.turn() !== color ? 99 : -99;
+  }
+
+  let final = materialDiff(chess, color);
+  if (lastCapture) {
+    // Hat bir takasın ortasında kesilmiş olabilir: o karedeki alış-verişi tamamla
+    const gain = quiesceGain(chess, lastTo, 4);
+    final += (chess.turn() === color ? 1 : -1) * gain;
+  }
+  return start - final;
+}
+
+// Rakibin, sırası ona geçseydi (ya da şimdi) bir pozisyonda alabileceği en kârlı takas zinciri.
+function maxCaptureGain(chess) {
+  const squares = new Set(
+    chess
+      .moves({ verbose: true })
+      .filter((m) => m.captured)
+      .map((m) => m.to),
+  );
+  let maxGain = 0;
+  for (const sq of squares) {
+    maxGain = Math.max(maxGain, quiesceGain(chess, sq, 4));
+  }
+  return maxGain;
+}
+
+// Hamleden hemen sonra feda edilen materyal (statik takas hesabı, motor hattından bağımsız).
+// raw = rakibin kazanabileceği - bu hamlede alınan taş
+// net = raw - HAMLEDEN ÖNCE zaten var olan tehdit (zaten asılı duran taş feda sayılmaz)
+function staticSacrifice(fenBefore, uci, color) {
+  try {
+    // Hamleden önceki tehdit: sırayı rakibe verip alabileceği en çok materyal
+    let threatBefore = 0;
+    try {
+      const parts = fenBefore.split(" ");
+      parts[1] = parts[1] === "w" ? "b" : "w";
+      parts[3] = "-";
+      threatBefore = maxCaptureGain(new Chess(parts.join(" ")));
+    } catch {
+      threatBefore = 0;
+    }
+
+    const chess = new Chess(fenBefore);
+    const mv = chess.move({
+      from: uci.slice(0, 2),
+      to: uci.slice(2, 4),
+      promotion: uci[4] || undefined,
+    });
+    if (!mv) return { raw: 0, net: 0 };
+    const gained = mv.captured ? PIECE_VAL[mv.captured] : 0;
+    const maxGain = maxCaptureGain(chess);
+    const raw = Math.max(0, maxGain - gained);
+    const net = Math.max(0, maxGain - gained - threatBefore);
+    return { raw, net };
+  } catch {
+    return { raw: 0, net: 0 };
+  }
+}
+
 // Sınıflandırma (kaybedilen kazanma % eşikleri):
 //   brilliant (!!)  : iyi hamle + büyük feda
 //   excellent (!)   : zor bulunan hamle (tek iyi hamle / küçük feda)
@@ -2033,6 +2221,8 @@ function classifyMove({
   gap,
   isRecapture,
   sacrificeSwing,
+  hangSwing = 0,
+  persist = 0, // hat sonunda hâlâ geride kalınan materyal (ileriye bakış)
   moverPiece,
   cpBefore,
   cpAfter,
@@ -2048,7 +2238,7 @@ function classifyMove({
     winAlt !== null &&
     loss <= 2 &&
     sacrificeSwing <= -2 &&
-    winAlt < 88 &&
+    winAlt < 97 &&
     winAfter >= 47
   ) {
     return "brilliant";
@@ -2062,7 +2252,7 @@ function classifyMove({
     moverPiece !== "k" &&
     winAlt !== null &&
     sacrificeSwing <= -1 &&
-    winAlt < 88 &&
+    winAlt < 97 &&
     winAfter >= 45;
 
   if (nearBest && (onlyMove || smallSacrifice)) {
@@ -2079,7 +2269,7 @@ function classifyMove({
   // Bunların dışındaki büyük hatalar "mistake" kalır.
   const missedMate = cpBefore >= 3000 && cpAfter < 3000;
   const allowsMate = cpAfter <= -3000 && cpBefore > -3000;
-  const hangsPiece = sacrificeSwing <= -3; // motorun hattında en az bir taş kaybı
+  const hangsPiece = hangSwing <= -3 || sacrificeSwing <= -3; // motorun hattında en az bir taş kaybı
   const flipsGame = loss > 20 && winBefore >= 40 && winAfter <= 25;
 
   if (allowsMate || missedMate || hangsPiece || flipsGame || loss >= 35) {
@@ -2198,16 +2388,12 @@ async function reviewGame(
     }
   }
 
-  moves.forEach((mv, i) => {
-    const s = summary[mv.color];
-
+  // Tek bir hamleyi değerlendirir. before = hamle öncesi motor sonucu, after = sonrası.
+  const judge = (mv, i, before, after) => {
     const sign = mv.color === "w" ? 1 : -1;
-    const before = evals[i];
-    const after = evals[i + 1];
     const winBefore = winPercent(sign * before.cp);
 
     // Oynanan hamle motorun 1. ya da 2. çizgisiyle aynıysa, aynı aramadaki değeri kullan.
-    // (Gürültüden dolayı "en iyi hamle"ye hata verilmesini engeller.)
     let afterCp = after.cp;
     let pv = [mv.uci, ...(after.pv || [])];
     const line1 = before.lines?.[1];
@@ -2223,7 +2409,6 @@ async function reviewGame(
 
     const winAfter = winPercent(sign * afterCp);
     const loss = Math.max(0, winBefore - winAfter);
-
     const gap =
       before.second == null ? 0 : winBefore - winPercent(sign * before.second);
 
@@ -2235,23 +2420,18 @@ async function reviewGame(
     const isRecapture =
       i > 0 && moves[i - 1].captured && moves[i - 1].to === mv.to;
 
-    // Brilliant için pahalı hesabı sadece iyi hamlelerde yap
-    const needSwing = (loss <= 2 && winAfter >= 45) || loss > 10;
-    const sacrificeSwing = needSwing
-      ? pvMaterialSwing(mv.fenBefore, pv, mv.color)
-      : 0;
-
-    if (sacrificeSwing <= -2 && loss <= 3) {
-      // Brilliant adayları (Console > Verbose seviyesinde görünür)
-      console.debug("[review] feda adayı", {
-        ply: i + 1,
-        san: mv.san,
-        loss: +loss.toFixed(1),
-        winBefore: +winBefore.toFixed(1),
-        winAfter: +winAfter.toFixed(1),
-        winAlt: winAlt === null ? null : +winAlt.toFixed(1),
-        swing: sacrificeSwing,
-      });
+    // Feda miktarı: hem motor hattındaki materyal değişimi hem statik takas hesabı
+    let sacrifice = 0;
+    let persist = 0;
+    let hang = 0;
+    const needSwing = (loss <= 3 && winAfter >= 35) || loss > 10;
+    if (needSwing) {
+      const swing = pvMaterialSwing(mv.fenBefore, pv, mv.color);
+      const st = staticSacrifice(mv.fenBefore, mv.uci, mv.color);
+      sacrifice = st.net; // gerçek feda (zaten asılı taşlar sayılmaz)
+      hang = Math.max(-swing, st.raw); // blunder için: taş kaybı
+      if (sacrifice >= 2)
+        persist = persistentDeficit(mv.fenBefore, pv, mv.color);
     }
 
     const cls = classifyMove({
@@ -2263,19 +2443,82 @@ async function reviewGame(
       winAlt,
       gap,
       isRecapture,
-      sacrificeSwing,
+      sacrificeSwing: -sacrifice,
+      hangSwing: -hang,
+      persist,
       moverPiece: mv.piece,
       cpBefore: sign * before.cp,
       cpAfter: sign * afterCp,
     });
+    return { cls, loss, winBefore, winAfter, winAlt, sacrifice, persist };
+  };
+
+  let deepChecks = 0;
+  for (let i = 0; i < moves.length; i++) {
+    if (runId !== reviewRunId) return;
+    const mv = moves[i];
+    const s = summary[mv.color];
+    const before = evals[i];
+    const after = evals[i + 1];
+
+    let res = judge(mv, i, before, after);
+
+    // Brilliant adayı (feda var, ama henüz brilliant değil): daha derin analizle tekrar kontrol et.
+    // Sığ analiz feda sonrası kazancı görmeyebilir.
+    if (
+      res.cls !== "brilliant" &&
+      res.sacrifice >= 2 &&
+      res.loss <= 8 &&
+      res.winAfter >= 35 &&
+      deepChecks < 4 &&
+      before.lines?.[1]
+    ) {
+      deepChecks++;
+      if (progressText)
+        progressText.textContent = "Analyzing key moves deeper...";
+      try {
+        const deep = await runEvaluation(
+          mv.fenBefore,
+          Math.min(reviewDepth() + 2, 18),
+        );
+        if (runId !== reviewRunId) return;
+        if (deep && deep.lines?.[1]) {
+          const deepRes = judge(mv, i, deep, after);
+          console.log("[review] derin kontrol", {
+            ply: i + 1,
+            san: mv.san,
+            sacrifice: deepRes.sacrifice,
+            persist: deepRes.persist,
+            loss: +deepRes.loss.toFixed(1),
+            winAlt: deepRes.winAlt === null ? null : +deepRes.winAlt.toFixed(1),
+            winAfter: +deepRes.winAfter.toFixed(1),
+            sonuc: deepRes.cls,
+          });
+          if (deepRes.cls === "brilliant") res = deepRes;
+        }
+      } catch (e) {
+        console.log("[review] derin kontrol hatası", e);
+      }
+    } else if (res.sacrifice >= 2 && res.loss <= 3) {
+      console.log("[review] feda adayı", {
+        ply: i + 1,
+        san: mv.san,
+        sonuc: res.cls,
+        sacrifice: res.sacrifice,
+        persist: res.persist,
+        loss: +res.loss.toFixed(1),
+        winAlt: res.winAlt === null ? null : +res.winAlt.toFixed(1),
+        winAfter: +res.winAfter.toFixed(1),
+      });
+    }
 
     // Teori hamlelerine rozet verilmez ama rapor sayımına motor değerlendirmesiyle girer
-    if (i >= bookPlies) classes[i + 1] = cls;
+    if (i >= bookPlies) classes[i + 1] = res.cls;
 
-    s[cls]++;
-    s.accs.push(moveAccuracy(loss));
+    s[res.cls]++;
+    s.accs.push(moveAccuracy(res.loss));
     s.weights.push(weights[i]);
-  });
+  }
 
   for (const color of ["w", "b"]) {
     const s = summary[color];
@@ -2843,7 +3086,7 @@ function renderPuzzleBoard(animate = false) {
       newPiece.offsetHeight;
 
       requestAnimationFrame(() => {
-        newPiece.style.transition = "transform 180ms ease";
+        newPiece.style.transition = animTransition();
         newPiece.style.transform = "translate(0, 0)";
       });
     }
@@ -3136,7 +3379,11 @@ boardEl?.addEventListener("pointerdown", (e) => {
   e.preventDefault();
 
   if (selectedSquare && legalMoves.some((m) => m.to === name)) {
-    playMove(selectedSquare, name);
+    const fromSq = selectedSquare;
+    pickPromotion(game, fromSq, name).then((p) => {
+      if (p) playMove(fromSq, name, p);
+      else renderBoard();
+    });
     return;
   }
 
@@ -3316,7 +3563,10 @@ function endDrag(e, cancelled = false) {
 
   const target = cancelled ? null : squareFromPoint(e.clientX, e.clientY);
   if (target && legalMoves.some((m) => m.to === target)) {
-    playMove(from, target, "q", false, false);
+    pickPromotion(game, from, target).then((p) => {
+      if (p) playMove(from, target, p, false, false);
+      else renderBoard();
+    });
     return;
   }
 
@@ -4982,9 +5232,16 @@ document.getElementById("puzzle-btn-skip")?.addEventListener("click", () => {
   fetchNewPuzzle();
 });
 
-document
-  .getElementById("puzzle-difficulty-select")
-  ?.addEventListener("change", () => fetchNewPuzzle());
+{
+  const sel = document.getElementById("puzzle-difficulty-select");
+  if (
+    sel &&
+    [...sel.options].some((o) => o.value === settings.defaultPuzzleLevel)
+  ) {
+    sel.value = settings.defaultPuzzleLevel;
+  }
+  sel?.addEventListener("change", () => fetchNewPuzzle());
+}
 
 function showPuzzleCompletePopup() {
   const overlay = document.getElementById("puzzle-complete-overlay");
@@ -4992,6 +5249,12 @@ function showPuzzleCompletePopup() {
 
   // Bulmaca bittiğinde ve pop-up çıktığında promote sesi çalar
   playSound("promote");
+
+  if (settings.autoNextPuzzle) {
+    puzzleHintSquares = [];
+    setTimeout(() => fetchNewPuzzle(), 900);
+    return;
+  }
 
   overlay.removeAttribute("hidden");
 }
@@ -5692,6 +5955,37 @@ function initSettingsPanel() {
     sync();
   });
 
+  // ---------- Oyun / analiz ayarları ----------
+  const bindSelect = (id, key, parse = (v) => v) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.value = String(settings[key]);
+    el.addEventListener("change", () => {
+      settings[key] = parse(el.value);
+      saveSettings();
+    });
+  };
+  const bindCheck = (id, key, after) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.checked = !!settings[key];
+    el.addEventListener("change", () => {
+      settings[key] = el.checked;
+      saveSettings();
+      applyAppearance();
+      after?.();
+    });
+  };
+  bindSelect("setting-review-depth", "reviewDepth", Number);
+  bindSelect("setting-live-depth", "liveDepth", Number);
+  bindSelect("setting-anim-speed", "animSpeed");
+  bindSelect("setting-default-puzzle", "defaultPuzzleLevel");
+  bindCheck("setting-coords", "showCoords");
+  bindCheck("setting-legal-dots", "showLegalDots");
+  bindCheck("setting-last-move", "showLastMove");
+  bindCheck("setting-auto-next", "autoNextPuzzle");
+  bindCheck("setting-promo-ask", "promotionAsk");
+
   // ---------- Görünüm kontrolleri ----------
   const themeGrid = document.getElementById("theme-swatches");
   const boardGrid = document.getElementById("board-swatches");
@@ -5898,7 +6192,11 @@ analyseBoardEl?.addEventListener("pointerdown", (e) => {
     analyseSelectedSquare &&
     analyseLegalMoves.some((move) => move.to === name)
   ) {
-    makeAnalyseMove(analyseSelectedSquare, name);
+    const fromSq = analyseSelectedSquare;
+    pickPromotion(analyseGame, fromSq, name).then((p) => {
+      if (p) makeAnalyseMove(fromSq, name, p);
+      else renderAnalyseBoard();
+    });
     return;
   }
 
@@ -6275,3 +6573,25 @@ async function initCuratedOpenings() {
 initStockfish();
 initCuratedOpenings();
 update();
+
+// Telefon Learn/Train: sabit panelin yüksekliğini CSS'e bildir (tahta boyu ve alt boşluk için)
+{
+  const panel = document.getElementById("learn-panel");
+  if (panel && "ResizeObserver" in window) {
+    const setH = () => {
+      const h = panel.hidden
+        ? 0
+        : Math.round(panel.getBoundingClientRect().height);
+      document.documentElement.style.setProperty(
+        "--learn-panel-h",
+        `${h || 220}px`,
+      );
+    };
+    new ResizeObserver(setH).observe(panel);
+    new MutationObserver(setH).observe(panel, {
+      attributes: true,
+      attributeFilter: ["hidden"],
+    });
+    setH();
+  }
+}

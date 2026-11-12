@@ -2559,8 +2559,8 @@ css .analysis-rank,
   }
 }
 
-/* Mobil cihazlarda Learn / Train modu optimizasyonu */
-@media (max-width: 768px) {
+/* Mobil cihazlarda Learn / Train modu optimizasyonu (650px ve üstü tablet düzenini kullanır) */
+@media (max-width: 649px) {
   /* Learn paneli açıkken Play ekranının dikey düzeni */
   main.app#play:has(#learn-panel:not([hidden])) {
     display: flex;
@@ -3236,5 +3236,281 @@ css .analysis-rank,
     padding: 8px 10px;
     font-size: 0.92rem;
     white-space: nowrap;
+  }
+}
+
+/* ---- Ayar kaynaklı görünüm anahtarları ---- */
+body.hide-coords .coord {
+  display: none;
+}
+body.hide-legal-dots .square.legal::after,
+body.hide-legal-dots #analyse-board .analyse-legal-target::after,
+body.hide-legal-dots #analyse-board .analyse-legal-capture::after {
+  display: none;
+}
+body.hide-last-move .square.last-move,
+body.hide-last-move #analyse-board .last-move {
+  background-image: none !important;
+  box-shadow: none !important;
+}
+.settings-row select {
+  padding: 6px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: var(--control);
+  color: var(--text);
+  font-family: var(--font-pixel);
+}
+.promo-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.5);
+}
+.promo-box {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+}
+.promo-box button {
+  width: 56px;
+  height: 56px;
+  font-size: 36px;
+  cursor: pointer;
+  background: var(--control);
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+}
+.promo-box button:hover {
+  background: var(--accent);
+  color: #000;
+}
+
+/* Mobil Learn/Train: açıklama + Back/Next ekranın altında sabit, kaydırmadan hep görünür */
+#learn-panel[hidden] {
+  display: none !important;
+}
+
+@media (max-width: 649px) {
+  main.app#play:has(#learn-panel:not([hidden])) {
+    padding-bottom: calc(18vh + 230px);
+  }
+
+  #learn-panel:not([hidden]) {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 50;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    gap: 6px;
+    border-width: 2px 0 0;
+    border-radius: 14px 14px 0 0;
+    padding: 10px 14px calc(10px + env(safe-area-inset-bottom));
+    background: var(--panel);
+    border-color: var(--panel-border);
+    box-shadow: 0 -8px 20px rgba(0, 0, 0, 0.45);
+  }
+
+  #learn-panel h2 {
+    font-size: 1rem;
+    margin: 0;
+  }
+  #learn-panel #learn-progress {
+    margin: 0;
+    font-size: 0.85rem;
+  }
+
+  #learn-panel .learn-explanation {
+    max-height: 18vh;
+    overflow-y: auto;
+    background: var(--control);
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Telefon Learn/Train: tablet kurallarını (height:100% vb.) ez */
+@media (max-width: 649px) {
+  main.app#play:has(#learn-panel:not([hidden])) {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  main.app#play:has(#learn-panel:not([hidden])) .moves-section {
+    display: flex !important;
+    visibility: hidden;
+    position: absolute;
+    pointer-events: none;
+    height: 0;
+    overflow: hidden;
+  }
+
+  #learn-panel:not([hidden]) {
+    height: auto !important;
+    max-height: 55vh;
+    overflow-y: auto;
+  }
+
+  #learn-panel .learn-explanation {
+    height: auto;
+    min-height: 3.2em;
+  }
+}
+
+/* Telefon Learn/Train: tahta sabit panelin üstünde tamamen görünsün */
+@media (max-width: 649px) {
+  main.app#play:has(#learn-panel:not([hidden])) .board-wrap {
+    --size: clamp(200px, min(calc(100vw - 72px), calc(100svh - 440px)), 520px);
+  }
+  #learn-panel:not([hidden]) h2 {
+    display: none;
+  }
+}
+
+/* ===== Learn/Train yerleşimi (650px ve üstü): tahta solda, sağda önce Learn/Train paneli, altında Moves ===== */
+@media (min-width: 650px) {
+  main.app#play:has(#learn-panel:not([hidden])) {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(260px, 0.85fr);
+    grid-auto-rows: min-content;
+    align-items: start;
+    gap: 14px 18px;
+    width: calc(100% - 24px);
+    max-width: 1300px;
+    margin: 12px auto 24px;
+    padding: 0;
+  }
+
+  main.app#play:has(#learn-panel:not([hidden])) > .board-section {
+    grid-column: 1;
+    grid-row: 1 / span 4;
+    order: 0;
+    width: 100%;
+  }
+
+  main.app#play:has(#learn-panel:not([hidden])) .board-wrap {
+    --size: max(
+      240px,
+      min(calc((100vw - 40px) * 0.575 - 40px), calc(100svh - 190px), 720px)
+    );
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  main.app#play:has(#learn-panel:not([hidden])) > .learn-section {
+    grid-column: 2;
+    grid-row: 1;
+    order: 0;
+    width: 100%;
+    display: block;
+  }
+
+  main.app#play:has(#learn-panel:not([hidden])) > .moves-section {
+    grid-column: 2;
+    grid-row: 2;
+    order: 0;
+    width: 100%;
+    display: block !important;
+    visibility: visible;
+    position: static;
+    pointer-events: auto;
+    height: auto;
+    overflow: visible;
+  }
+
+  main.app#play:has(#learn-panel:not([hidden])) .moves {
+    max-height: 40vh;
+  }
+
+  main.app#play:has(#learn-panel:not([hidden])) #learn-panel {
+    height: auto;
+    max-width: none;
+  }
+}
+
+/* ===== Telefon (≤649px): panel altta sabit, hamle listesi tahta ile panel arasındaki boşlukta ===== */
+@media (max-width: 649px) {
+  main.app#play:has(#learn-panel:not([hidden])) {
+    padding-bottom: calc(var(--learn-panel-h, 220px) + 12px);
+    gap: 8px;
+  }
+
+  main.app#play:has(#learn-panel:not([hidden])) .board-wrap {
+    --size: max(
+      200px,
+      min(
+        calc(100vw - 72px),
+        calc(100svh - var(--learn-panel-h, 220px) - 262px),
+        560px
+      )
+    );
+  }
+
+  main.app#play:has(#learn-panel:not([hidden])) .moves-section {
+    display: block !important;
+    visibility: visible;
+    position: static;
+    pointer-events: auto;
+    height: auto;
+    overflow: visible;
+    width: 100%;
+    padding: 8px 12px;
+  }
+
+  main.app#play:has(#learn-panel:not([hidden])) .moves-section h2,
+  main.app#play:has(#learn-panel:not([hidden])) .moves-section .buttons,
+  main.app#play:has(#learn-panel:not([hidden])) .moves-section #opening {
+    display: none;
+  }
+
+  /* Telefonda hamleler tek satırlık, yana kaydırılan bir şerit */
+  main.app#play:has(#learn-panel:not([hidden])) .moves {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 14px;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0;
+    padding: 0 0 4px;
+    list-style: none;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    white-space: nowrap;
+    line-height: 1.4;
+  }
+  main.app#play:has(#learn-panel:not([hidden])) .moves .move {
+    min-width: 0;
+    margin: 0 2px;
+  }
+  main.app#play:has(#learn-panel:not([hidden])) .moves li {
+    flex: 0 0 auto;
+  }
+
+  #learn-panel:not([hidden]) {
+    padding-top: 8px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+    gap: 6px;
+  }
+  #learn-panel #learn-variation-select {
+    padding: 8px 10px;
+    margin: 0;
+  }
+  #learn-panel .learn-explanation {
+    margin: 4px 0;
+    padding: 8px;
+    max-height: 14vh;
+  }
+  #learn-panel .learn-controls button,
+  #learn-panel #train-hint {
+    padding: 9px 6px;
   }
 }

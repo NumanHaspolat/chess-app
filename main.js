@@ -6000,24 +6000,21 @@ initStockfish();
 initCuratedOpenings();
 update();
 
-// Telefon Learn/Train: sabit panelin yüksekliğini CSS'e bildir (tahta boyu ve alt boşluk için)
+// Telefonda hamle şeritleri yatay: aktif hamleyi görünür tut (tüm .moves listeleri için)
 {
-  const panel = document.getElementById("learn-panel");
-  if (panel && "ResizeObserver" in window) {
-    const setH = () => {
-      const h = panel.hidden
-        ? 0
-        : Math.round(panel.getBoundingClientRect().height);
-      document.documentElement.style.setProperty(
-        "--learn-panel-h",
-        `${h || 220}px`,
-      );
-    };
-    new ResizeObserver(setH).observe(panel);
-    new MutationObserver(setH).observe(panel, {
+  const keepActiveVisible = (list) => {
+    if (!window.matchMedia("(max-width: 649px)").matches) return;
+    const active = list.querySelector(".move.active");
+    if (!active || list.scrollWidth <= list.clientWidth) return;
+    const target = active.offsetLeft - list.offsetLeft - list.clientWidth + 110;
+    list.scrollLeft = Math.max(0, target);
+  };
+  document.querySelectorAll("ol.moves").forEach((list) => {
+    new MutationObserver(() => keepActiveVisible(list)).observe(list, {
+      childList: true,
+      subtree: true,
       attributes: true,
-      attributeFilter: ["hidden"],
+      attributeFilter: ["class"],
     });
-    setH();
-  }
+  });
 }

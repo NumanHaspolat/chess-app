@@ -3514,3 +3514,68 @@ body.hide-last-move #analyse-board .last-move {
     padding: 9px 6px;
   }
 }
+
+/* ===== Telefon (≤649px): tüm hamle listeleri tek satırlık yatay şerit ===== */
+@media (max-width: 649px) {
+  :root {
+    --learn-panel-fixed: 208px;
+  }
+
+  .moves-section .moves,
+  .repertoire-moves-section .moves {
+    display: flex !important;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 14px;
+    height: auto !important;
+    min-height: 36px;
+    max-height: none !important;
+    margin: 0;
+    padding: 0 0 6px;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    white-space: nowrap;
+    line-height: 1.4;
+    -webkit-overflow-scrolling: touch;
+  }
+  .moves li {
+    flex: 0 0 auto;
+  }
+  .moves .move {
+    min-width: 0;
+    margin: 0 2px;
+  }
+  .moves-section .status {
+    min-height: 1.4em;
+  }
+
+  /* Learn/Train: boyutlar sabit, hamle yapınca tahta ve sayfa oynamasın */
+  main.app#play:has(#learn-panel:not([hidden])) {
+    padding-bottom: calc(var(--learn-panel-fixed) + 12px);
+  }
+  main.app#play:has(#learn-panel:not([hidden])) .strip {
+    display: none;
+  }
+  main.app#play:has(#learn-panel:not([hidden])) .board-wrap {
+    --size: max(
+      200px,
+      min(
+        calc(100vw - 72px),
+        calc(100svh - var(--learn-panel-fixed) - 200px),
+        560px
+      )
+    );
+  }
+  #learn-panel:not([hidden]) {
+    height: var(--learn-panel-fixed) !important;
+    max-height: none;
+    box-sizing: border-box;
+    overflow: hidden;
+  }
+  #learn-panel .learn-explanation {
+    height: 74px;
+    min-height: 74px;
+    max-height: 74px;
+    overflow-y: auto;
+  }
+}

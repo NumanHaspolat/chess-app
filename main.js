@@ -7,6 +7,15 @@ import { importPgn } from "./src/pgn.js";
 import { splitGames } from "./src/pgn.js";
 import { OpeningBook } from "./src/openings.js";
 import { loadOpening } from "./src/opening-trainer.js";
+import { EnginePool } from "./src/engine-pool.js";
+import { srsRecord, pickReplySRS, srsSummary, resetSrs } from "./src/srs.js";
+import { addToday, dailySummary, getGoal, setGoal } from "./src/daily.js";
+import { downloadBackup, restoreBackup } from "./src/backup.js";
+import {
+  reviewCacheKey,
+  loadCachedReview,
+  saveCachedReview,
+} from "./src/eval-cache.js";
 import {
   settings,
   saveSettings,
@@ -17,6 +26,7 @@ import {
   animMs,
   animTransition,
   pickPromotion,
+  isPromotionMove,
   playSound,
   effectiveVolume,
   ENGINE_DEPTH_DEFAULT,
@@ -150,6 +160,14 @@ let analyseHistory = [];
 let analyseSelectedSquare = null;
 let analyseLegalMoves = [];
 let analyseCurrentPly = 0;
+
+// Değerlendirme grafiği durumu (erken tanımlı: goToAnalysePly başlangıçta çağrılabilir)
+let analyseEvalSeries = null; // her pozisyon için beyazın kazanma yüzdesi
+let analyseGraphClasses = [];
+let analysePgnMeta = { white: "", black: "" };
+
+const GRAPH_W = 300;
+const GRAPH_H = 80;
 
 let currentPuzzle = null;
 let puzzlePlayerColor = "w";
@@ -1548,6 +1566,7 @@ function goToAnalysePly(ply, animate = true) {
 
   renderAnalyseBoard(animation);
   renderAnalyseMoves();
+  updateEvalGraphMarker();
 
   const statusEl = document.getElementById("analyse-status");
   if (statusEl) {
@@ -1573,7 +1592,9 @@ document.getElementById("analyse-btn-flip")?.addEventListener("click", () => {
 });
 
 document.getElementById("analyse-btn-reset")?.addEventListener("click", () => {
-  reviewRunId++;
+  cancelReview();
+  analyseEvalSeries = null;
+  renderEvalGraph();
   analyseMainLine = null;
   analyseGameLoaded = false;
   updateVariationBar();
@@ -1623,85 +1644,16 @@ document.getElementById("analyse-return-btn")?.addEventListener("click", () => {
   goToAnalysePly(ply, false);
 });
 
-function initReviewEngine() {
-  if (reviewEnginePromise) return reviewEnginePromise;
+// Analiz motoru havuzu: birden fazla Stockfish işçisi pozisyonları paralel değerlendirir
+const enginePool = new EnginePool();
 
-  reviewEnginePromise = new Promise((resolve, reject) => {
-    const worker = new Worker("./assets/stockfish/stockfish-19-lite-single.js");
-    reviewWorker = worker;
-
-    worker.onerror = (err) => reject(err);
-
-    const onMessage = (event) => {
-      const msg = String(event.data).trim();
-      if (msg === "uciok") {
-        worker.postMessage("setoption name MultiPV value 2");
-        worker.postMessage("isready");
-      } else if (msg === "readyok") {
-        worker.removeEventListener("message", onMessage);
-        resolve(worker);
-      }
-    };
-
-    worker.addEventListener("message", onMessage);
-    worker.postMessage("uci");
-  });
-
-  return reviewEnginePromise;
+function runEvaluation(fen, depth = reviewDepth(), isCancelled = () => false) {
+  return enginePool.evaluate(fen, depth, isCancelled);
 }
 
-let evalQueue = Promise.resolve();
-
-function evaluateFen(fen, depth = reviewDepth()) {
-  const job = evalQueue.then(() => runEvaluation(fen, depth));
-  evalQueue = job.catch(() => {});
-  return job;
-}
-
-async function runEvaluation(fen, depth = reviewDepth()) {
-  const worker = await initReviewEngine();
-  const whiteToMove = fen.split(" ")[1] === "w";
-
-  return new Promise((resolve) => {
-    const lines = {}; // rank -> { cp (beyaz bakışı), pv: [uci...] }
-
-    const onMessage = (event) => {
-      const msg = String(event.data).trim();
-
-      if (msg.startsWith("info ") && !/\b(lowerbound|upperbound)\b/.test(msg)) {
-        const rank = Number(msg.match(/\bmultipv (\d+)/)?.[1] ?? 1);
-        const cp = msg.match(/\bscore cp (-?\d+)/);
-        const mate = msg.match(/\bscore mate (-?\d+)/);
-        const pvMatch = msg.match(/\bpv (.+)$/);
-        let value = null;
-
-        if (cp) value = Number(cp[1]);
-        else if (mate) value = Number(mate[1]) > 0 ? 3000 : -3000;
-
-        if (value !== null) {
-          lines[rank] = {
-            cp: whiteToMove ? value : -value,
-            pv: pvMatch ? pvMatch[1].trim().split(/\s+/).slice(0, 10) : [],
-          };
-        }
-      } else if (msg.startsWith("bestmove")) {
-        worker.removeEventListener("message", onMessage);
-        const best = msg.split(" ")[1];
-
-        resolve({
-          cp: lines[1]?.cp ?? 0,
-          second: lines[2]?.cp ?? null,
-          best: best && best !== "(none)" ? best : null,
-          lines, // { 1: {cp, pv}, 2: {cp, pv} }
-          pv: lines[1]?.pv ?? [],
-        });
-      }
-    };
-
-    worker.addEventListener("message", onMessage);
-    worker.postMessage(`position fen ${fen}`);
-    worker.postMessage(`go depth ${depth}`);
-  });
+function cancelReview() {
+  reviewRunId++;
+  enginePool.cancelAll();
 }
 
 async function reviewGame(
@@ -1764,26 +1716,48 @@ async function reviewGame(
   }
 
   const total = moves.length;
-  const evals = [];
+  const depthUsed = reviewDepth();
+  const cacheKey = reviewCacheKey(sanMoves, depthUsed);
+  const cached = loadCachedReview(cacheKey, total + 1);
+  const isCancelled = () => runId !== reviewRunId;
+  const deepCache = cached?.deep || {};
+  let evals;
 
-  for (let i = 0; i <= total; i++) {
-    if (runId !== reviewRunId) return;
+  if (cached) {
+    evals = cached.evals;
+    if (progressText) progressText.textContent = "Loading saved analysis...";
+  } else {
+    evals = new Array(total + 1);
+    let done = 0;
+    const jobs = [];
 
-    if (progressText && total > 0) {
-      const percent = Math.round((i / total) * 100);
-      progressText.textContent = `Analyzing game... (${percent}%)`;
+    for (let i = 0; i <= total; i++) {
+      const fen = i === 0 ? moves[0].fenBefore : moves[i - 1].fenAfter;
+      const pos = new Chess(fen);
+      let job;
+      if (pos.isCheckmate()) {
+        job = Promise.resolve({
+          cp: pos.turn() === "w" ? -3000 : 3000,
+          best: null,
+        });
+      } else if (pos.isDraw()) {
+        job = Promise.resolve({ cp: 0, best: null });
+      } else {
+        job = runEvaluation(fen, depthUsed, isCancelled);
+      }
+      jobs.push(
+        job.then((r) => {
+          evals[i] = r;
+          done++;
+          if (progressText && !isCancelled()) {
+            progressText.textContent = `Analyzing game... (${Math.round((done / (total + 1)) * 100)}%)`;
+          }
+        }),
+      );
     }
 
-    const fen = i === 0 ? moves[0].fenBefore : moves[i - 1].fenAfter;
-    const pos = new Chess(fen);
-
-    if (pos.isCheckmate()) {
-      evals.push({ cp: pos.turn() === "w" ? -3000 : 3000, best: null });
-    } else if (pos.isDraw()) {
-      evals.push({ cp: 0, best: null });
-    } else {
-      evals.push(await evaluateFen(fen));
-    }
+    await Promise.all(jobs);
+    if (isCancelled() || evals.some((e) => !e)) return;
   }
 
   if (runId !== reviewRunId) return;
@@ -1903,10 +1877,16 @@ async function reviewGame(
       if (progressText)
         progressText.textContent = "Analyzing key moves deeper...";
       try {
-        const deep = await runEvaluation(
-          mv.fenBefore,
-          Math.min(reviewDepth() + 2, 18),
-        );
+        const deepKey = String(i);
+        let deep = deepCache[deepKey];
+        if (!deep) {
+          deep = await runEvaluation(
+            mv.fenBefore,
+            Math.min(depthUsed + 2, 18),
+            () => runId !== reviewRunId,
+          );
+          if (deep) deepCache[deepKey] = deep;
+        }
         if (runId !== reviewRunId) return;
         if (deep && deep.lines?.[1]) {
           const deepRes = judge(mv, i, deep, after);
@@ -1946,6 +1926,9 @@ async function reviewGame(
     s.weights.push(weights[i]);
   }
 
+  // Analizi sakla: aynı maç aynı derinlikte tekrar açılınca motor çalışmaz
+  saveCachedReview(cacheKey, evals, deepCache);
+
   for (const color of ["w", "b"]) {
     const s = summary[color];
     s.accuracy = combineAccuracy(s.accs, s.weights);
@@ -1967,6 +1950,10 @@ async function reviewGame(
   });
   renderAnalyseMoves();
   renderAnalyseBoard();
+
+  analyseEvalSeries = evals.map((e) => winPercent(e.cp));
+  analyseGraphClasses = classes;
+  renderEvalGraph();
 
   if (progressBox) progressBox.style.display = "none";
   if (reportContent) reportContent.style.display = "block";
@@ -2081,7 +2068,11 @@ function loadAnalyseGame(
     return;
   }
 
-  const runId = ++reviewRunId;
+  cancelReview();
+  const runId = reviewRunId;
+  analyseEvalSeries = null;
+  renderEvalGraph();
+  analysePgnMeta = { white: whitePlayer, black: blackPlayer };
 
   analyseHistory = sanMoves;
   analyseMoveClasses = [];
@@ -2544,6 +2535,7 @@ function syncView() {
 }
 
 function update(animate = true) {
+  renderSrsSummary();
   view = syncView();
 
   const showAnalysis =
@@ -4035,7 +4027,10 @@ function advanceDrill() {
   drill.timer = setTimeout(() => {
     if (!drill) return;
     drill.timer = null;
-    const edge = pickReply(rep, drillGame.fen());
+    const fenNow = drillGame.fen();
+    const edge =
+      (settings.smartReview ? pickReplySRS(rep, fenNow) : null) ||
+      pickReply(rep, fenNow);
     if (!edge) {
       advanceDrill();
       return;
@@ -4056,6 +4051,12 @@ function onDrillMove(move) {
   if (!drill) return;
 
   if (judgeMove(drill.rep, move.before, move.san)) {
+    srsRecord(
+      drill.rep.id,
+      move.before,
+      drill.mistakeCount === 0 ? "perfect" : "retry",
+    );
+    renderSrsSummary();
     clearTimeout(drillMistakeTimer);
     drillMistakeTimer = null;
 
@@ -4073,6 +4074,10 @@ function onDrillMove(move) {
 
   drill.mistakes++;
   drill.mistakeCount++;
+  if (drill.mistakeCount === 1) {
+    srsRecord(drill.rep.id, move.before, "fail");
+    renderSrsSummary();
+  }
 
   const node = drill.rep.getNode(move.before);
   const correctEdges = node ? [...node.edges.values()] : [];
@@ -4204,7 +4209,7 @@ if (puzzleBoardEl) {
     e.preventDefault();
 
     if (puzzleSelectedSquare && puzzleLegalMoves.some((m) => m.to === name)) {
-      executePuzzleMove(puzzleSelectedSquare, name, true); // tıkla-tıkla = animasyonlu // Tıklama = animasyon var
+      puzzleUserMove(puzzleSelectedSquare, name, true); // tıkla-tıkla = animasyonlu
       return; // <-- Burada fonksiyon içinde olduğu için hata vermez!
     }
 
@@ -4325,7 +4330,7 @@ function endPuzzleDrag(e, cancelled = false) {
 
   const target = cancelled ? null : puzzleSquareFromPoint(e.clientX, e.clientY);
   if (target && puzzleLegalMoves.some((m) => m.to === target)) {
-    executePuzzleMove(from, target, false); // Sürükle-bırak ile animasyonsuz anında oturma
+    puzzleUserMove(from, target, false); // Sürükle-bırak ile animasyonsuz anında oturma
     return;
   }
 
@@ -4717,14 +4722,33 @@ function puzzleRatingDelta(won) {
 }
 let puzzleHintSquares = [];
 
-function executePuzzleMove(from, to, animate = true) {
+// Kullanıcı hamlesi: terfi seçimi açıksa önce taş sor, sonra hamleyi uygula
+function puzzleUserMove(from, to, animate) {
+  if (settings.promotionAsk && isPromotionMove(puzzleGame, from, to)) {
+    pickPromotion(puzzleGame, from, to).then((p) => {
+      if (p) executePuzzleMove(from, to, animate, p);
+      else {
+        puzzleSelectedSquare = null;
+        puzzleLegalMoves = [];
+        renderPuzzleBoard(false);
+      }
+    });
+    return;
+  }
+  executePuzzleMove(from, to, animate);
+}
+
+// chosenPromo: kullanıcı terfi taşı seçtiyse (yalnızca "terfi seç" ayarı açıkken)
+function executePuzzleMove(from, to, animate = true, chosenPromo = null) {
   puzzleViewPly = null;
   const moveUci = from + to;
   const expectedUci = currentPuzzle.solution[puzzleSolutionIndex];
+  const promoOk =
+    !chosenPromo || !expectedUci[4] || chosenPromo === expectedUci[4];
 
   if (
-    moveUci === expectedUci ||
-    moveUci.slice(0, 4) === expectedUci.slice(0, 4)
+    promoOk &&
+    (moveUci === expectedUci || moveUci.slice(0, 4) === expectedUci.slice(0, 4))
   ) {
     // ------------------------------------------
     // DOĞRU HAMLE
@@ -4732,7 +4756,7 @@ function executePuzzleMove(from, to, animate = true) {
     const played = puzzleGame.move({
       from,
       to,
-      promotion: expectedUci[4] || "q",
+      promotion: chosenPromo || expectedUci[4] || "q",
     });
 
     if (played) {
@@ -4847,7 +4871,7 @@ function executePuzzleMove(from, to, animate = true) {
     isPuzzleMistakeState = true;
     playSound("gameover", 2);
 
-    puzzleGame.move({ from, to, promotion: "q" });
+    puzzleGame.move({ from, to, promotion: chosenPromo || "q" });
 
     const boardWrap =
       puzzleBoardEl.closest(".board-wrap") || puzzleBoardEl.parentElement;
@@ -5109,6 +5133,9 @@ function recordPuzzleStats(won, usedHint, ratingChange = 0) {
   });
   if (puzzleLog.length > PUZZLE_LOG_MAX) puzzleLog.length = PUZZLE_LOG_MAX;
   savePuzzleLog();
+
+  addToday();
+  renderDaily();
 }
 
 function formatDuration(ms) {
@@ -5411,6 +5438,7 @@ function initSettingsPanel() {
   bindCheck("setting-last-move", "showLastMove");
   bindCheck("setting-auto-next", "autoNextPuzzle");
   bindCheck("setting-promo-ask", "promotionAsk");
+  bindCheck("setting-smart-review", "smartReview", () => renderSrsSummary());
 
   // ---------- Görünüm kontrolleri ----------
   const themeGrid = document.getElementById("theme-swatches");
@@ -6017,4 +6045,329 @@ update();
       attributeFilter: ["class"],
     });
   });
+}
+
+// Analizi iptal et düğmesi
+document
+  .getElementById("analyse-cancel-review")
+  ?.addEventListener("click", () => {
+    cancelReview();
+    const report = document.getElementById("analyse-game-report");
+    if (report) report.hidden = true;
+    const list =
+      document.getElementById("analyse-games-list") ||
+      document.querySelector(".analyse-games-container");
+    if (list) list.style.display = "";
+    if (analyseGamesStatusEl)
+      analyseGamesStatusEl.textContent = "Analysis cancelled.";
+  });
+
+// ---------- Değerlendirme grafiği ----------
+
+function renderEvalGraph() {
+  const svg = document.getElementById("analyse-eval-graph");
+  const wrap = svg?.closest(".analyse-graph-wrap");
+  if (!svg || !wrap) return;
+
+  const series = analyseEvalSeries;
+  if (!series || series.length < 2) {
+    wrap.hidden = true;
+    svg.innerHTML = "";
+    return;
+  }
+  wrap.hidden = false;
+
+  const n = series.length - 1;
+  const xAt = (i) => (i / n) * GRAPH_W;
+  const yAt = (win) => GRAPH_H * (1 - win / 100);
+
+  let area = `M0,${GRAPH_H}`;
+  series.forEach((w, i) => {
+    area += ` L${xAt(i).toFixed(2)},${yAt(w).toFixed(2)}`;
+  });
+  area += ` L${GRAPH_W},${GRAPH_H} Z`;
+
+  let line = "";
+  series.forEach((w, i) => {
+    line += `${i === 0 ? "M" : " L"}${xAt(i).toFixed(2)},${yAt(w).toFixed(2)}`;
+  });
+
+  // Önemli hamleler: brilliant ve blunder noktaları
+  let dots = "";
+  analyseGraphClasses.forEach((cls, ply) => {
+    if (ply === 0 || (cls !== "brilliant" && cls !== "blunder")) return;
+    const cx = xAt(ply).toFixed(2);
+    const cy = yAt(series[ply]).toFixed(2);
+    dots += `<circle class="graph-dot graph-dot-${cls}" cx="${cx}" cy="${cy}" r="2.6" vector-effect="non-scaling-stroke"/>`;
+  });
+
+  svg.setAttribute("viewBox", `0 0 ${GRAPH_W} ${GRAPH_H}`);
+  svg.innerHTML =
+    `<rect class="graph-bg" x="0" y="0" width="${GRAPH_W}" height="${GRAPH_H}"/>` +
+    `<path class="graph-area" d="${area}"/>` +
+    `<line class="graph-mid" x1="0" y1="${GRAPH_H / 2}" x2="${GRAPH_W}" y2="${GRAPH_H / 2}" vector-effect="non-scaling-stroke"/>` +
+    `<path class="graph-line" d="${line}" vector-effect="non-scaling-stroke"/>` +
+    dots +
+    `<line id="analyse-graph-marker" class="graph-marker" x1="0" y1="0" x2="0" y2="${GRAPH_H}" vector-effect="non-scaling-stroke"/>`;
+  updateEvalGraphMarker();
+}
+
+function updateEvalGraphMarker() {
+  const marker = document.getElementById("analyse-graph-marker");
+  if (!marker || !analyseEvalSeries) return;
+  const n = analyseEvalSeries.length - 1;
+  const ply = Math.min(analyseCurrentPly, n);
+  const x = (ply / n) * GRAPH_W;
+  marker.setAttribute("x1", x);
+  marker.setAttribute("x2", x);
+  marker.style.opacity = analyseMainLine ? "0.25" : "1";
+}
+
+function graphPlyFromEvent(e) {
+  const svg = document.getElementById("analyse-eval-graph");
+  const rect = svg.getBoundingClientRect();
+  const n = analyseEvalSeries.length - 1;
+  const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+  return Math.round(ratio * n);
+}
+
+{
+  const svg = document.getElementById("analyse-eval-graph");
+  let dragging = false;
+  const go = (e) => {
+    if (!analyseEvalSeries) return;
+    if (analyseMainLine) {
+      // Varyantta gezerken ana hatta dön
+      const { history, classes } = analyseMainLine;
+      analyseHistory = history;
+      analyseMoveClasses = classes;
+      analyseMainLine = null;
+      updateVariationBar();
+    }
+    const ply = Math.min(graphPlyFromEvent(e), analyseHistory.length);
+    if (ply !== analyseCurrentPly) goToAnalysePly(ply, false);
+  };
+  svg?.addEventListener("pointerdown", (e) => {
+    dragging = true;
+    svg.setPointerCapture?.(e.pointerId);
+    go(e);
+  });
+  svg?.addEventListener("pointermove", (e) => dragging && go(e));
+  svg?.addEventListener("pointerup", () => (dragging = false));
+  svg?.addEventListener("pointercancel", () => (dragging = false));
+}
+
+// ---------- PGN dışa aktarma ----------
+function buildAnalysePgn() {
+  const chess = new Chess();
+  for (const san of analyseHistory) {
+    try {
+      chess.move(san);
+    } catch {
+      break;
+    }
+  }
+  const d = new Date();
+  const pad = (v) => String(v).padStart(2, "0");
+  chess.setHeader("Event", "Azurite Analysis");
+  chess.setHeader("Site", "Azurite");
+  chess.setHeader(
+    "Date",
+    `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`,
+  );
+  chess.setHeader("White", analysePgnMeta.white || "?");
+  chess.setHeader("Black", analysePgnMeta.black || "?");
+  return chess.pgn();
+}
+
+document
+  .getElementById("analyse-btn-copy-pgn")
+  ?.addEventListener("click", async (e) => {
+    if (!analyseHistory.length) return;
+    const btn = e.currentTarget;
+    const pgn = buildAnalysePgn();
+    try {
+      await navigator.clipboard.writeText(pgn);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = pgn;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    }
+    const old = btn.textContent;
+    btn.textContent = "Copied!";
+    setTimeout(() => (btn.textContent = old), 1200);
+  });
+
+document
+  .getElementById("analyse-btn-download-pgn")
+  ?.addEventListener("click", () => {
+    if (!analyseHistory.length) return;
+    const blob = new Blob([buildAnalysePgn()], {
+      type: "application/x-chess-pgn",
+    });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `azurite-${new Date().toISOString().slice(0, 10)}.pgn`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+
+// ---------- Günlük hedef ve seri ----------
+function renderDaily() {
+  const s = dailySummary();
+  const percent = Math.min(100, Math.round((s.today / s.goal) * 100));
+  const done = s.today >= s.goal;
+
+  const setT = (id, v) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = v;
+  };
+  setT("daily-text", `${Math.min(s.today, 999)} / ${s.goal}`);
+  setT("daily-streak", s.streak);
+  setT("daily-best", s.best);
+  setT("puzzle-daily-text", `${s.today} / ${s.goal}`);
+  setT("puzzle-daily-streak", s.streak);
+
+  for (const id of ["daily-bar-fill", "puzzle-daily-bar-fill"]) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.style.width = `${percent}%`;
+      el.classList.toggle("done", done);
+    }
+  }
+
+  const week = document.getElementById("daily-week");
+  if (week) {
+    week.innerHTML = "";
+    for (const day of s.week) {
+      const cell = document.createElement("div");
+      cell.className =
+        "daily-day" + (day.met ? " met" : "") + (day.isToday ? " today" : "");
+      cell.title = `${day.key}: ${day.count} puzzle${day.count === 1 ? "" : "s"}`;
+      cell.innerHTML = `<span>${day.label}</span><i></i>`;
+      week.appendChild(cell);
+    }
+  }
+}
+
+{
+  const goalSel = document.getElementById("setting-daily-goal");
+  if (goalSel) {
+    goalSel.value = String(getGoal());
+    goalSel.addEventListener("change", () => {
+      setGoal(Number(goalSel.value));
+      renderDaily();
+    });
+  }
+  renderDaily();
+}
+
+// ---------- Yedek alma / içe aktarma ----------
+{
+  const note = document.getElementById("backup-note");
+  const say = (text, isError = false) => {
+    if (!note) return;
+    note.textContent = text;
+    note.classList.toggle("error", isError);
+  };
+
+  document
+    .getElementById("btn-export-backup")
+    ?.addEventListener("click", () => {
+      const count = downloadBackup();
+      say(`Backup saved (${count} items).`);
+    });
+
+  const fileInput = document.getElementById("input-import-backup");
+  document
+    .getElementById("btn-import-backup")
+    ?.addEventListener("click", () => fileInput?.click());
+  fileInput?.addEventListener("change", async () => {
+    const file = fileInput.files?.[0];
+    fileInput.value = "";
+    if (!file) return;
+    if (
+      !confirm(
+        "Importing a backup overwrites the matching data on this device (settings, puzzle stats, repertoire, progress). Continue?",
+      )
+    )
+      return;
+    try {
+      const count = await restoreBackup(file);
+      say(`Imported ${count} items. Reloading...`);
+      setTimeout(() => location.reload(), 800);
+    } catch (err) {
+      say(err.message || "Import failed.", true);
+    }
+  });
+}
+
+// ---------- Aralıklı tekrar özeti ----------
+function renderSrsSummary() {
+  const el = document.getElementById("srs-summary");
+  if (!el) return;
+  let rep = null;
+  try {
+    rep = library.active; // modül yüklenirken henüz tanımlı olmayabilir
+  } catch {
+    return;
+  }
+  if (!rep || !settings.smartReview) {
+    el.hidden = true;
+    return;
+  }
+  const s = srsSummary(rep.id);
+  el.hidden = false;
+  el.innerHTML = s.tracked
+    ? `<span>Due for review <b>${s.due}</b></span><span>Practiced <b>${s.tracked}</b></span><span>Mastered <b>${s.mastered}</b></span>`
+    : `<span>Smart review: train this repertoire to start tracking your weak spots.</span>`;
+}
+renderSrsSummary();
+document.getElementById("btn-reset-srs")?.addEventListener("click", () => {
+  if (!confirm("Reset spaced-repetition progress for all repertoires?")) return;
+  resetSrs();
+  renderSrsSummary();
+});
+document
+  .getElementById("btn-drill")
+  ?.addEventListener("click", renderSrsSummary);
+
+// ---------- PWA: service worker + yükleme düğmesi ----------
+if (
+  "serviceWorker" in navigator &&
+  ["https:", "http:"].includes(location.protocol)
+) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch((err) => {
+      console.warn("Service worker registration failed:", err);
+    });
+  });
+}
+
+{
+  let installPrompt = null;
+  const row = document.getElementById("install-row");
+  window.addEventListener("beforeinstallprompt", (e) => {
+    e.preventDefault();
+    installPrompt = e;
+    if (row) row.hidden = false;
+  });
+  window.addEventListener("appinstalled", () => {
+    installPrompt = null;
+    if (row) row.hidden = true;
+  });
+  document
+    .getElementById("btn-install-app")
+    ?.addEventListener("click", async () => {
+      if (!installPrompt) return;
+      installPrompt.prompt();
+      await installPrompt.userChoice;
+      installPrompt = null;
+      if (row) row.hidden = true;
+    });
 }

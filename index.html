@@ -12,6 +12,12 @@
       rel="stylesheet"
     />
     <link rel="icon" href="./assets/frost icon.jpg" />
+    <link rel="manifest" href="manifest.webmanifest" />
+    <meta name="theme-color" content="#0a1b22" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Azurite" />
+    <link rel="apple-touch-icon" href="./assets/icons/apple-touch-icon.png" />
   </head>
   <body>
     <header class="navbar">
@@ -230,6 +236,13 @@
           <button id="analyse-btn-reset">Reset</button>
         </div>
 
+        <div class="buttons analyse-pgn-buttons">
+          <button type="button" id="analyse-btn-copy-pgn">Copy PGN</button>
+          <button type="button" id="analyse-btn-download-pgn">
+            Download PGN
+          </button>
+        </div>
+
         <div id="analyse-opening" class="opening"></div>
 
         <ol id="analyse-moves" class="moves"></ol>
@@ -257,9 +270,26 @@
           <div id="analyse-progress-box" class="analyse-progress-box">
             <div class="spinner"></div>
             <p id="analyse-progress-text">Analyzing game... (0%)</p>
+            <button
+              type="button"
+              id="analyse-cancel-review"
+              class="analyse-cancel-review"
+            >
+              Cancel
+            </button>
           </div>
 
           <h2>Game Report</h2>
+
+          <div class="analyse-graph-wrap" hidden>
+            <svg
+              id="analyse-eval-graph"
+              class="analyse-eval-graph"
+              preserveAspectRatio="none"
+              role="img"
+              aria-label="Evaluation graph"
+            ></svg>
+          </div>
 
           <div class="analyse-report-total">
             <span>Total moves</span>
@@ -433,6 +463,19 @@
           >
         </div>
 
+        <div class="puzzle-daily-chip">
+          <div class="daily-head">
+            <span>Daily goal</span>
+            <span id="puzzle-daily-text">0 / 5</span>
+          </div>
+          <div class="daily-bar">
+            <div id="puzzle-daily-bar-fill" class="daily-bar-fill"></div>
+          </div>
+          <div class="daily-meta">
+            <span>Day streak <b id="puzzle-daily-streak">0</b></span>
+          </div>
+        </div>
+
         <div style="margin-bottom: 16px">
           <label
             style="
@@ -565,6 +608,7 @@
             <button id="btn-drill" class="drill-btn" hidden>
               Train this repertoire
             </button>
+            <div id="srs-summary" class="srs-summary" hidden></div>
           </div>
         </aside>
       </div>
@@ -633,6 +677,20 @@
 
       <!-- PUZZLES -->
       <div class="profile-pane" data-pane="puzzles" hidden>
+        <div class="daily-card">
+          <div class="daily-head">
+            <strong>Daily goal</strong>
+            <span id="daily-text">0 / 5</span>
+          </div>
+          <div class="daily-bar">
+            <div id="daily-bar-fill" class="daily-bar-fill"></div>
+          </div>
+          <div class="daily-meta">
+            <span>Day streak <b id="daily-streak">0</b></span>
+            <span>Best <b id="daily-best">0</b></span>
+          </div>
+          <div id="daily-week" class="daily-week"></div>
+        </div>
         <div class="profile-overview profile-puzzle-overview">
           <div class="profile-stat-card">
             <span class="profile-stat-label">Current Elo</span>
@@ -829,6 +887,24 @@
               </select>
             </div>
             <div class="settings-row">
+              <label for="setting-daily-goal"
+                >Daily goal (puzzles per day)</label
+              >
+              <select id="setting-daily-goal">
+                <option value="1">1</option>
+                <option value="3">3</option>
+                <option value="5">5</option>
+                <option value="10">10</option>
+                <option value="20">20</option>
+                <option value="50">50</option>
+              </select>
+            </div>
+            <div class="settings-row">
+              <label for="setting-smart-review"
+                >Smart review in repertoire drills (spaced repetition)</label
+              ><input id="setting-smart-review" type="checkbox" />
+            </div>
+            <div class="settings-row">
               <label for="setting-auto-next"
                 >Auto-load next puzzle after solving</label
               ><input id="setting-auto-next" type="checkbox" />
@@ -863,9 +939,39 @@
         <div class="profile-progress-section">
           <h2>Data</h2>
           <div class="profile-settings-card">
+            <div class="settings-row" id="install-row" hidden>
+              <label>Install Azurite as an app (works offline)</label>
+              <button id="btn-install-app" type="button">Install</button>
+            </div>
+            <div class="settings-row">
+              <label
+                >Backup everything (settings, puzzles, repertoire,
+                progress)</label
+              >
+              <button id="btn-export-backup" type="button">
+                Export backup
+              </button>
+            </div>
+            <div class="settings-row">
+              <label>Restore from a backup file</label>
+              <button id="btn-import-backup" type="button">
+                Import backup
+              </button>
+              <input
+                id="input-import-backup"
+                type="file"
+                accept="application/json,.json"
+                hidden
+              />
+            </div>
+            <p id="backup-note" class="backup-note"></p>
             <div class="settings-row">
               <label>Export puzzle data (JSON)</label>
               <button id="btn-export-puzzle-data" type="button">Export</button>
+            </div>
+            <div class="settings-row">
+              <label>Reset spaced-repetition progress</label>
+              <button id="btn-reset-srs" type="button">Reset</button>
             </div>
             <div class="settings-row">
               <label>Reset puzzle rating, stats and log</label>

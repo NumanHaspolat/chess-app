@@ -1,0 +1,31 @@
+{
+  "name": "Azurite Chess",
+  "short_name": "Azurite",
+  "description": "Chess training: puzzles, openings, repertoire drills and game analysis.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a1b22",
+  "theme_color": "#0a1b22",
+  "icons": [
+    {
+      "src": "assets/frost icon.jpg",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/frost icon.jpg",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/frost icon.jpg",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

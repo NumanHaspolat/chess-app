@@ -1,3 +1,5 @@
+import { createPieceEl } from "./pieces.js";
+
 // Ayarlar, temalar, ses ve terfi seçimi. settings nesnesi yerinde değiştirilir.
 export const SOUNDS = {
   move: new Audio("./assets/audio/move.wav"),
@@ -58,6 +60,7 @@ export function loadSettings() {
           : "medium",
       autoNextPuzzle: !!saved.autoNextPuzzle,
       promotionAsk: !!saved.promotionAsk,
+      smartReview: saved.smartReview !== false,
     };
   } catch {
     return {
@@ -77,6 +80,7 @@ export function loadSettings() {
       defaultPuzzleLevel: "medium",
       autoNextPuzzle: false,
       promotionAsk: false,
+      smartReview: true,
     };
   }
 }
@@ -258,12 +262,17 @@ export function askPromotion(color) {
     overlay.className = "promo-overlay";
     const box = document.createElement("div");
     box.className = "promo-box";
-    const glyph = { q: "♛", r: "♜", b: "♝", n: "♞" };
+    const names = { q: "Queen", r: "Rook", b: "Bishop", n: "Knight" };
     for (const t of ["q", "r", "b", "n"]) {
       const btn = document.createElement("button");
       btn.type = "button";
-      btn.textContent = glyph[t];
-      btn.setAttribute("aria-label", t);
+      btn.className = "promo-piece";
+      btn.setAttribute("aria-label", names[t]);
+      btn.title = names[t];
+      // Sitedeki kendi taş görselleri
+      const pieceEl = createPieceEl(color, t);
+      pieceEl.classList.remove("dragging");
+      btn.appendChild(pieceEl);
       btn.addEventListener("click", () => {
         overlay.remove();
         resolve(t);

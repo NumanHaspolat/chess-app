@@ -3278,9 +3278,9 @@ body.hide-last-move #analyse-board .last-move {
   border-radius: 10px;
 }
 .promo-box button {
-  width: 56px;
-  height: 56px;
-  font-size: 36px;
+  width: 64px;
+  height: 64px;
+  padding: 4px;
   cursor: pointer;
   background: var(--control);
   color: var(--text);
@@ -3578,4 +3578,186 @@ body.hide-last-move #analyse-board .last-move {
     max-height: 74px;
     overflow-y: auto;
   }
+}
+
+.promo-box .promo-piece .piece {
+  cursor: pointer;
+  pointer-events: none;
+}
+@media (max-width: 420px) {
+  .promo-box button {
+    width: 56px;
+    height: 56px;
+  }
+}
+
+.analyse-cancel-review {
+  padding: 6px 14px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: var(--control);
+  color: var(--text);
+  font-family: var(--font-pixel);
+  cursor: pointer;
+}
+.analyse-cancel-review:hover {
+  background: var(--control-hover, var(--control));
+}
+
+/* ---- Değerlendirme grafiği ---- */
+.analyse-graph-wrap {
+  margin: 8px 0 14px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #000;
+}
+.analyse-eval-graph {
+  display: block;
+  width: 100%;
+  height: 90px;
+  cursor: pointer;
+  touch-action: none;
+}
+.analyse-eval-graph .graph-bg {
+  fill: #262626;
+}
+.analyse-eval-graph .graph-area {
+  fill: #f0f0f0;
+}
+.analyse-eval-graph .graph-mid {
+  stroke: rgba(128, 128, 128, 0.6);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+.analyse-eval-graph .graph-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5;
+}
+.analyse-eval-graph .graph-marker {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+.analyse-eval-graph .graph-dot-brilliant {
+  fill: #26c9c3;
+  stroke: #fff;
+  stroke-width: 1;
+}
+.analyse-eval-graph .graph-dot-blunder {
+  fill: #e0483f;
+  stroke: #fff;
+  stroke-width: 1;
+}
+.analyse-pgn-buttons {
+  margin-top: 6px;
+}
+
+/* ---- Günlük hedef ve seri ---- */
+.daily-card,
+.puzzle-daily-chip {
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+  background: var(--panel);
+  padding: 12px 14px;
+}
+.daily-card {
+  margin: 0 0 14px;
+}
+.puzzle-daily-chip {
+  margin-bottom: 16px;
+  padding: 10px 12px;
+}
+.daily-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+.daily-bar {
+  height: 10px;
+  border-radius: 6px;
+  background: var(--control);
+  overflow: hidden;
+}
+.daily-bar-fill {
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width 0.4s ease;
+}
+.daily-bar-fill.done {
+  background: #4cc46a;
+}
+.daily-meta {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.daily-meta b {
+  color: var(--accent-strong, var(--accent));
+  margin-left: 4px;
+}
+.daily-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  margin-top: 12px;
+}
+.daily-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+.daily-day i {
+  width: 100%;
+  max-width: 28px;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  background: var(--control);
+  border: 1px solid var(--panel-border);
+}
+.daily-day.met i {
+  background: #4cc46a;
+  border-color: #4cc46a;
+}
+.daily-day.today span {
+  color: var(--text);
+}
+.daily-day.today i {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.backup-note {
+  margin: 4px 2px 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  min-height: 1.2em;
+}
+.backup-note.error {
+  color: #e0483f;
+}
+
+.srs-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.srs-summary b {
+  color: var(--accent-strong, var(--accent));
+  margin-left: 4px;
 }

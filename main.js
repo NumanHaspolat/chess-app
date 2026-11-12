@@ -6227,6 +6227,12 @@ function renderDaily() {
   setT("daily-best", s.best);
   setT("puzzle-daily-text", `${s.today} / ${s.goal}`);
   setT("puzzle-daily-streak", s.streak);
+  document
+    .querySelector(".daily-card")
+    ?.classList.toggle("has-streak", s.streak > 0);
+  document
+    .querySelector(".puzzle-daily-chip")
+    ?.classList.toggle("has-streak", s.streak > 0);
 
   for (const id of ["daily-bar-fill", "puzzle-daily-bar-fill"]) {
     const el = document.getElementById(id);

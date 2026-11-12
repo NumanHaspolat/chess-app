@@ -3685,7 +3685,7 @@ body.hide-last-move #analyse-board .last-move {
   transition: width 0.4s ease;
 }
 .daily-bar-fill.done {
-  background: #4cc46a;
+  background: var(--accent-strong);
 }
 .daily-meta {
   display: flex;
@@ -3721,8 +3721,8 @@ body.hide-last-move #analyse-board .last-move {
   border: 1px solid var(--panel-border);
 }
 .daily-day.met i {
-  background: #4cc46a;
-  border-color: #4cc46a;
+  background: var(--accent-strong);
+  border-color: var(--control-hover);
 }
 .daily-day.today span {
   color: var(--text);
@@ -3834,4 +3834,21 @@ main.app#play:has(#learn-panel:not([hidden])) .evaluation {
     max-height: 56px;
     padding: 6px 8px;
   }
+}
+
+.daily-streak-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.flame-icon {
+  height: 22px;
+  width: auto;
+  image-rendering: pixelated;
+  filter: opacity(0.85);
+  transition: filter 0.3s;
+}
+.daily-card.has-streak .flame-icon,
+.puzzle-daily-chip.has-streak .flame-icon {
+  filter: none;
 }

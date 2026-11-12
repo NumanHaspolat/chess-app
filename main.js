@@ -7,6 +7,32 @@ import { importPgn } from "./src/pgn.js";
 import { splitGames } from "./src/pgn.js";
 import { OpeningBook } from "./src/openings.js";
 import { loadOpening } from "./src/opening-trainer.js";
+import {
+  settings,
+  saveSettings,
+  applyAppearance,
+  THEMES,
+  BOARD_THEMES,
+  currentBoardColors,
+  animMs,
+  animTransition,
+  pickPromotion,
+  playSound,
+  effectiveVolume,
+  ENGINE_DEPTH_DEFAULT,
+  reviewDepth,
+} from "./src/settings.js";
+import {
+  PIECE_VAL,
+  winPercent,
+  moveAccuracy,
+  combineAccuracy,
+  volatilityWeights,
+  pvMaterialSwing,
+  persistentDeficit,
+  staticSacrifice,
+  classifyMove,
+} from "./src/review.js";
 
 const game = new Chess();
 const repertoireGame = new Chess();
@@ -23,23 +49,6 @@ const FILES = "abcdefgh";
 const DRAG_THRESHOLD = 4; // pixels before a press becomes a drag
 const PIECE_VALUES = { p: 1, n: 3, b: 3, r: 5, q: 9 };
 const DISPLAY_ORDER = ["q", "r", "b", "n", "p"];
-
-const SOUNDS = {
-  move: new Audio("./assets/audio/move.wav"),
-  capture: new Audio("./assets/audio/capture.wav"),
-  check: new Audio("./assets/audio/check.wav"),
-  castle: new Audio("./assets/audio/castle.wav"),
-  promote: new Audio("./assets/audio/promote.wav"),
-  gameover: new Audio("./assets/audio/gameover.wav"),
-};
-
-// Eksik ses dosyası olursa (örn. capture.wav) move.wav'a düş
-for (const [name, audio] of Object.entries(SOUNDS)) {
-  if (name === "move") continue;
-  audio.addEventListener("error", () => {
-    SOUNDS[name] = SOUNDS.move;
-  });
-}
 
 const boardEl = document.getElementById("board");
 const analyseBoardEl = document.getElementById("analyse-board");
@@ -300,296 +309,6 @@ function renderAnalyseAnalysisLines(lines) {
 let favoriteOpenings = new Set(
   JSON.parse(localStorage.getItem("azurite-favorites") || "[]"),
 );
-
-// ---------- Ayarlar (ses) ----------
-const SETTINGS_KEY = "azurite-settings";
-
-function loadSettings() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}");
-    return {
-      volume:
-        typeof saved.volume === "number"
-          ? Math.min(1, Math.max(0, saved.volume))
-          : 0.8,
-      muted: !!saved.muted,
-      theme: typeof saved.theme === "string" ? saved.theme : "azurite",
-      board: typeof saved.board === "string" ? saved.board : "teal",
-      customAccent:
-        typeof saved.customAccent === "string" ? saved.customAccent : null,
-      customLight:
-        typeof saved.customLight === "string" ? saved.customLight : null,
-      customDark:
-        typeof saved.customDark === "string" ? saved.customDark : null,
-      reviewDepth: [12, 14, 16, 18].includes(saved.reviewDepth)
-        ? saved.reviewDepth
-        : 14,
-      liveDepth: [10, 13, 16, 18].includes(saved.liveDepth)
-        ? saved.liveDepth
-        : 13,
-      animSpeed: ["off", "fast", "normal", "slow"].includes(saved.animSpeed)
-        ? saved.animSpeed
-        : "normal",
-      showCoords: saved.showCoords !== false,
-      showLegalDots: saved.showLegalDots !== false,
-      showLastMove: saved.showLastMove !== false,
-      defaultPuzzleLevel:
-        typeof saved.defaultPuzzleLevel === "string"
-          ? saved.defaultPuzzleLevel
-          : "medium",
-      autoNextPuzzle: !!saved.autoNextPuzzle,
-      promotionAsk: !!saved.promotionAsk,
-    };
-  } catch {
-    return {
-      volume: 0.8,
-      muted: false,
-      theme: "azurite",
-      board: "teal",
-      customAccent: null,
-      customLight: null,
-      customDark: null,
-      reviewDepth: 14,
-      liveDepth: 13,
-      animSpeed: "normal",
-      showCoords: true,
-      showLegalDots: true,
-      showLastMove: true,
-      defaultPuzzleLevel: "medium",
-      autoNextPuzzle: false,
-      promotionAsk: false,
-    };
-  }
-}
-
-let settings = loadSettings();
-
-// ---------- Görünüm: renk temaları ----------
-const THEMES = {
-  azurite: {
-    name: "Azurite",
-    vars: {
-      "--bg": "#0a1b22",
-      "--bg-glow": "#12404a",
-      "--panel": "#0f2a33",
-      "--panel-border": "#1b4652",
-      "--control": "#17414d",
-      "--control-hover": "#1f5565",
-      "--text": "#d6eeee",
-      "--text-muted": "#7fa9ae",
-      "--accent": "rgb(45, 192, 212)",
-      "--accent-strong": "#3fdef3",
-    },
-  },
-  midnight: {
-    name: "Midnight",
-    vars: {
-      "--bg": "#0b0f1f",
-      "--bg-glow": "#1c2450",
-      "--panel": "#12172e",
-      "--panel-border": "#252d57",
-      "--control": "#1b2244",
-      "--control-hover": "#262f5c",
-      "--text": "#e1e5f7",
-      "--text-muted": "#8d96c4",
-      "--accent": "rgb(129, 140, 248)",
-      "--accent-strong": "#a5b4fc",
-    },
-  },
-  forest: {
-    name: "Forest",
-    vars: {
-      "--bg": "#0b1a12",
-      "--bg-glow": "#16402a",
-      "--panel": "#102a1d",
-      "--panel-border": "#1f4a33",
-      "--control": "#184230",
-      "--control-hover": "#215a40",
-      "--text": "#dcefe3",
-      "--text-muted": "#86ae95",
-      "--accent": "rgb(74, 200, 120)",
-      "--accent-strong": "#6ee79b",
-    },
-  },
-  ember: {
-    name: "Ember",
-    vars: {
-      "--bg": "#1a0f0b",
-      "--bg-glow": "#4a2312",
-      "--panel": "#2a1710",
-      "--panel-border": "#4f2d1f",
-      "--control": "#40241a",
-      "--control-hover": "#58321f",
-      "--text": "#f3e4da",
-      "--text-muted": "#b0907d",
-      "--accent": "rgb(240, 140, 60)",
-      "--accent-strong": "#ffab5e",
-    },
-  },
-  rose: {
-    name: "Rose",
-    vars: {
-      "--bg": "#1a0b14",
-      "--bg-glow": "#4a1236",
-      "--panel": "#2a1020",
-      "--panel-border": "#4f1f3d",
-      "--control": "#401a32",
-      "--control-hover": "#58223f",
-      "--text": "#f4dfeb",
-      "--text-muted": "#b07d99",
-      "--accent": "rgb(236, 92, 160)",
-      "--accent-strong": "#ff7fbd",
-    },
-  },
-  graphite: {
-    name: "Graphite",
-    vars: {
-      "--bg": "#0f1113",
-      "--bg-glow": "#262a30",
-      "--panel": "#171a1e",
-      "--panel-border": "#2c3138",
-      "--control": "#22262c",
-      "--control-hover": "#2d323a",
-      "--text": "#e6e8eb",
-      "--text-muted": "#8f959d",
-      "--accent": "rgb(170, 180, 195)",
-      "--accent-strong": "#d2dae6",
-    },
-  },
-};
-
-const BOARD_THEMES = {
-  teal: { name: "Azurite", light: "#bfdee3", dark: "#348aa0" },
-  green: { name: "Green", light: "#eeeed2", dark: "#769656" },
-  wood: { name: "Wood", light: "#f0d9b5", dark: "#b58863" },
-  ice: { name: "Ice", light: "#dee3e6", dark: "#8ca2ad" },
-  purple: { name: "Purple", light: "#e5dcf0", dark: "#8a6fb0" },
-  mono: { name: "Mono", light: "#d9d9d9", dark: "#7a7a7a" },
-};
-
-function lightenHex(hex, amount = 0.3) {
-  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
-  if (!m) return hex;
-  const n = parseInt(m[1], 16);
-  const mix = (c) => Math.round(c + (255 - c) * amount);
-  const r = mix((n >> 16) & 255);
-  const g = mix((n >> 8) & 255);
-  const b = mix(n & 255);
-  return `#${((1 << 24) | (r << 16) | (g << 8) | b).toString(16).slice(1)}`;
-}
-
-function currentBoardColors() {
-  if (
-    settings.board === "custom" &&
-    settings.customLight &&
-    settings.customDark
-  ) {
-    return { light: settings.customLight, dark: settings.customDark };
-  }
-  return BOARD_THEMES[settings.board] || BOARD_THEMES.teal;
-}
-
-function applyAppearance() {
-  const root = document.documentElement;
-  const theme = THEMES[settings.theme] || THEMES.azurite;
-
-  for (const [name, value] of Object.entries(theme.vars)) {
-    root.style.setProperty(name, value);
-  }
-
-  if (settings.customAccent) {
-    root.style.setProperty("--accent", settings.customAccent);
-    root.style.setProperty(
-      "--accent-strong",
-      lightenHex(settings.customAccent, 0.3),
-    );
-  }
-
-  const board = currentBoardColors();
-  root.style.setProperty("--light", board.light);
-  root.style.setProperty("--dark", board.dark);
-
-  document.body?.classList.toggle("hide-coords", !settings.showCoords);
-  document.body?.classList.toggle("hide-legal-dots", !settings.showLegalDots);
-  document.body?.classList.toggle("hide-last-move", !settings.showLastMove);
-}
-
-// Animasyon hızı (ms). 0 = kapalı
-function animMs() {
-  return (
-    { off: 0, fast: 90, normal: 180, slow: 320 }[settings.animSpeed] ?? 180
-  );
-}
-function animTransition() {
-  const ms = animMs();
-  return ms === 0 ? "none" : `transform ${ms}ms ease`;
-}
-
-// Terfi seçimi: ayar açıksa küçük bir seçim penceresi gösterir, değilse vezir
-function isPromotionMove(chessObj, from, to) {
-  const p = chessObj.get(from);
-  if (!p || p.type !== "p") return false;
-  return (
-    (p.color === "w" && to[1] === "8") || (p.color === "b" && to[1] === "1")
-  );
-}
-function askPromotion(color) {
-  return new Promise((resolve) => {
-    const overlay = document.createElement("div");
-    overlay.className = "promo-overlay";
-    const box = document.createElement("div");
-    box.className = "promo-box";
-    const glyph = { q: "♛", r: "♜", b: "♝", n: "♞" };
-    for (const t of ["q", "r", "b", "n"]) {
-      const btn = document.createElement("button");
-      btn.type = "button";
-      btn.textContent = glyph[t];
-      btn.setAttribute("aria-label", t);
-      btn.addEventListener("click", () => {
-        overlay.remove();
-        resolve(t);
-      });
-      box.appendChild(btn);
-    }
-    overlay.appendChild(box);
-    overlay.addEventListener("click", (e) => {
-      if (e.target === overlay) {
-        overlay.remove();
-        resolve(null);
-      }
-    });
-    document.body.appendChild(overlay);
-  });
-}
-async function pickPromotion(chessObj, from, to) {
-  if (!settings.promotionAsk || !isPromotionMove(chessObj, from, to))
-    return "q";
-  return askPromotion(chessObj.get(from).color);
-}
-
-applyAppearance();
-
-function saveSettings() {
-  try {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-  } catch {}
-}
-
-function effectiveVolume() {
-  return settings.muted ? 0 : settings.volume;
-}
-
-function playSound(name, speed = 1) {
-  const sound = SOUNDS[name];
-  if (!sound) return;
-  sound.volume = effectiveVolume();
-
-  sound.pause();
-  sound.currentTime = 0;
-  sound.playbackRate = speed;
-
-  sound.play().catch(() => {});
-}
 
 function renderDrillCompleteOverlay() {
   if (!drillCompleteOverlay) return;
@@ -1127,7 +846,6 @@ let activeEngineFen = null;
 let requestedEngineFen = null;
 let analysisLinesByRank = new Map();
 
-const ENGINE_DEPTH_DEFAULT = 13;
 let requestedEvaluationTarget = "play";
 
 function initStockfish() {
@@ -1870,9 +1588,6 @@ document.getElementById("analyse-btn-reset")?.addEventListener("click", () => {
   goToAnalysePly(0, false);
 });
 
-const REVIEW_DEPTH_DEFAULT = 14; // yüksek = daha doğru ama daha yavaş
-const reviewDepth = () => settings.reviewDepth || REVIEW_DEPTH_DEFAULT;
-
 // "Great" rozeti için assets/badges/great.png gerekir. Dosyayı ekleyince true yap.
 const ENABLE_GREAT_MOVES = false;
 if (!ENABLE_GREAT_MOVES) {
@@ -1883,7 +1598,6 @@ if (!ENABLE_GREAT_MOVES) {
     if (row) row.hidden = true;
   }
 }
-const PIECE_VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 
 let analyseMoveClasses = [];
 let reviewRunId = 0;
@@ -1988,294 +1702,6 @@ async function runEvaluation(fen, depth = reviewDepth()) {
     worker.postMessage(`position fen ${fen}`);
     worker.postMessage(`go depth ${depth}`);
   });
-}
-
-// Lichess/chess.com tarzı: centipawn -> kazanma yüzdesi (beklenen puan x 100)
-function winPercent(cp) {
-  const c = Math.max(-1200, Math.min(1200, cp));
-  return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * c)) - 1);
-}
-
-// Hamle doğruluğu: kazanma yüzdesi kaybına göre (Lichess formülü)
-function moveAccuracy(winLoss) {
-  const acc =
-    103.1668100711649 * Math.exp(-0.04354415386753951 * Math.max(0, winLoss)) -
-    3.166924740191411 +
-    1;
-  return Math.max(0, Math.min(100, acc));
-}
-
-// Oyun doğruluğu: oynaklık ağırlıklı ortalama ile harmonik ortalamanın ortalaması
-function combineAccuracy(accs, weights) {
-  if (!accs.length) return null;
-  const weightSum = weights.reduce((a, b) => a + b, 0) || 1;
-  const weighted =
-    accs.reduce((sum, a, i) => sum + a * weights[i], 0) / weightSum;
-  const harmonic =
-    accs.length / accs.reduce((sum, a) => sum + 1 / Math.max(a, 1), 0);
-
-  return Math.min(100, Math.max(0, (weighted + harmonic) / 2));
-}
-
-function volatilityWeights(winSeries) {
-  const total = winSeries.length - 1;
-  const size = Math.max(2, Math.min(8, Math.floor(winSeries.length / 10)));
-  const weights = [];
-
-  for (let i = 0; i < total; i++) {
-    let win = winSeries.slice(i, i + size);
-    if (win.length < 2) win = winSeries.slice(-size);
-
-    const mean = win.reduce((a, b) => a + b, 0) / win.length;
-    const sd = Math.sqrt(
-      win.reduce((a, b) => a + (b - mean) ** 2, 0) / win.length,
-    );
-
-    weights.push(Math.max(0.5, Math.min(12, sd)));
-  }
-
-  return weights;
-}
-
-function materialDiff(chess, color) {
-  let diff = 0;
-  for (const row of chess.board()) {
-    for (const p of row) {
-      if (!p || p.type === "k") continue;
-      diff += (p.color === color ? 1 : -1) * PIECE_VAL[p.type];
-    }
-  }
-  return diff;
-}
-
-// Bir karedeki alış-veriş zincirinin, sırası gelen taraf için net kazancı (basit statik takas).
-function quiesceGain(chess, square, depth) {
-  if (depth <= 0) return 0;
-
-  const captures = chess
-    .moves({ verbose: true })
-    .filter((m) => m.to === square && m.captured);
-  if (!captures.length) return 0;
-
-  captures.sort((a, b) => PIECE_VAL[a.piece] - PIECE_VAL[b.piece]);
-
-  let best = 0; // almamak serbest
-  for (const m of captures.slice(0, 3)) {
-    chess.move({ from: m.from, to: m.to, promotion: m.promotion });
-    const value = PIECE_VAL[m.captured] - quiesceGain(chess, square, depth - 1);
-    chess.undo();
-    best = Math.max(best, value);
-  }
-  return best;
-}
-
-// Motorun ana varyantını oynatıp, takaslar bitince hamle yapanın materyal farkını ölçer.
-// Negatif sonuç = materyal feda edilmiş (örn. -3 = bir taş).
-function pvMaterialSwing(fenBefore, pvMoves, color) {
-  if (!pvMoves || pvMoves.length < 2) return 0;
-
-  const chess = new Chess(fenBefore);
-  const start = materialDiff(chess, color);
-  const diffs = [];
-  const captures = [];
-  let lastTo = null;
-
-  for (const uci of pvMoves.slice(0, 8)) {
-    let mv = null;
-    try {
-      mv = chess.move({
-        from: uci.slice(0, 2),
-        to: uci.slice(2, 4),
-        promotion: uci[4] || undefined,
-      });
-    } catch {
-      mv = null;
-    }
-    if (!mv) break;
-    diffs.push(materialDiff(chess, color));
-    captures.push(!!mv.captured);
-    lastTo = mv.to;
-  }
-
-  if (diffs.length < 2) return 0;
-
-  // İlk "sakin" nokta: rakibin en az bir hamlesi oynanmış ve sıradaki hamle alma değil
-  for (let k = 1; k + 1 < diffs.length; k++) {
-    if (!captures[k + 1]) return diffs[k] - start;
-  }
-
-  if (chess.isGameOver()) return diffs[diffs.length - 1] - start;
-
-  // Hat takasın ortasında kesildiyse, son karedeki alış-verişi tahmin ederek tamamla
-  let final = diffs[diffs.length - 1];
-  if (captures[captures.length - 1]) {
-    const gain = quiesceGain(chess, lastTo, 4);
-    final += (chess.turn() === color ? 1 : -1) * gain;
-  }
-  return final - start;
-}
-
-// İleriye bakış: motorun hattı sonuna kadar oynanınca feda edilen materyal GERİ ALINMIYOR mu?
-// Pozitif sayı = hat sonunda hâlâ o kadar materyal geride (ya da rakip değil, hamle yapan mat ediyor = 99).
-// Feda hemen geri alınıyorsa (takas) ya da küçük bir oyalamaysa brilliant sayılmaz.
-function persistentDeficit(fenBefore, pvMoves, color) {
-  if (!pvMoves || pvMoves.length < 3) return 0;
-  const chess = new Chess(fenBefore);
-  const start = materialDiff(chess, color);
-  let lastCapture = false;
-  let lastTo = null;
-  let played = 0;
-
-  for (const uci of pvMoves.slice(0, 10)) {
-    let mv = null;
-    try {
-      mv = chess.move({
-        from: uci.slice(0, 2),
-        to: uci.slice(2, 4),
-        promotion: uci[4] || undefined,
-      });
-    } catch {
-      mv = null;
-    }
-    if (!mv) break;
-    played++;
-    lastCapture = !!mv.captured;
-    lastTo = mv.to;
-  }
-  if (played < 3) return 0;
-
-  if (chess.isCheckmate()) {
-    // sırası gelen taraf mat olmuş: hamle yapan taraf kazandıysa fedası karşılığını almıştır
-    return chess.turn() !== color ? 99 : -99;
-  }
-
-  let final = materialDiff(chess, color);
-  if (lastCapture) {
-    // Hat bir takasın ortasında kesilmiş olabilir: o karedeki alış-verişi tamamla
-    const gain = quiesceGain(chess, lastTo, 4);
-    final += (chess.turn() === color ? 1 : -1) * gain;
-  }
-  return start - final;
-}
-
-// Rakibin, sırası ona geçseydi (ya da şimdi) bir pozisyonda alabileceği en kârlı takas zinciri.
-function maxCaptureGain(chess) {
-  const squares = new Set(
-    chess
-      .moves({ verbose: true })
-      .filter((m) => m.captured)
-      .map((m) => m.to),
-  );
-  let maxGain = 0;
-  for (const sq of squares) {
-    maxGain = Math.max(maxGain, quiesceGain(chess, sq, 4));
-  }
-  return maxGain;
-}
-
-// Hamleden hemen sonra feda edilen materyal (statik takas hesabı, motor hattından bağımsız).
-// raw = rakibin kazanabileceği - bu hamlede alınan taş
-// net = raw - HAMLEDEN ÖNCE zaten var olan tehdit (zaten asılı duran taş feda sayılmaz)
-function staticSacrifice(fenBefore, uci, color) {
-  try {
-    // Hamleden önceki tehdit: sırayı rakibe verip alabileceği en çok materyal
-    let threatBefore = 0;
-    try {
-      const parts = fenBefore.split(" ");
-      parts[1] = parts[1] === "w" ? "b" : "w";
-      parts[3] = "-";
-      threatBefore = maxCaptureGain(new Chess(parts.join(" ")));
-    } catch {
-      threatBefore = 0;
-    }
-
-    const chess = new Chess(fenBefore);
-    const mv = chess.move({
-      from: uci.slice(0, 2),
-      to: uci.slice(2, 4),
-      promotion: uci[4] || undefined,
-    });
-    if (!mv) return { raw: 0, net: 0 };
-    const gained = mv.captured ? PIECE_VAL[mv.captured] : 0;
-    const maxGain = maxCaptureGain(chess);
-    const raw = Math.max(0, maxGain - gained);
-    const net = Math.max(0, maxGain - gained - threatBefore);
-    return { raw, net };
-  } catch {
-    return { raw: 0, net: 0 };
-  }
-}
-
-// Sınıflandırma (kaybedilen kazanma % eşikleri):
-//   brilliant (!!)  : iyi hamle + büyük feda
-//   excellent (!)   : zor bulunan hamle (tek iyi hamle / küçük feda)
-//   best            : motorun en iyisi ya da kaybı ≤ 2
-//   good ≤ 5 · inaccuracy ≤ 10 · mistake ≤ 20 · blunder > 20
-function classifyMove({
-  uci,
-  best,
-  loss,
-  winBefore,
-  winAfter,
-  winAlt, // oynanan hamle dışındaki en iyi alternatifin değeri (yoksa null = tek yasal/zorunlu hamle)
-  gap,
-  isRecapture,
-  sacrificeSwing,
-  hangSwing = 0,
-  persist = 0, // hat sonunda hâlâ geride kalınan materyal (ileriye bakış)
-  moverPiece,
-  cpBefore,
-  cpAfter,
-}) {
-  const playedBest = uci === best;
-
-  // Brilliant (chess.com tanımı): iyi bir taş feda etmek. Hamle en iyi ya da en iyiye yakın olmalı,
-  // hamleden sonra pozisyon kötü olmamalı ve hamleyi bulmasan da zaten tamamen kazanıyor olmamalısın.
-  // "Hamleyi bulmasan da zaten tamamen kazanıyor olmamalısın" = en iyi ALTERNATİF de kazanç olmamalı.
-  // (winBefore kullanılamaz: motor hamleyi bulduğu için feda sonrası matı zaten görür ve winBefore ~%100 çıkar.)
-  if (
-    moverPiece !== "k" &&
-    winAlt !== null &&
-    loss <= 2 &&
-    sacrificeSwing <= -2 &&
-    winAlt < 97 &&
-    winAfter >= 47
-  ) {
-    return "brilliant";
-  }
-
-  // Excellent (!): zor bulunan hamle. Ya tek iyi hamle (alternatifler belirgin kötü)
-  // ya da küçük bir feda (genelde piyon). Brilliant (!!) kadar büyük değil.
-  const nearBest = loss <= 1;
-  const onlyMove = winAlt !== null && gap >= 12 && !isRecapture;
-  const smallSacrifice =
-    moverPiece !== "k" &&
-    winAlt !== null &&
-    sacrificeSwing <= -1 &&
-    winAlt < 97 &&
-    winAfter >= 45;
-
-  if (nearBest && (onlyMove || smallSacrifice)) {
-    return "excellent";
-  }
-
-  // Best: motorun en iyi hamlesi ya da onunla pratikte aynı seviye (kayıp < 0.5).
-  // Good: makul bir seçenek ama daha iyi hamleler var.
-  if (playedBest || loss < 0.5) return "best";
-  if (loss <= 5) return "good";
-  if (loss <= 10) return "inaccuracy";
-
-  // Blunder: bedava taş vermek, matı kaçırmak, mat yemek ya da oyunu tamamen çevirmek.
-  // Bunların dışındaki büyük hatalar "mistake" kalır.
-  const missedMate = cpBefore >= 3000 && cpAfter < 3000;
-  const allowsMate = cpAfter <= -3000 && cpBefore > -3000;
-  const hangsPiece = hangSwing <= -3 || sacrificeSwing <= -3; // motorun hattında en az bir taş kaybı
-  const flipsGame = loss > 20 && winBefore >= 40 && winAfter <= 25;
-
-  if (allowsMate || missedMate || hangsPiece || flipsGame || loss >= 35) {
-    return "blunder";
-  }
-  return "mistake";
 }
 
 async function reviewGame(

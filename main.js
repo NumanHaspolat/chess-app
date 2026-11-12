@@ -2297,11 +2297,6 @@ function getMaterial(position) {
 function renderStrip(el, color, material) {
   el.innerHTML = "";
 
-  const nameEl = document.createElement("span");
-  nameEl.className = "strip-name";
-  nameEl.textContent = color === "w" ? "White" : "Black";
-  el.appendChild(nameEl);
-
   const capturedEl = document.createElement("span");
   capturedEl.className = "strip-captured";
   material.ahead[color].forEach(({ type, color: pieceColor }) => {

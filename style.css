@@ -3377,17 +3377,13 @@ body.hide-last-move #analyse-board .last-move {
 }
 
 /* ===== Learn/Train yerleşimi (650px ve üstü): tahta solda, sağda önce Learn/Train paneli, altında Moves ===== */
-@media (min-width: 650px) {
+@media (min-width: 650px) and (max-width: 1050px) {
   main.app#play:has(#learn-panel:not([hidden])) {
     display: grid;
     grid-template-columns: minmax(0, 1.15fr) minmax(260px, 0.85fr);
     grid-auto-rows: min-content;
     align-items: start;
     gap: 14px 18px;
-    width: calc(100% - 24px);
-    max-width: 1300px;
-    margin: 12px auto 24px;
-    padding: 0;
   }
 
   main.app#play:has(#learn-panel:not([hidden])) > .board-section {
@@ -3400,7 +3396,7 @@ body.hide-last-move #analyse-board .last-move {
   main.app#play:has(#learn-panel:not([hidden])) .board-wrap {
     --size: max(
       240px,
-      min(calc((100vw - 40px) * 0.575 - 40px), calc(100svh - 190px), 720px)
+      min(calc((100vw - 40px) * 0.575), calc(100svh - 150px), 720px)
     );
     width: 100%;
     margin: 0 auto;
@@ -3560,7 +3556,7 @@ body.hide-last-move #analyse-board .last-move {
     --size: max(
       200px,
       min(
-        calc(100vw - 72px),
+        calc(100vw - 32px),
         calc(100svh - var(--learn-panel-fixed) - 200px),
         560px
       )
@@ -3760,4 +3756,82 @@ body.hide-last-move #analyse-board .last-move {
 .srs-summary b {
   color: var(--accent-strong, var(--accent));
   margin-left: 4px;
+}
+
+/* Learn/Train: değerlendirme çubuğu yok */
+main.app#play:has(#learn-panel:not([hidden])) .evaluation {
+  display: none;
+}
+
+/* Günlük hedef kartı: profildeki diğer bölümlerle aynı genişlik */
+#profile .daily-card {
+  width: 78%;
+  max-width: 78%;
+  margin: 0 auto 14px;
+  box-sizing: border-box;
+}
+@media (max-width: 800px) {
+  #profile .daily-card {
+    width: calc(100% - 32px);
+    max-width: calc(100% - 32px);
+  }
+}
+
+/* ===== Profil sekmeleri: kaydırma çubuğu yok, üç sekme ekrana sığar ===== */
+@media (max-width: 800px) {
+  #profile .profile-tabs {
+    overflow: visible;
+    gap: 4px;
+  }
+  .profile-tab {
+    flex: 1 1 0;
+    flex-shrink: 1;
+    min-width: 0;
+    padding: 10px 6px;
+    font-size: 0.85rem;
+    text-align: center;
+    white-space: nowrap;
+  }
+}
+
+/* ===== Telefon Learn/Train: tahta ekranın kenarlarına yapışık, olabildiğince büyük ===== */
+@media (max-width: 649px) {
+  :root {
+    --learn-panel-fixed: 188px;
+  }
+
+  main.app#play:has(#learn-panel:not([hidden])) {
+    padding-left: 0;
+    padding-right: 0;
+    gap: 6px;
+  }
+  main.app#play:has(#learn-panel:not([hidden])) > .board-section {
+    width: 100%;
+    max-width: none;
+    padding: 0;
+    margin: 0;
+  }
+  main.app#play:has(#learn-panel:not([hidden])) .board-wrap {
+    --size: max(
+      220px,
+      min(100vw, calc(100svh - var(--learn-panel-fixed) - 215px), 640px)
+    );
+    width: 100%;
+    max-width: none;
+    padding: 0;
+    margin: 0 auto;
+  }
+  main.app#play:has(#learn-panel:not([hidden])) .moves-section .status {
+    display: none;
+  }
+  main.app#play:has(#learn-panel:not([hidden])) .moves-section {
+    padding: 4px 12px;
+  }
+
+  #learn-panel .learn-explanation {
+    height: 56px;
+    min-height: 56px;
+    max-height: 56px;
+    padding: 6px 8px;
+  }
 }

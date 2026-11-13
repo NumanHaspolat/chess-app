@@ -3685,7 +3685,7 @@ body.hide-last-move #analyse-board .last-move {
   transition: width 0.4s ease;
 }
 .daily-bar-fill.done {
-  background: var(--accent-strong);
+  background: #4cc46a;
 }
 .daily-meta {
   display: flex;
@@ -3721,8 +3721,8 @@ body.hide-last-move #analyse-board .last-move {
   border: 1px solid var(--panel-border);
 }
 .daily-day.met i {
-  background: var(--accent-strong);
-  border-color: var(--control-hover);
+  background: #4cc46a;
+  border-color: #4cc46a;
 }
 .daily-day.today span {
   color: var(--text);
@@ -3845,10 +3845,177 @@ main.app#play:has(#learn-panel:not([hidden])) .evaluation {
   height: 22px;
   width: auto;
   image-rendering: pixelated;
-  filter: opacity(0.85);
+  filter: grayscale(1) opacity(0.45);
   transition: filter 0.3s;
 }
 .daily-card.has-streak .flame-icon,
 .puzzle-daily-chip.has-streak .flame-icon {
   filter: none;
+}
+
+/* En iyi 5 hamle: yüksekliği sabit, hamle değişince panel zıplamasın */
+#analysis-lines,
+#analyse-analysis-lines {
+  min-height: 330px;
+}
+#analysis-lines.stale,
+#analyse-analysis-lines.stale {
+  opacity: 0.45;
+  pointer-events: none;
+  transition: opacity 0.15s;
+}
+
+/* ---- Tahtada oklar ---- */
+.board {
+  position: relative;
+}
+.board-arrows {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 6;
+  overflow: visible;
+}
+.arrow-shape {
+  --arrow: var(--arrow-color, var(--accent));
+  opacity: 0.82;
+}
+.arrow-alt1 {
+  --arrow: var(--arrow-alt1, #ee5d5d);
+}
+.arrow-alt2 {
+  --arrow: var(--arrow-alt2, #4a90e2);
+}
+.arrow-alt3 {
+  --arrow: var(--arrow-alt3, #f5c542);
+}
+.arrow-preview {
+  opacity: 0.5;
+}
+.arrow-line {
+  stroke: var(--arrow);
+  stroke-width: 0.17;
+  stroke-linecap: butt;
+}
+.arrow-head {
+  fill: var(--arrow);
+}
+.arrow-circle {
+  fill: none;
+  stroke: var(--arrow);
+  stroke-width: 0.09;
+}
+.arrow-color-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.arrow-color-controls input[type="color"] {
+  width: 36px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: var(--control);
+  cursor: pointer;
+}
+.settings-hint {
+  margin: 2px 2px 10px;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* ===== Tema uyumlu günlük hedef / ipucu işareti, boşluklar ===== */
+.page-heading p {
+  display: none;
+}
+
+.daily-bar-fill.done {
+  background: var(--accent);
+}
+.daily-day.met i {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.daily-streak-label b {
+  margin: 0 2px 0 0;
+  font-size: 1.05rem;
+}
+.daily-meta .daily-streak-label {
+  gap: 6px;
+}
+
+/* Puzzle geçmişinde ipucu kullanılan kutu (X) ve log: tema rengi */
+.puzzle-history-box.hint {
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: var(--accent-strong, var(--accent));
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.log-result.hint {
+  color: var(--accent-strong, var(--accent));
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
+/* Analyse oyun listesi: satırlar arası boşluk az */
+#analyse-games-list {
+  gap: 4px;
+}
+
+/* Tahtanın altındaki düğmeler tahtaya bitişik */
+.mobile-board-nav {
+  margin-top: -34px;
+  margin-bottom: 14px;
+}
+.mobile-board-nav button {
+  margin-bottom: 0;
+}
+@media (max-width: 1050px) {
+  .mobile-board-nav {
+    margin-top: 4px;
+    margin-bottom: 12px;
+    gap: 6px;
+  }
+  .mobile-board-nav button {
+    padding: 9px 0;
+    font-size: 1.1rem;
+  }
+}
+@media (max-width: 649px) {
+  .mobile-board-nav {
+    margin-top: 2px;
+    margin-bottom: 8px;
+    gap: 5px;
+  }
+  .mobile-board-nav button {
+    padding: 7px 0;
+    font-size: 1rem;
+    border-radius: 7px;
+  }
+}
+
+/* Yakalanan taş şeridi daha ince: tahta ile düğmeler arası boşluk küçülür */
+.strip {
+  height: 30px;
+}
+.strip-captured .piece {
+  width: 28px;
+  height: 28px;
+  margin-right: -9px;
+}
+.mobile-board-nav {
+  margin-top: -44px;
+}
+@media (max-width: 1050px) {
+  .mobile-board-nav {
+    margin-top: 4px;
+  }
+}
+@media (max-width: 649px) {
+  .mobile-board-nav {
+    margin-top: 2px;
+  }
 }

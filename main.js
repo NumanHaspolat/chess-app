@@ -9,6 +9,7 @@ import { OpeningBook } from "./src/openings.js";
 import { loadOpening } from "./src/opening-trainer.js";
 import { EnginePool } from "./src/engine-pool.js";
 import { srsRecord, pickReplySRS, srsSummary, resetSrs } from "./src/srs.js";
+import { initArrows } from "./src/arrows.js";
 import { addToday, dailySummary, getGoal, setGoal } from "./src/daily.js";
 import { downloadBackup, restoreBackup } from "./src/backup.js";
 import {
@@ -218,6 +219,7 @@ function formatAnalysisLine(line) {
 }
 
 function renderAnalysisLines(lines) {
+  analysisLinesEl.classList.remove("stale");
   analysisLinesEl.innerHTML = "";
 
   if (!lines.length) {
@@ -271,6 +273,7 @@ function renderAnalysisLines(lines) {
 function renderAnalyseAnalysisLines(lines) {
   if (!analyseAnalysisLinesEl) return;
 
+  analyseAnalysisLinesEl.classList.remove("stale");
   analyseAnalysisLinesEl.innerHTML = "";
 
   if (!lines.length) {
@@ -905,6 +908,14 @@ function initStockfish() {
 
         if (pendingEngineFen && engineReady) {
           startEngineAnalysis(pendingEngineFen);
+        } else {
+          // Sonuç gelmediyse (ör. mat/pat pozisyonu) soluk satırlar takılı kalmasın
+          if (analysisLinesEl?.classList.contains("stale"))
+            analysisLinesEl.innerHTML = "";
+          if (analyseAnalysisLinesEl?.classList.contains("stale"))
+            analyseAnalysisLinesEl.innerHTML = "";
+          analysisLinesEl?.classList.remove("stale");
+          analyseAnalysisLinesEl?.classList.remove("stale");
         }
       }
     };
@@ -934,12 +945,13 @@ function requestEngineEvaluation(fen, target = "play") {
   analysisFen = fen;
   analysisLinesByRank.clear();
 
+  // Eski satırları silme (yerleşim zıplamasın): soluk bırak, yeni sonuçlar gelince değişir
   if (target === "analyse" && analyseAnalysisLinesEl) {
-    analyseAnalysisLinesEl.innerHTML = "";
+    analyseAnalysisLinesEl.classList.add("stale");
     if (analyseAnalysisStatusEl)
       analyseAnalysisStatusEl.textContent = "Analyzing 5 lines...";
   } else if (analysisLinesEl) {
-    analysisLinesEl.innerHTML = "";
+    analysisLinesEl.classList.add("stale");
     if (analysisStatusEl) analysisStatusEl.textContent = "Analyzing 5 lines...";
   }
 
@@ -1551,15 +1563,23 @@ function goToAnalysePly(ply, animate = true) {
   }
 
   let animation = false;
+  const landedOnBrilliant =
+    ply > previousPly &&
+    analyseMoveClasses?.[ply] === "brilliant" &&
+    !analyseMainLine;
   if (animate && ply === previousPly + 1 && lastPlayed) {
     animation = { from: lastPlayed.from, to: lastPlayed.to };
-    playSoundForMove(lastPlayed);
+    if (landedOnBrilliant) playSound("brilliant");
+    else playSoundForMove(lastPlayed);
   } else if (animate && ply === previousPly - 1) {
     const undone = analyseGame.move(analyseHistory[ply]);
     analyseGame.undo();
     animation = { from: undone.to, to: undone.from };
     playSoundForMove(undone);
   }
+
+  // Hamle listesinden/grafikten atlayınca da brilliant hamleye gelince özel ses
+  if (landedOnBrilliant && ply !== previousPly + 1) playSound("brilliant");
 
   analyseCurrentPly = ply;
   clearAnalyseSelection();
@@ -2541,7 +2561,10 @@ function update(animate = true) {
   if (showAnalysis) {
     requestEngineEvaluation(view.fen(), "play");
   } else {
-    if (analysisLinesEl) analysisLinesEl.textContent = "";
+    if (analysisLinesEl) {
+      analysisLinesEl.classList.remove("stale");
+      analysisLinesEl.textContent = "";
+    }
     if (analysisStatusEl)
       analysisStatusEl.textContent = "Analysis is available in normal Play.";
   }
@@ -5433,6 +5456,33 @@ function initSettingsPanel() {
   bindCheck("setting-last-move", "showLastMove");
   bindCheck("setting-auto-next", "autoNextPuzzle");
   bindCheck("setting-promo-ask", "promotionAsk");
+
+  // Ok rengi
+  {
+    const sel = document.getElementById("setting-arrow-color");
+    const custom = document.getElementById("setting-arrow-custom");
+    const sync = () => {
+      if (custom) custom.hidden = settings.arrowColor !== "custom";
+    };
+    if (sel) {
+      sel.value = settings.arrowColor;
+      sel.addEventListener("change", () => {
+        settings.arrowColor = sel.value;
+        saveSettings();
+        applyAppearance();
+        sync();
+      });
+    }
+    if (custom) {
+      custom.value = settings.arrowCustom;
+      custom.addEventListener("input", () => {
+        settings.arrowCustom = custom.value;
+        saveSettings();
+        applyAppearance();
+      });
+    }
+    sync();
+  }
   bindCheck("setting-smart-review", "smartReview", () => renderSrsSummary());
 
   // ---------- Görünüm kontrolleri ----------
@@ -6372,3 +6422,21 @@ if (
       if (row) row.hidden = true;
     });
 }
+
+// ---------- Tahtalarda ok çizme ----------
+initArrows(boardEl, {
+  getOrientation: () => orientation,
+  getKey: () => `${game.fen()}|${viewPly}`,
+});
+initArrows(analyseBoardEl, {
+  getOrientation: () => analyseOrientation,
+  getKey: () => `${analyseGame.fen()}|${analyseCurrentPly}`,
+});
+initArrows(puzzleBoardEl, {
+  getOrientation: () => puzzleOrientation,
+  getKey: () => `${puzzleGame.fen()}|${puzzleViewPly}`,
+});
+initArrows(repBoardEl, {
+  getOrientation: () => repOrientation,
+  getKey: () => `${(drill ? drillGame : repertoireGame).fen()}|${repViewPly}`,
+});

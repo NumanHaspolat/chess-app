@@ -11,7 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Tiny5+Duo&display=swap"
       rel="stylesheet"
     />
-    <link rel="icon" href="./assets/frost icon.jpg" />
+    <link rel="icon" href="./assets/badges/brilliant.png" />
     <link rel="manifest" href="manifest.webmanifest" />
     <meta name="theme-color" content="#0a1b22" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -473,9 +473,12 @@
           </div>
           <div class="daily-meta">
             <span class="daily-streak-label"
-              >Day streak <b id="puzzle-daily-streak">0</b
-              ><img class="flame-icon" src="./assets/flame.png" alt=""
-            /></span>
+              ><img
+                class="flame-icon"
+                src="./assets/icons/flame.png"
+                alt=""
+              /><b id="puzzle-daily-streak">0</b> day streak</span
+            >
           </div>
         </div>
 
@@ -533,7 +536,6 @@
     <section id="repertoire" class="page-section" hidden>
       <div class="page-heading">
         <h1>My Repertoire</h1>
-        <p>Manage and review your personal chess repertoire.</p>
       </div>
 
       <div class="repertoire-layout">
@@ -620,7 +622,6 @@
     <section id="openings" class="page-section" hidden>
       <div class="page-heading">
         <h1>Openings</h1>
-        <p>Build your repertoire, one move at a time.</p>
       </div>
       <div class="openings-filters">
         <button id="filter-all" class="opening-filter active">
@@ -638,7 +639,6 @@
     <section id="profile" class="page-section" hidden>
       <div class="page-heading">
         <h1>Profile</h1>
-        <p>Your training progress, statistics and settings.</p>
       </div>
 
       <div class="profile-tabs" role="tablist">
@@ -690,9 +690,12 @@
           </div>
           <div class="daily-meta">
             <span class="daily-streak-label"
-              >Day streak <b id="daily-streak">0</b
-              ><img class="flame-icon" src="./assets/flame.png" alt=""
-            /></span>
+              ><img
+                class="flame-icon"
+                src="./assets/icons/flame.png"
+                alt=""
+              /><b id="daily-streak">0</b> day streak</span
+            >
             <span>Best <b id="daily-best">0</b></span>
           </div>
           <div id="daily-week" class="daily-week"></div>
@@ -871,6 +874,31 @@
               <label for="setting-last-move">Highlight last move</label
               ><input id="setting-last-move" type="checkbox" />
             </div>
+            <div class="settings-row">
+              <label for="setting-arrow-color">Arrow color</label>
+              <span class="arrow-color-controls">
+                <select id="setting-arrow-color">
+                  <option value="theme">Theme</option>
+                  <option value="green">Green</option>
+                  <option value="blue">Blue</option>
+                  <option value="red">Red</option>
+                  <option value="yellow">Yellow</option>
+                  <option value="orange">Orange</option>
+                  <option value="custom">Custom</option>
+                </select>
+                <input
+                  id="setting-arrow-custom"
+                  type="color"
+                  aria-label="Custom arrow color"
+                  hidden
+                />
+              </span>
+            </div>
+            <p class="settings-hint">
+              Draw arrows on any board: right-click and drag (PC), or hold the
+              board with one finger and draw with another (touch). Shift = red,
+              Ctrl/Alt = blue, Shift+Ctrl = yellow. Click the board to clear.
+            </p>
             <div class="settings-row">
               <label for="setting-promo-ask"
                 >Choose promotion piece (otherwise queen)</label

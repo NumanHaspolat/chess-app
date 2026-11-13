@@ -8,13 +8,23 @@ export const SOUNDS = {
   castle: new Audio("./assets/audio/castle.wav"),
   promote: new Audio("./assets/audio/promote.wav"),
   gameover: new Audio("./assets/audio/gameover.wav"),
+  brilliant: new Audio("./assets/audio/brilliant-sound.wav"),
 };
 
-// Eksik ses dosyası olursa (örn. capture.wav) move.wav'a düş
+// Eksik ses dosyası olursa (örn. capture.wav) move.wav'a düş.
+// brilliant-sound için .wav bulunamazsa sırayla .mp3 ve .ogg denenir.
+const SOUND_FALLBACK_EXT = { brilliant: [".mp3", ".ogg"] };
 for (const [name, audio] of Object.entries(SOUNDS)) {
   if (name === "move") continue;
+  const alternatives = [...(SOUND_FALLBACK_EXT[name] || [])];
   audio.addEventListener("error", () => {
-    SOUNDS[name] = SOUNDS.move;
+    const next = alternatives.shift();
+    if (next) {
+      audio.src = audio.src.replace(/\.[a-z0-9]+$/i, next);
+      audio.load();
+    } else {
+      SOUNDS[name] = SOUNDS.move;
+    }
   });
 }
 
@@ -61,6 +71,22 @@ export function loadSettings() {
       autoNextPuzzle: !!saved.autoNextPuzzle,
       promotionAsk: !!saved.promotionAsk,
       smartReview: saved.smartReview !== false,
+      arrowColor: [
+        "theme",
+        "green",
+        "blue",
+        "red",
+        "yellow",
+        "orange",
+        "custom",
+      ].includes(saved.arrowColor)
+        ? saved.arrowColor
+        : "theme",
+      arrowCustom:
+        typeof saved.arrowCustom === "string" &&
+        /^#[0-9a-f]{6}$/i.test(saved.arrowCustom)
+          ? saved.arrowCustom
+          : "#2dc0d4",
     };
   } catch {
     return {
@@ -81,6 +107,8 @@ export function loadSettings() {
       autoNextPuzzle: false,
       promotionAsk: false,
       smartReview: true,
+      arrowColor: "theme",
+      arrowCustom: "#2dc0d4",
     };
   }
 }
@@ -231,6 +259,25 @@ export function applyAppearance() {
   const board = currentBoardColors();
   root.style.setProperty("--light", board.light);
   root.style.setProperty("--dark", board.dark);
+
+  // Ok rengi: tema vurgusu ya da seçilen renk; Shift/Ctrl ile çizilen oklar sabit yardımcı renkler
+  const ARROW_PRESETS = {
+    green: "#4cc46a",
+    blue: "#4a90e2",
+    red: "#ee5d5d",
+    yellow: "#f5c542",
+    orange: "#f08a3c",
+  };
+  const arrowMain =
+    settings.arrowColor === "theme"
+      ? "var(--accent)"
+      : settings.arrowColor === "custom"
+        ? settings.arrowCustom
+        : ARROW_PRESETS[settings.arrowColor];
+  root.style.setProperty("--arrow-color", arrowMain);
+  root.style.setProperty("--arrow-alt1", "#ee5d5d");
+  root.style.setProperty("--arrow-alt2", "#4a90e2");
+  root.style.setProperty("--arrow-alt3", "#f5c542");
 
   document.body?.classList.toggle("hide-coords", !settings.showCoords);
   document.body?.classList.toggle("hide-legal-dots", !settings.showLegalDots);

@@ -10,6 +10,16 @@ import { loadOpening } from "./src/opening-trainer.js";
 import { EnginePool } from "./src/engine-pool.js";
 import { srsRecord, pickReplySRS, srsSummary, resetSrs } from "./src/srs.js";
 import { initArrows } from "./src/arrows.js";
+import {
+  openingProgress,
+  recordLearn,
+  recordTrain,
+  recordPly,
+  getVariationProgress,
+  openingMastery,
+  troubleSpots,
+  averageAccuracy,
+} from "./src/opening-progress.js";
 import { addToday, dailySummary, getGoal, setGoal } from "./src/daily.js";
 import { downloadBackup, restoreBackup } from "./src/backup.js";
 import {
@@ -1512,7 +1522,30 @@ function renderMoves() {
 
 const analyseMovesEl = document.getElementById("analyse-moves");
 
+function renderAnalyseOpening() {
+  const el = document.getElementById("analyse-opening");
+  if (!el) return;
+  el.classList.remove("dim");
+  if (!openingBook) {
+    el.textContent = "";
+    return;
+  }
+  const sanMoves = analyseGame.history();
+  if (sanMoves.length === 0) {
+    el.textContent = analyseHistory.length ? "Starting position" : "";
+    return;
+  }
+  const hit = openingBook.find(sanMoves, Chess);
+  if (!hit) {
+    el.textContent = "No named opening";
+    el.classList.add("dim");
+    return;
+  }
+  el.textContent = `${hit.eco} · ${hit.name}`;
+}
+
 function renderAnalyseMoves() {
+  renderAnalyseOpening();
   if (!analyseMovesEl) return;
   analyseMovesEl.innerHTML = "";
 
@@ -2686,6 +2719,16 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
       }
       playSound("promote", 2);
 
+      if (trainMistakeCount === 0) {
+        recordPly(
+          lesson.opening,
+          lesson.variation,
+          expectedMove.ply,
+          expectedMove.san,
+          true,
+        );
+      }
+
       lesson.index++;
       trainCorrectSquares = [move.from, move.to];
 
@@ -2775,6 +2818,16 @@ function handleTrainMistake(expectedMove, playedMove) {
   trainPhase = "mistake";
   trainMistakeCount++;
   trainTotalMistakes++;
+  if (trainMistakeCount === 1) {
+    lesson.mistakes?.add(expectedMove.ply);
+    recordPly(
+      lesson.opening,
+      lesson.variation,
+      expectedMove.ply,
+      expectedMove.san,
+      false,
+    );
+  }
   playSound("gameover", 2);
 
   trainHintSquares =
@@ -2810,16 +2863,31 @@ function continueTrain() {
 
   const moves = lesson.variation.moves;
 
-  if (lesson.index >= moves.length) {
-    trainPhase = "complete";
-
+  if (lesson.index >= trainEnd()) {
     if (!lesson.trainSessionRecorded) {
       const total = trainCorrectMoves + trainTotalMistakes;
       const accuracy = total > 0 ? (trainCorrectMoves / total) * 100 : 100;
-      recordTrain(lesson.opening, lesson.variation, accuracy);
+      recordTrain(
+        lesson.opening,
+        lesson.variation,
+        accuracy,
+        trainTotalMistakes,
+      );
       lesson.trainSessionRecorded = true;
       renderProfileProgress();
     }
+
+    // Hata yapılan hamlelere dön: o pozisyonlar tek tek doğru oynanana kadar tekrar edilir
+    if (!lesson.fixing && lesson.mistakes?.size) {
+      lesson.fixing = true;
+      lesson.fixQueue = [...lesson.mistakes].sort((a, b) => a - b);
+    }
+    if (lesson.fixQueue?.length) {
+      startTrainFix(lesson.fixQueue.shift());
+      return;
+    }
+
+    trainPhase = "complete";
 
     const message = document.getElementById("learn-complete-message");
     message.innerHTML = `You've completed <span class="completed-variation">${lesson.variation.name}</span>!`;
@@ -3300,84 +3368,6 @@ let openingLibrary = curatedOpening ? [curatedOpening] : [];
 let lesson = null;
 let savedPlayState = null;
 
-const OPENING_PROGRESS_KEY = "azurite-opening-progress";
-
-function loadOpeningProgress() {
-  try {
-    return JSON.parse(localStorage.getItem(OPENING_PROGRESS_KEY) || "{}");
-  } catch {
-    return {};
-  }
-}
-
-let openingProgress = loadOpeningProgress();
-
-function getOpeningProgress(opening, variation) {
-  const openingId = opening.id || opening.name;
-  const variationId = variation.id || variation.name;
-
-  openingProgress[openingId] ??= {
-    name: opening.name,
-    studied: false,
-    learnCount: 0,
-    variations: {},
-  };
-
-  const data = openingProgress[openingId];
-  data.variations[variationId] ??= {
-    name: variation.name,
-    studied: false,
-    learnCount: 0,
-    trainCount: 0,
-    progress: 0,
-  };
-
-  const variationData = data.variations[variationId];
-  if (variationData.progress === undefined) {
-    variationData.progress = Math.min(
-      100,
-      (variationData.perfectTrainCount || 0) * 25,
-    );
-  }
-
-  return variationData;
-}
-
-function saveOpeningProgress() {
-  localStorage.setItem(OPENING_PROGRESS_KEY, JSON.stringify(openingProgress));
-}
-
-function recordLearn(opening, variation) {
-  const variationData = getOpeningProgress(opening, variation);
-  const openingData = openingProgress[opening.id || opening.name];
-
-  openingData.name = opening.name;
-  openingData.studied = true;
-
-  variationData.studied = true;
-  variationData.learnCount++;
-  variationData.progress = Math.min(100, (variationData.progress || 0) + 2);
-
-  saveOpeningProgress();
-}
-
-function recordTrain(opening, variation, accuracy) {
-  const variationData = getOpeningProgress(opening, variation);
-  variationData.trainCount++;
-
-  const earnedProgress = accuracy * 0.25;
-  variationData.progress = Math.min(
-    100,
-    (variationData.progress || 0) + earnedProgress,
-  );
-
-  saveOpeningProgress();
-}
-
-function getVariationProgress(variationData) {
-  return Math.round(variationData.progress || 0);
-}
-
 function renderProfileProgress() {
   renderPuzzleProfile();
 
@@ -3391,7 +3381,7 @@ function renderProfileProgress() {
     return (
       total +
       Object.values(opening.variations).filter(
-        (variation) => variation.perfectTrainCount >= 4,
+        (variation) => (variation.progress || 0) >= 90,
       ).length
     );
   }, 0);
@@ -3478,6 +3468,27 @@ function renderProfileProgress() {
 
       rowTrack.appendChild(rowFill);
       row.append(rowHeader, rowTrack);
+
+      const avg = averageAccuracy(variation);
+      if (variation.trainCount) {
+        const meta = document.createElement("div");
+        meta.className = "profile-variation-meta";
+        meta.textContent = `${variation.trainCount} train run${variation.trainCount === 1 ? "" : "s"}${avg !== null ? ` · avg accuracy ${avg}%` : ""}`;
+        row.appendChild(meta);
+      }
+      const spots = troubleSpots(variation);
+      if (spots.length) {
+        const t = document.createElement("div");
+        t.className = "profile-trouble";
+        t.append("Trouble spots:");
+        for (const sp of spots) {
+          const chip = document.createElement("span");
+          chip.className = "chip";
+          chip.textContent = `${sp.label} ×${sp.bad}`;
+          t.appendChild(chip);
+        }
+        row.appendChild(t);
+      }
       card.appendChild(row);
     });
 
@@ -3500,28 +3511,77 @@ function startTrain(opening) {
   trainTotalMistakes = 0;
 
   lesson.mode = "train";
-
-  document.getElementById("learn-title").textContent =
-    `${opening.name} · Train`;
-  document.getElementById("train-hint").hidden = false;
-
-  renderLearnPanel();
-  update();
-  continueTrain();
+  beginTrainRun(-1);
 }
 
-function startCurrentLearnTrain() {
+const TRAIN_PART_PLIES = 8; // 4 tam hamle
+
+function trainParts(len) {
+  const parts = [];
+  for (let from = 0; from < len; from += TRAIN_PART_PLIES) {
+    let to = Math.min(len, from + TRAIN_PART_PLIES);
+    if (len - to < 4) to = len; // çok kısa artık kalmasın
+    parts.push([from, to]);
+    if (to === len) break;
+  }
+  return parts;
+}
+
+function trainEnd() {
+  return lesson?.trainTo ?? lesson?.variation?.moves.length ?? 0;
+}
+
+function populatePartSelect() {
+  const select = document.getElementById("train-part-select");
+  if (!select || !lesson?.variation) return;
+  const parts = trainParts(lesson.variation.moves.length);
+  select.innerHTML = "";
+  const full = document.createElement("option");
+  full.value = "-1";
+  full.textContent = "Full line";
+  select.appendChild(full);
+  if (parts.length > 1) {
+    parts.forEach(([from, to], i) => {
+      const o = document.createElement("option");
+      o.value = String(i);
+      o.textContent = `Part ${i + 1} · moves ${Math.floor(from / 2) + 1}–${Math.ceil(to / 2)}`;
+      select.appendChild(o);
+    });
+  }
+  select.value = String(lesson.partIdx ?? -1);
+  if (select.value !== String(lesson.partIdx ?? -1)) select.value = "-1";
+}
+
+function beginTrainRun(partIdx = lesson?.partIdx ?? -1) {
   if (!lesson || !lesson.variation) return;
 
   clearTimeout(learnCompleteTimer);
   clearTimeout(trainMistakeTimer);
   clearTimeout(trainOpponentTimer);
+  clearTimeout(trainCorrectTimer);
+
+  const moves = lesson.variation.moves;
+  const parts = trainParts(moves.length);
+  if (partIdx >= parts.length) partIdx = parts.length - 1;
+  if (parts.length <= 1) partIdx = -1;
+  let from = 0;
+  let to = moves.length;
+  if (partIdx >= 0) [from, to] = parts[partIdx];
 
   game.reset();
   viewPly = null;
   clearSelection();
+  // Seçilen bölümden önceki hamleler hazır oynanır
+  for (let i = 0; i < from; i++) {
+    game.move({ from: moves[i].from, to: moves[i].to, promotion: "q" });
+  }
 
-  lesson.index = 0;
+  lesson.partIdx = partIdx;
+  lesson.index = from;
+  lesson.trainTo = to;
+  lesson.mistakes = new Set();
+  lesson.fixing = false;
+  lesson.fixQueue = [];
   lesson.trainSessionRecorded = false;
   lesson.sessionRecorded = false;
 
@@ -3536,10 +3596,35 @@ function startCurrentLearnTrain() {
 
   document.getElementById("learn-complete-overlay").hidden = true;
   document.getElementById("train-hint").hidden = false;
+  populatePartSelect();
 
   showPage("play");
-  update();
+  update(false);
   continueTrain();
+}
+
+function startCurrentLearnTrain() {
+  beginTrainRun(lesson?.partIdx ?? -1);
+}
+
+function startTrainFix(ply) {
+  const m = lesson.variation.moves[ply];
+  if (!m) return;
+  clearTimeout(trainMistakeTimer);
+  clearTimeout(trainOpponentTimer);
+  game.load(m.fenBefore);
+  viewPly = null;
+  lesson.index = ply;
+  lesson.trainTo = ply + 1;
+  trainPhase = "your-move";
+  trainMistakeCount = 0;
+  trainHintShown = false;
+  trainHintSquares = [];
+  learnHintMove = null;
+  clearSelection();
+  document.getElementById("learn-complete-overlay").hidden = true;
+  update(false);
+  renderLearnPanel();
 }
 
 function startLearn(opening, recordStudy = true) {
@@ -3559,6 +3644,9 @@ function startLearn(opening, recordStudy = true) {
     opening,
     variation: null,
     index: 0,
+    mistakes: new Set(),
+    partIdx: -1,
+    trainTo: null,
   };
 
   orientation = opening.color === "black" ? "b" : "w";
@@ -3604,6 +3692,12 @@ function selectLearnVariation() {
 
   lesson.variation = variation;
   lesson.index = 0;
+  lesson.partIdx = -1;
+  lesson.trainTo = null;
+  if (trainMode) {
+    beginTrainRun(-1);
+    return;
+  }
 
   trainHintShown = false;
   trainHintSquares = [];
@@ -3681,8 +3775,10 @@ function renderLearnPanel() {
 
   const isTrain = trainMode;
 
-  document.getElementById("learn-progress").hidden = isTrain;
+  document.getElementById("learn-progress").hidden = isTrain && !lesson.fixing;
   document.getElementById("learn-explanation").hidden = isTrain;
+  const partSelect = document.getElementById("train-part-select");
+  if (partSelect) partSelect.hidden = !isTrain || partSelect.options.length < 2;
   document.getElementById("learn-back").hidden = isTrain;
   document.getElementById("learn-next").hidden = isTrain;
   document.getElementById("learn-exit").hidden = false;
@@ -3710,7 +3806,9 @@ function renderLearnPanel() {
   const currentMove = moves[lesson.index - 1];
 
   document.getElementById("learn-progress").textContent =
-    `Move ${lesson.index} / ${moves.length}`;
+    isTrain && lesson.fixing
+      ? `Fix your mistakes · ${(lesson.fixQueue?.length ?? 0) + 1} left`
+      : `Move ${lesson.index} / ${moves.length}`;
   document.getElementById("learn-explanation").textContent =
     currentMove?.explanation || "Starting position. Press Next to begin.";
   document.getElementById("learn-back").disabled = lesson.index === 0;
@@ -3722,12 +3820,35 @@ function renderOpenings() {
   if (!list) return;
   list.innerHTML = "";
 
-  const visibleOpenings = openingLibrary.filter((opening) => {
-    if (openingFilter === "favorites") {
-      return favoriteOpenings.has(opening.name);
-    }
-    return true;
-  });
+  const query = (document.getElementById("opening-search")?.value || "")
+    .trim()
+    .toLowerCase();
+  const colorFilter =
+    document.getElementById("opening-color-filter")?.value || "all";
+  const sortMode = document.getElementById("opening-sort")?.value || "name";
+
+  const visibleOpenings = openingLibrary
+    .filter((opening) => {
+      if (openingFilter === "favorites" && !favoriteOpenings.has(opening.name))
+        return false;
+      if (colorFilter !== "all" && opening.color !== colorFilter) return false;
+      if (query) {
+        const hay = [
+          opening.name,
+          opening.description,
+          ...opening.variations.map((v) => v.name),
+        ]
+          .join(" ")
+          .toLowerCase();
+        if (!hay.includes(query)) return false;
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      if (sortMode === "mastery") return openingMastery(a) - openingMastery(b);
+      if (sortMode === "size") return b.variations.length - a.variations.length;
+      return a.name.localeCompare(b.name);
+    });
 
   if (visibleOpenings.length === 0) {
     list.innerHTML = "<p class='empty-favorites'>No openings found.</p>";
@@ -3748,6 +3869,15 @@ function renderOpenings() {
     color.className = `opening-color ${opening.color}`;
     color.textContent = opening.color === "white" ? "White" : "Black";
 
+    const mastery = openingMastery(opening);
+    const meta = document.createElement("div");
+    meta.className = "opening-meta";
+    meta.textContent = `${opening.variations.length} variation${opening.variations.length === 1 ? "" : "s"}`;
+
+    const masteryEl = document.createElement("div");
+    masteryEl.className = "opening-mastery";
+    masteryEl.innerHTML = `<div class="opening-mastery-label"><span>Mastery</span><strong>${mastery}%</strong></div><div class="profile-progress-track"><div class="profile-progress-fill" style="width:${mastery}%"></div></div>`;
+
     const actions = document.createElement("div");
     actions.className = "opening-card-actions";
 
@@ -3766,6 +3896,8 @@ function renderOpenings() {
       createFavoriteButton(opening),
       description,
       color,
+      meta,
+      masteryEl,
       actions,
     );
 
@@ -3851,6 +3983,7 @@ fetch("./assets/openings.json")
   .then((rows) => {
     openingBook = OpeningBook.build(rows, Chess);
     renderOpening();
+    renderAnalyseOpening();
   })
   .catch((err) => console.warn("Could not load openings.json", err));
 
@@ -6025,6 +6158,17 @@ brandLink?.addEventListener("click", (event) => {
 document
   .getElementById("learn-variation-select")
   ?.addEventListener("change", selectLearnVariation);
+["opening-search", "opening-color-filter", "opening-sort"].forEach((id) => {
+  const el = document.getElementById(id);
+  el?.addEventListener(id === "opening-search" ? "input" : "change", () =>
+    renderOpenings(),
+  );
+});
+document
+  .getElementById("train-part-select")
+  ?.addEventListener("change", (e) => {
+    beginTrainRun(Number(e.target.value));
+  });
 document
   .getElementById("learn-next")
   ?.addEventListener("click", nextLessonMove);

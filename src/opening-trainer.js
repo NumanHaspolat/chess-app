@@ -10,6 +10,10 @@ function parseMoveText(moveText) {
     );
 }
 
+export function normalizeColor(color) {
+  return color === "b" || color === "black" ? "black" : "white";
+}
+
 export function validateVariation(variation, Chess) {
   const chess = new Chess();
   const sanMoves = parseMoveText(variation.moves);
@@ -41,7 +45,15 @@ export function validateVariation(variation, Chess) {
       to: move.to,
       fenBefore,
       fenAfter: chess.fen(),
-      explanation: variation.explanations?.[move.san] ?? "",
+      ply: moves.length,
+      // Yeni format: notes[i] = i. yarım hamlenin açıklaması (aynı SAN çakışmaz).
+      // Eski format: explanations[san] (aynı SAN iki kez geçerse son yazılan kalır).
+      explanation:
+        (Array.isArray(variation.notes)
+          ? variation.notes[moves.length]
+          : null) ??
+        variation.explanations?.[move.san] ??
+        "",
     });
   }
 
@@ -72,6 +84,10 @@ export async function loadOpening(id, Chess) {
 
   return {
     ...opening,
+    color: normalizeColor(opening.color),
+    category:
+      opening.category || (opening.name.split(/\s+/).slice(-1)[0] ?? "Other"),
+    difficulty: opening.difficulty || "medium",
     variations,
   };
 }

@@ -4034,3 +4034,111 @@ main.app#play:has(#learn-panel:not([hidden])) .evaluation {
   outline: none;
   border-color: var(--accent);
 }
+
+/* Train bölüm seçici */
+#train-part-select {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: var(--control);
+  color: var(--text);
+  font-family: var(--font-pixel);
+  font-size: 1rem;
+  cursor: pointer;
+  outline: none;
+}
+#train-part-select:hover,
+#train-part-select:focus {
+  border-color: var(--accent);
+  background: var(--control-hover);
+}
+#train-part-select option {
+  background: var(--panel);
+  color: var(--text);
+}
+#train-part-select[hidden] {
+  display: none;
+}
+@media (max-width: 649px) {
+  #learn-panel #train-part-select {
+    padding: 8px 10px;
+    margin: 0;
+  }
+}
+
+/* Openings araç çubuğu */
+.openings-toolbar {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 0 0 14px;
+}
+.openings-toolbar input,
+.openings-toolbar select {
+  padding: 9px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: var(--control);
+  color: var(--text);
+  font-family: var(--font-pixel);
+  font-size: 0.95rem;
+}
+.openings-toolbar input {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.openings-toolbar input:focus,
+.openings-toolbar select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.opening-mastery {
+  margin: 8px 0 2px;
+}
+.opening-mastery-label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.opening-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 4px 0;
+}
+
+/* Profile: zayıf noktalar */
+.profile-trouble {
+  margin: 4px 0 0;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.profile-trouble .chip {
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--text);
+}
+.profile-variation-meta {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Openings araç çubuğu: kartlarla aynı genişlik */
+.openings-toolbar {
+  width: min(1480px, calc(100% - 48px));
+  margin: 0 auto 20px;
+}
+@media (max-width: 700px) {
+  .openings-toolbar {
+    width: calc(100% - 28px);
+  }
+}

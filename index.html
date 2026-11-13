@@ -635,6 +635,25 @@
         </button>
       </div>
 
+      <div class="openings-toolbar">
+        <input
+          type="search"
+          id="opening-search"
+          placeholder="Search openings or variations…"
+          aria-label="Search openings"
+        />
+        <select id="opening-color-filter" aria-label="Color">
+          <option value="all">Any color</option>
+          <option value="white">White</option>
+          <option value="black">Black</option>
+        </select>
+        <select id="opening-sort" aria-label="Sort">
+          <option value="name">Name</option>
+          <option value="mastery">Least mastered</option>
+          <option value="size">Most variations</option>
+        </select>
+      </div>
+
       <div id="openings-list" class="openings-list"></div>
     </section>
 

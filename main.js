@@ -32,6 +32,7 @@ import {
   effectiveVolume,
   ENGINE_DEPTH_DEFAULT,
   reviewDepth,
+  updateBgmState,
 } from "./src/settings.js";
 import {
   PIECE_VAL,
@@ -5476,17 +5477,38 @@ function initSettingsPanel() {
   const muteEl = document.getElementById("setting-mute");
   const resetBtn = document.getElementById("btn-reset-puzzle-stats");
 
+  const musicVolumeEl = document.getElementById("setting-music-volume");
+  const musicVolumeValueEl = document.getElementById(
+    "setting-music-volume-value",
+  );
+
   const sync = () => {
     if (volumeEl) volumeEl.value = Math.round(settings.volume * 100);
     if (volumeValueEl)
       volumeValueEl.textContent = settings.muted
         ? "Muted"
         : `${Math.round(settings.volume * 100)}%`;
+
+    // Müzik ses senkronizasyonu
+    if (musicVolumeEl)
+      musicVolumeEl.value = Math.round(settings.musicVolume * 100);
+    if (musicVolumeValueEl)
+      musicVolumeValueEl.textContent = settings.muted
+        ? "Muted"
+        : `${Math.round(settings.musicVolume * 100)}%`;
+
     if (muteEl) muteEl.checked = settings.muted;
     if (volumeEl) volumeEl.disabled = settings.muted;
+    if (musicVolumeEl) musicVolumeEl.disabled = settings.muted;
   };
   sync();
 
+  musicVolumeEl?.addEventListener("input", () => {
+    settings.musicVolume = Number(musicVolumeEl.value) / 100;
+    saveSettings();
+    updateBgmState();
+    sync();
+  });
   volumeEl?.addEventListener("input", () => {
     settings.volume = Number(volumeEl.value) / 100;
     saveSettings();
@@ -6143,8 +6165,42 @@ async function initCuratedOpenings() {
   }
 }
 
+let bgmAudio = null;
+
+function initBackgroundMusic() {
+  if (bgmAudio) return;
+
+  // Müzik dosyanın yolu (örneğin assets/audio/bgm.mp3)
+  bgmAudio = new Audio("./assets/audio/bgm.mp3");
+  bgmAudio.loop = true; // Müzik bitince baştan başlasın
+
+  updateBgmVolume();
+
+  // Tarayıcı kısıtlamalarını aşmak için ilk kullanıcı etkileşiminde (tık/tuş) başlat
+  const startBgm = () => {
+    if (bgmAudio && bgmAudio.paused && !settings.muted) {
+      bgmAudio.play().catch((error) => {
+        console.warn("Background music could not play automatically:", error);
+      });
+    }
+    window.removeEventListener("pointerdown", startBgm);
+    window.removeEventListener("keydown", startBgm);
+  };
+
+  window.addEventListener("pointerdown", startBgm);
+  window.addEventListener("keydown", startBgm);
+}
+
+export function updateBgmVolume() {
+  if (!bgmAudio) return;
+  bgmAudio.muted = settings.muted;
+  // Arka plan müziği efekt seslerinden biraz daha kısık (örn: %30) olsun
+  bgmAudio.volume = 0.3 * effectiveVolume();
+}
+
 initStockfish();
 initCuratedOpenings();
+// initBackgroundMusic();
 update();
 
 // Telefonda hamle şeritleri yatay: aktif hamleyi görünür tut (tüm .moves listeleri için)

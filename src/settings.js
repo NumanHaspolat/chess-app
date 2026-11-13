@@ -11,8 +11,47 @@ export const SOUNDS = {
   brilliant: new Audio("./assets/audio/brilliant-sound.wav"),
 };
 
+// Arka plan müziği (Sadece Rose temasında çalacak)
+let bgmAudio = null;
+
+export function initBackgroundMusic() {
+  if (!bgmAudio) {
+    bgmAudio = new Audio("./assets/audio/bgm.mp3"); // Müzik dosya yolunu buraya yazabilirsin
+    bgmAudio.loop = true;
+  }
+  updateBgmState();
+
+  // Tarayıcı autoplay kısıtlamasını aşmak için ilk etkileşimde başlat
+  const startBgm = () => {
+    updateBgmState();
+    window.removeEventListener("pointerdown", startBgm);
+    window.removeEventListener("keydown", startBgm);
+  };
+  window.addEventListener("pointerdown", startBgm);
+  window.addEventListener("keydown", startBgm);
+}
+
+export function updateBgmState() {
+  if (!bgmAudio) return;
+
+  // Sadece tema 'rose' ise ve sesler kapalı/mute değilse çalmasına izin ver
+  const isRose = settings.theme === "rose";
+  const shouldPlay = isRose && !settings.muted && settings.musicVolume > 0;
+
+  bgmAudio.volume = settings.muted ? 0 : settings.musicVolume;
+
+  if (shouldPlay) {
+    if (bgmAudio.paused) {
+      bgmAudio.play().catch(() => {});
+    }
+  } else {
+    if (!bgmAudio.paused) {
+      bgmAudio.pause();
+      bgmAudio.currentTime = 0; // Başka temaya geçince müziği baştan sar
+    }
+  }
+}
 // Eksik ses dosyası olursa (örn. capture.wav) move.wav'a düş.
-// brilliant-sound için .wav bulunamazsa sırayla .mp3 ve .ogg denenir.
 const SOUND_FALLBACK_EXT = { brilliant: [".mp3", ".ogg"] };
 for (const [name, audio] of Object.entries(SOUNDS)) {
   if (name === "move") continue;
@@ -29,10 +68,10 @@ for (const [name, audio] of Object.entries(SOUNDS)) {
 }
 
 export const ENGINE_DEPTH_DEFAULT = 13;
-export const REVIEW_DEPTH_DEFAULT = 14; // yüksek = daha doğru ama daha yavaş
+export const REVIEW_DEPTH_DEFAULT = 14;
 export const reviewDepth = () => settings.reviewDepth || REVIEW_DEPTH_DEFAULT;
 
-// ---------- Ayarlar (ses) ----------
+// ---------- Ayarlar ----------
 export const SETTINGS_KEY = "azurite-settings";
 
 export function loadSettings() {
@@ -43,6 +82,10 @@ export function loadSettings() {
         typeof saved.volume === "number"
           ? Math.min(1, Math.max(0, saved.volume))
           : 0.8,
+      musicVolume:
+        typeof saved.musicVolume === "number"
+          ? Math.min(1, Math.max(0, saved.musicVolume))
+          : 0.4,
       muted: !!saved.muted,
       theme: typeof saved.theme === "string" ? saved.theme : "azurite",
       board: typeof saved.board === "string" ? saved.board : "teal",
@@ -91,6 +134,7 @@ export function loadSettings() {
   } catch {
     return {
       volume: 0.8,
+      musicVolume: 0.05,
       muted: false,
       theme: "azurite",
       board: "teal",
@@ -260,7 +304,6 @@ export function applyAppearance() {
   root.style.setProperty("--light", board.light);
   root.style.setProperty("--dark", board.dark);
 
-  // Ok rengi: tema vurgusu ya da seçilen renk; Shift/Ctrl ile çizilen oklar sabit yardımcı renkler
   const ARROW_PRESETS = {
     green: "#4cc46a",
     blue: "#4a90e2",
@@ -282,9 +325,11 @@ export function applyAppearance() {
   document.body?.classList.toggle("hide-coords", !settings.showCoords);
   document.body?.classList.toggle("hide-legal-dots", !settings.showLegalDots);
   document.body?.classList.toggle("hide-last-move", !settings.showLastMove);
+
+  // Tema değiştiğinde müziğin durumunu güncelle (Sadece Rose temasında çalar)
+  updateBgmState();
 }
 
-// Animasyon hızı (ms). 0 = kapalı
 export function animMs() {
   return (
     { off: 0, fast: 90, normal: 180, slow: 320 }[settings.animSpeed] ?? 180
@@ -295,7 +340,6 @@ export function animTransition() {
   return ms === 0 ? "none" : `transform ${ms}ms ease`;
 }
 
-// Terfi seçimi: ayar açıksa küçük bir seçim penceresi gösterir, değilse vezir
 export function isPromotionMove(chessObj, from, to) {
   const p = chessObj.get(from);
   if (!p || p.type !== "p") return false;
@@ -303,6 +347,7 @@ export function isPromotionMove(chessObj, from, to) {
     (p.color === "w" && to[1] === "8") || (p.color === "b" && to[1] === "1")
   );
 }
+
 export function askPromotion(color) {
   return new Promise((resolve) => {
     const overlay = document.createElement("div");
@@ -316,7 +361,6 @@ export function askPromotion(color) {
       btn.className = "promo-piece";
       btn.setAttribute("aria-label", names[t]);
       btn.title = names[t];
-      // Sitedeki kendi taş görselleri
       const pieceEl = createPieceEl(color, t);
       pieceEl.classList.remove("dragging");
       btn.appendChild(pieceEl);
@@ -336,6 +380,7 @@ export function askPromotion(color) {
     document.body.appendChild(overlay);
   });
 }
+
 export async function pickPromotion(chessObj, from, to) {
   if (!settings.promotionAsk || !isPromotionMove(chessObj, from, to))
     return "q";
@@ -365,3 +410,6 @@ export function playSound(name, speed = 1) {
 
   sound.play().catch(() => {});
 }
+
+// Sayfa yüklendiğinde arka plan müziğini hazırla
+initBackgroundMusic();

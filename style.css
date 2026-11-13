@@ -3960,8 +3960,9 @@ main.app#play:has(#learn-panel:not([hidden])) .evaluation {
   background: color-mix(in srgb, var(--accent) 14%, transparent);
 }
 
-.analyse-game-item {
-  margin-bottom: 6px;
+/* Analyse oyun listesi: satırlar arası boşluk az */
+#analyse-games-list {
+  gap: 4px;
 }
 
 /* Tahtanın altındaki düğmeler tahtaya bitişik */
@@ -4006,15 +4007,30 @@ main.app#play:has(#learn-panel:not([hidden])) .evaluation {
   margin-right: -9px;
 }
 .mobile-board-nav {
-  margin-top: -24px;
+  margin-top: -34px;
 }
 @media (max-width: 1050px) {
   .mobile-board-nav {
-    margin-top: 20px;
+    margin-top: 4px;
   }
 }
 @media (max-width: 649px) {
   .mobile-board-nav {
-    margin-top: 20px;
+    margin-top: 2px;
   }
+}
+
+.analyse-username select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: var(--control);
+  color: var(--text);
+  font-family: var(--font-pixel);
+  font-size: 0.95rem;
+}
+.analyse-username select:focus {
+  outline: none;
+  border-color: var(--accent);
 }

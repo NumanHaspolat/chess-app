@@ -11,19 +11,7 @@
       href="https://fonts.googleapis.com/css2?family=Tiny5+Duo&display=swap"
       rel="stylesheet"
     />
-    <link rel="icon" href="assets/icons/icon-mask.png" sizes="any" />
-    <link
-      rel="icon"
-      type="image/png"
-      sizes="32x32"
-      href="assets/icons/icon-512.png"
-    />
-    <link
-      rel="icon"
-      type="image/png"
-      sizes="16x16"
-      href="assets/icons/icon-192.png"
-    />
+    <link rel="icon" href="./assets/badges/brilliant.png" />
     <link rel="manifest" href="manifest.webmanifest" />
     <meta name="theme-color" content="#0a1b22" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -192,10 +180,14 @@
         </div>
 
         <section class="analyse-games-section">
-          <h2>Analyse your chess.com games</h2>
+          <h2>Analyse your own games</h2>
 
           <div class="analyse-import">
             <div class="analyse-username">
+              <select id="analyse-source" aria-label="Game source">
+                <option value="chesscom">Chess.com</option>
+                <option value="lichess">Lichess</option>
+              </select>
               <input
                 type="text"
                 id="chesscom-username"
@@ -247,8 +239,6 @@
           <button id="analyse-btn-flip">Flip</button>
           <button id="analyse-btn-reset">Reset</button>
         </div>
-
-        <div id="opening" class="opening"></div>
 
         <div class="buttons analyse-pgn-buttons">
           <button type="button" id="analyse-btn-copy-pgn">Copy PGN</button>

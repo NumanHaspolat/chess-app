@@ -20,8 +20,9 @@ export function initArrows(boardEl, { getOrientation, getKey }) {
   let preview = null;
   let lastKey = getKey?.() ?? "";
   let drawing = null; // { pointerId, from, kind }
-  const touchDown = new Map(); // pointerId -> true (tahta üzerindeki dokunuşlar)
+  const touchDown = new Map(); // pointerId -> { drew } (tahta üzerindeki dokunuşlar)
   let suppressClickUntil = 0;
+  let syntheticCancel = false; // kendi gönderdiğimiz pointercancel'ı sayma
 
   const capture = (id) => {
     try {
@@ -183,21 +184,27 @@ export function initArrows(boardEl, { getOrientation, getKey }) {
           e.preventDefault();
           e.stopPropagation();
           // Birinci parmağın başlattığı taş sürüklemesini iptal et
-          for (const id of touchDown.keys()) {
-            window.dispatchEvent(
-              new PointerEvent("pointercancel", {
-                pointerId: id,
-                pointerType: "touch",
-              }),
-            );
+          // (Parmak "basılı" sayılmaya devam eder: bırakılana kadar yeni oklar çizilebilir.)
+          if (![...touchDown.values()].some((t) => t.drew)) {
+            syntheticCancel = true;
+            for (const id of touchDown.keys()) {
+              window.dispatchEvent(
+                new PointerEvent("pointercancel", {
+                  pointerId: id,
+                  pointerType: "touch",
+                }),
+              );
+            }
+            syntheticCancel = false;
           }
+          for (const t of touchDown.values()) t.drew = true;
           suppressClickUntil = Date.now() + 600;
           begin(e, "main");
           capture(e.pointerId);
-          touchDown.set(e.pointerId, true);
+          touchDown.set(e.pointerId, { drew: false, drawer: true });
           return;
         }
-        touchDown.set(e.pointerId, true);
+        touchDown.set(e.pointerId, { drew: false });
       }
 
       // Normal sol tık / tek parmak dokunuşu: okları temizle
@@ -216,7 +223,11 @@ export function initArrows(boardEl, { getOrientation, getKey }) {
   });
 
   const onUp = (e) => {
+    const t = touchDown.get(e.pointerId);
     touchDown.delete(e.pointerId);
+    // Basılı tutan parmak oklardan sonra kalkınca oyuna tıklama gitmesin
+    if (t?.drew && e.type === "pointerup")
+      suppressClickUntil = Date.now() + 400;
     if (drawing && e.pointerId === drawing.pointerId) {
       release(e.pointerId);
       finish(e, e.type === "pointercancel");
@@ -225,9 +236,9 @@ export function initArrows(boardEl, { getOrientation, getKey }) {
   boardEl.addEventListener("pointerup", onUp);
   boardEl.addEventListener("pointercancel", onUp);
   window.addEventListener("pointerup", (e) => touchDown.delete(e.pointerId));
-  window.addEventListener("pointercancel", (e) =>
-    touchDown.delete(e.pointerId),
-  );
+  window.addEventListener("pointercancel", (e) => {
+    if (!syntheticCancel) touchDown.delete(e.pointerId);
+  });
 
   // Oku çizen parmağın bıraktığı "click"i oyuna iletme
   boardEl.addEventListener(

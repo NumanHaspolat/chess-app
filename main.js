@@ -1910,7 +1910,7 @@ async function reviewGame(
         if (runId !== reviewRunId) return;
         if (deep && deep.lines?.[1]) {
           const deepRes = judge(mv, i, deep, after);
-          console.log("[review] deep analyse", {
+          console.log("[review] derin kontrol", {
             ply: i + 1,
             san: mv.san,
             sacrifice: deepRes.sacrifice,
@@ -1926,7 +1926,7 @@ async function reviewGame(
         console.log("[review] derin kontrol hatası", e);
       }
     } else if (res.sacrifice >= 2 && res.loss <= 3) {
-      console.log("[review] sacrifice", {
+      console.log("[review] feda adayı", {
         ply: i + 1,
         san: mv.san,
         sonuc: res.cls,
@@ -2125,7 +2125,7 @@ function renderAnalyseGamesList(items) {
   const gamesContainer =
     document.getElementById("analyse-games-list") ||
     document.querySelector(".analyse-games-container");
-  if (gamesContainer) gamesContainer.style.display = "block";
+  if (gamesContainer) gamesContainer.style.display = "flex";
 
   items.forEach((item) => {
     const btn = document.createElement("button");
@@ -2217,6 +2217,76 @@ async function fetchChesscomGames(username) {
     });
 }
 
+async function fetchLichessGames(username) {
+  const user = username.trim();
+  const res = await fetch(
+    `https://lichess.org/api/games/user/${encodeURIComponent(user)}?max=30&pgnInJson=true&moves=true&opening=false&clocks=false`,
+    { headers: { Accept: "application/x-ndjson" } },
+  );
+  if (!res.ok) {
+    throw new Error(
+      res.status === 404 ? "User not found." : "Lichess request failed.",
+    );
+  }
+  const lines = (await res.text()).split("\n").filter((l) => l.trim());
+  const lower = user.toLowerCase();
+  return lines
+    .map((l) => {
+      try {
+        return JSON.parse(l);
+      } catch {
+        return null;
+      }
+    })
+    .filter((g) => g && g.pgn && (!g.variant || g.variant === "standard"))
+    .map((g) => {
+      const wName =
+        g.players?.white?.user?.name ??
+        (g.players?.white?.aiLevel
+          ? `Stockfish ${g.players.white.aiLevel}`
+          : "Anonymous");
+      const bName =
+        g.players?.black?.user?.name ??
+        (g.players?.black?.aiLevel
+          ? `Stockfish ${g.players.black.aiLevel}`
+          : "Anonymous");
+      const isWhite = wName.toLowerCase() === lower;
+      const result = !g.winner
+        ? "Draw"
+        : (g.winner === "white") === isWhite
+          ? "Win"
+          : "Loss";
+      return {
+        title: `${wName} vs ${bName}`,
+        subtitle: `${g.speed ?? "game"} · ${new Date(g.lastMoveAt ?? g.createdAt).toLocaleDateString()}`,
+        result,
+        pgn: g.pgn,
+        orientation: isWhite ? "w" : "b",
+        white: wName,
+        black: bName,
+        username: lower,
+      };
+    });
+}
+
+document.getElementById("analyse-source")?.addEventListener("change", (e) => {
+  const input = document.getElementById("chesscom-username");
+  if (input)
+    input.placeholder =
+      e.target.value === "lichess" ? "Lichess username" : "Chess.com username";
+  try {
+    localStorage.setItem("azurite-source", e.target.value);
+  } catch {}
+});
+try {
+  const savedSource = localStorage.getItem("azurite-source");
+  const sel = document.getElementById("analyse-source");
+  if (sel && (savedSource === "lichess" || savedSource === "chesscom")) {
+    sel.value = savedSource;
+    sel.dispatchEvent(new Event("change"));
+  }
+} catch {}
+
 document
   .getElementById("fetch-chesscom-games")
   ?.addEventListener("click", () => {
@@ -2245,7 +2315,11 @@ async function executeFetchGames() {
   if (fetchButton) fetchButton.classList.add("fetch-loading");
 
   try {
-    const items = await fetchChesscomGames(username);
+    const source = document.getElementById("analyse-source")?.value;
+    const items =
+      source === "lichess"
+        ? await fetchLichessGames(username)
+        : await fetchChesscomGames(username);
     analyseGamesStatusEl.textContent = items.length
       ? `${items.length} games found. Click one to analyse.`
       : "No games found.";

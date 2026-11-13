@@ -1910,7 +1910,7 @@ async function reviewGame(
         if (runId !== reviewRunId) return;
         if (deep && deep.lines?.[1]) {
           const deepRes = judge(mv, i, deep, after);
-          console.log("[review] derin kontrol", {
+          console.log("[review] deep analyse", {
             ply: i + 1,
             san: mv.san,
             sacrifice: deepRes.sacrifice,
@@ -1926,7 +1926,7 @@ async function reviewGame(
         console.log("[review] derin kontrol hatası", e);
       }
     } else if (res.sacrifice >= 2 && res.loss <= 3) {
-      console.log("[review] feda adayı", {
+      console.log("[review] sacrifice", {
         ply: i + 1,
         san: mv.san,
         sonuc: res.cls,

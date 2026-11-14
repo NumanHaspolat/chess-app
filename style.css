@@ -47,7 +47,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--bg);
+  /* background: var(--bg); */
   border: 1px solid var(--accent-strong);
   border-radius: 10px;
   box-shadow: 0 5px 20px rgba(0, 0, 0, 0.2);

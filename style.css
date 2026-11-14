@@ -2517,7 +2517,7 @@ css .analysis-rank,
 }
 
 /* Mobil Ekranlar (800px ve altı) */
-@media (max-width: 919px) {
+@media (max-width: 920px) {
   .navbar {
     position: relative;
     justify-content: space-between;
@@ -4238,4 +4238,101 @@ main.app#play:has(#learn-panel:not([hidden])) .evaluation {
 }
 #play.bot-eval-off .evaluation {
   display: none;
+}
+
+/* Ön hamle (premove) */
+.square.premove {
+  background-image: linear-gradient(
+    rgba(230, 80, 80, 0.5),
+    rgba(230, 80, 80, 0.5)
+  ) !important;
+}
+
+/* Oyun sonu sonuç kartı */
+.bot-result-icon {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.bot-result-icon .piece {
+  width: 64px;
+  height: 64px;
+  cursor: default;
+  animation: kingHop 900ms ease-in-out infinite;
+}
+.bot-result-icon .piece:nth-child(2) {
+  animation-delay: 150ms;
+}
+.bot-result-card.win h2 {
+  color: var(--accent-strong);
+}
+.bot-result-card.loss h2 {
+  color: #ff8f8f;
+}
+.bot-result-card.draw h2 {
+  color: var(--text-muted);
+}
+.bot-result-card.win {
+  border-color: var(--accent-strong);
+  animation:
+    cardPopIn 300ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    winGlow 1.8s ease-in-out 300ms infinite;
+}
+.bot-result-card.loss .piece {
+  animation: none;
+  filter: grayscale(0.6);
+  opacity: 0.85;
+}
+.bot-result-card p {
+  margin-bottom: 18px;
+}
+.bot-result-card .drill-complete-buttons {
+  flex-wrap: wrap;
+}
+
+@keyframes kingHop {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-10px);
+  }
+  60% {
+    transform: translateY(-10px);
+  }
+}
+@keyframes winGlow {
+  0%,
+  100% {
+    box-shadow:
+      0 12px 35px rgba(0, 0, 0, 0.4),
+      0 0 0 0 color-mix(in srgb, var(--accent-strong) 55%, transparent);
+  }
+  50% {
+    box-shadow:
+      0 12px 35px rgba(0, 0, 0, 0.4),
+      0 0 28px 8px color-mix(in srgb, var(--accent-strong) 45%, transparent);
+  }
+}
+/* Mat olan şah kısa süre kırmızı parlar */
+.square.mate-pulse {
+  animation: matePulse 700ms ease-in-out 4;
+}
+@keyframes matePulse {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 0 rgba(255, 60, 60, 0);
+  }
+  50% {
+    box-shadow: inset 0 0 0 100px rgba(255, 60, 60, 0.55);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bot-result-icon .piece,
+  .bot-result-card.win,
+  .square.mate-pulse {
+    animation: none;
+  }
 }

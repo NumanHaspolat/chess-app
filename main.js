@@ -1192,6 +1192,11 @@ function renderBoard(animate = true) {
 
       if (name === selectedSquare) squareEl.classList.add("selected");
       if (name === checkSquare) squareEl.classList.add("check");
+      if (
+        bot?.premove &&
+        (name === bot.premove.from || name === bot.premove.to)
+      )
+        squareEl.classList.add("premove");
 
       const move = legalMoves.find((m) => m.to === name);
       if (move) {
@@ -2717,6 +2722,13 @@ function clearSelection() {
 }
 
 function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
+  if (!byDrill && botPremoveMode()) {
+    // Stockfish düşünürken yapılan hamle: ön hamle olarak sıraya alınır
+    bot.premove = { from, to, promotion };
+    clearSelection();
+    renderBoard();
+    return;
+  }
   if (
     botPageOpen &&
     !byDrill &&
@@ -2974,9 +2986,12 @@ function continueTrain() {
 boardEl?.addEventListener("pointerdown", (e) => {
   if (
     botPageOpen &&
-    (!bot || bot.over || bot.thinking || game.turn() !== bot.humanColor)
+    (!bot || bot.over || (game.turn() !== bot.humanColor && !bot.thinking))
   )
     return;
+  const pm = botPremoveMode();
+  const turnGame = pm ? botPremoveGame() : game;
+  if (!turnGame) return;
   if (lesson && !trainMode) return;
   if (trainMode && trainPhase !== "your-move") return;
   if (e.button !== 0 || drag) return;
@@ -2996,11 +3011,11 @@ boardEl?.addEventListener("pointerdown", (e) => {
     return;
   }
 
-  const piece = game.get(name);
-  if (piece && piece.color === game.turn()) {
+  const piece = turnGame.get(name);
+  if (piece && piece.color === turnGame.turn()) {
     const wasSelected = selectedSquare === name;
     selectedSquare = name;
-    legalMoves = game.moves({ square: name, verbose: true });
+    legalMoves = turnGame.moves({ square: name, verbose: true });
     renderBoard();
 
     drag = {
@@ -3016,6 +3031,7 @@ boardEl?.addEventListener("pointerdown", (e) => {
     return;
   }
 
+  if (pm && bot) bot.premove = null; // boş kareye tıklamak ön hamleyi iptal eder
   clearSelection();
   renderBoard();
 });
@@ -3606,6 +3622,7 @@ function enterBotPage() {
 }
 
 function leaveBotPage() {
+  botHideResult();
   botPageOpen = false;
   if (bot) bot.token++;
   botEngine.stop();
@@ -3638,7 +3655,9 @@ function startBotGame(opts, resume = false) {
     thinking: false,
     over: false,
     counted: false,
+    premove: null,
   };
+  botHideResult();
   game.reset();
   if (resume && opts.pgn) {
     try {
@@ -3708,6 +3727,49 @@ function botBookMove() {
   }
 }
 
+function botPremoveMode() {
+  return !!(botPageOpen && bot && !bot.over && bot.thinking);
+}
+
+// Sıra Stockfish'teyken, insanın taşlarının hamlelerini üretmek için sırası çevrilmiş pozisyon
+function botPremoveGame() {
+  const parts = game.fen().split(" ");
+  parts[1] = bot.humanColor;
+  parts[3] = "-";
+  try {
+    return new Chess(parts.join(" "));
+  } catch {
+    return null;
+  }
+}
+
+function botRunPremove() {
+  const pm = bot?.premove;
+  if (!pm) return;
+  bot.premove = null;
+  if (bot.over || game.isGameOver() || game.turn() !== bot.humanColor) {
+    renderBoard();
+    return;
+  }
+  const ok = game
+    .moves({ verbose: true })
+    .some(
+      (m) =>
+        m.from === pm.from &&
+        m.to === pm.to &&
+        (!m.promotion || m.promotion === pm.promotion),
+    );
+  if (!ok) {
+    renderBoard(); // artık yasal değil: iptal
+    return;
+  }
+  setTimeout(() => {
+    if (bot && !bot.over && game.turn() === bot.humanColor) {
+      playMove(pm.from, pm.to, pm.promotion || "q", false, true);
+    }
+  }, 80);
+}
+
 const botDelay = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function botPlay() {
@@ -3751,6 +3813,7 @@ async function botPlay() {
     return;
   }
   playMove(move.from, move.to, move.promotion, true, true);
+  botRunPremove();
 }
 
 function botAfterMove() {
@@ -3800,6 +3863,66 @@ function botFinish(resigned = false) {
   botEl("bot-takeback").disabled = true;
   botEl("bot-resign").disabled = true;
   statusEl.textContent = text;
+  botShowResult(outcome, resigned, text);
+}
+
+// Oyun bittiğinde tahtanın üstünde sonuç kartı + mat olan şahın yanıp sönmesi
+function botShowResult(outcome, resigned, reasonText) {
+  const overlay = botEl("bot-result-overlay");
+  if (!overlay) return;
+
+  if (game.isCheckmate()) {
+    const loser = game.turn();
+    const board = game.board();
+    for (let r = 0; r < 8; r++) {
+      for (let f = 0; f < 8; f++) {
+        const p = board[r][f];
+        if (p && p.type === "k" && p.color === loser) {
+          const name = "abcdefgh"[f] + (8 - r);
+          boardEl
+            .querySelector(`[data-square="${name}"]`)
+            ?.classList.add("mate-pulse");
+        }
+      }
+    }
+  }
+
+  const title =
+    outcome === "w"
+      ? "You win!"
+      : outcome === "l"
+        ? resigned
+          ? "You resigned"
+          : "Stockfish wins"
+        : "Draw";
+  const sub = reasonText.replace(
+    /^(Checkmate — you win!|Checkmate — Stockfish wins\.|You resigned\. Stockfish wins\.)$/,
+    (m) => (m.startsWith("Checkmate") ? "Checkmate" : "Better luck next time"),
+  );
+  botEl("bot-result-title").textContent = title;
+  botEl("bot-result-text").textContent = sub;
+  const card = botEl("bot-result-card");
+  card.className = `drill-complete-card bot-result-card ${outcome === "w" ? "win" : outcome === "l" ? "loss" : "draw"}`;
+
+  const icon = botEl("bot-result-icon");
+  icon.innerHTML = "";
+  const kings =
+    outcome === "d"
+      ? ["w", "b"]
+      : [outcome === "w" ? bot.humanColor : bot.humanColor === "w" ? "b" : "w"];
+  for (const color of kings) icon.appendChild(createPieceEl(color, "k"));
+
+  clearTimeout(botResultTimer);
+  botResultTimer = setTimeout(() => {
+    if (bot?.over && botPageOpen) overlay.hidden = false;
+  }, 900);
+}
+
+let botResultTimer = null;
+function botHideResult() {
+  clearTimeout(botResultTimer);
+  const overlay = botEl("bot-result-overlay");
+  if (overlay) overlay.hidden = true;
 }
 
 function botTakeback() {
@@ -3860,6 +3983,7 @@ function botAnalyse() {
 }
 
 function botNewGame() {
+  botHideResult();
   if (bot) bot.token++;
   botEngine.stop();
   bot = null;
@@ -3896,6 +4020,12 @@ botEl("bot-takeback")?.addEventListener("click", botTakeback);
 botEl("bot-resign")?.addEventListener("click", () => botFinish(true));
 botEl("bot-new")?.addEventListener("click", botNewGame);
 botEl("bot-hint")?.addEventListener("click", botHint);
+botEl("bot-result-close")?.addEventListener("click", botHideResult);
+botEl("bot-result-new")?.addEventListener("click", botNewGame);
+botEl("bot-result-analyse")?.addEventListener("click", () => {
+  botHideResult();
+  botAnalyse();
+});
 botEl("bot-analyse")?.addEventListener("click", botAnalyse);
 for (const key of ["eval", "takeback", "hint"]) {
   botEl(`bot-opt-${key}`)?.addEventListener("change", (e) => {

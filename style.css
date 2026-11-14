@@ -4336,3 +4336,7 @@ main.app#play:has(#learn-panel:not([hidden])) .evaluation {
     animation: none;
   }
 }
+
+.puzzle-rating-color {
+  color: var(--accent-strong);
+}

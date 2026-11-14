@@ -5542,7 +5542,7 @@ async function fetchNewPuzzle() {
       currentPuzzle.startedAt = Date.now(); // çözme süresi için
 
       if (puzzleStatusEl) {
-        puzzleStatusEl.textContent = `Your turn! Find the move for ${puzzlePlayerColor === "w" ? "White" : "Black"}. (Rating: ${currentPuzzle.rating})`;
+        puzzleStatusEl.innerHTML = `Your turn! Find the move for ${puzzlePlayerColor === "w" ? "White" : "Black"}. Puzzle <span class="puzzle-rating-color">${currentPuzzle.rating}</span>`;
       }
     }, 600);
   } catch (error) {
@@ -5692,7 +5692,7 @@ function executePuzzleMove(from, to, animate = true, chosenPromo = null) {
 
     if (puzzleSolutionIndex >= currentPuzzle.solution.length) {
       if (puzzleStatusEl)
-        puzzleStatusEl.textContent = "Puzzle Solved! Great job!";
+        puzzleStatusEl.innerHTML = `Puzzle<span class="puzzle-rating-color"> ${currentPuzzle.rating}</span> Solved! Great job!`;
 
       if (!puzzleScoreRecorded) {
         const ratingChange = puzzleHintUsedInCurrent

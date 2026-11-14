@@ -2070,7 +2070,7 @@ css .analysis-rank,
   display: flex;
   gap: 8px;
   width: min(100%, 594px);
-  margin: 12px 0 16px auto; /* Negatif margin kaldırıldı, üst ve altta temiz boşluk bırakıldı */
+  margin: -24px 0 16px auto; /* Negatif margin kaldırıldı, üst ve altta temiz boşluk bırakıldı */
 }
 
 .mobile-board-nav button {
@@ -2107,7 +2107,7 @@ css .analysis-rank,
   }
   .mobile-board-nav {
     width: 100%;
-    margin: 14px 0 16px 0; /* Mobilde de temiz 14px üst boşluk */
+    margin: 20px 0 16px 0 !important; /* Mobilde de temiz 14px üst boşluk */
   }
 }
 
@@ -2190,7 +2190,7 @@ css .analysis-rank,
     100%,
     594px
   ); /* Navigasyon butonları ve tahta genişliğiyle birebir aynı */
-  margin: 16px 0 0 auto; /* Sağa yaslı ve üstten boşluklu */
+  margin: 20px 0 0 auto; /* Sağa yaslı ve üstten boşluklu */
   min-width: 0;
   padding: 18px;
   background: var(--panel);
@@ -4007,7 +4007,7 @@ main.app#play:has(#learn-panel:not([hidden])) .evaluation {
   margin-right: -9px;
 }
 .mobile-board-nav {
-  margin-top: -34px;
+  margin-top: -24px;
 }
 @media (max-width: 1050px) {
   .mobile-board-nav {

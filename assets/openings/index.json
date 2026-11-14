@@ -1,7 +1,12 @@
 [
   "caro-kann-defense.json",
+  "english-opening.json",
+  "french-defense.json",
+  "indian-defenses.json",
   "italian-game.json",
+  "london-system.json",
   "queens-gambit.json",
+  "ruy-lopez.json",
   "scotch-game.json",
   "sicilian-defense.json"
 ]

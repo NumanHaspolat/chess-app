@@ -166,6 +166,8 @@ let trainHintSquares = [];
 let trainMistakeTimer = null;
 let trainOpponentTimer = null;
 let trainPhase = "your-move";
+let puzzlePremQ = { id: -1, list: [] };
+let puzzleOppWaitId = -1;
 let trainMistakeCount = 0;
 let trainCorrectMoves = 0;
 let trainTotalMistakes = 0;
@@ -460,6 +462,7 @@ function renderRepertoireBoard(animate = true) {
     repSelectedSquare,
     repLegalMoves.map((m) => m.to).join(","),
     drillHintSquares.join(","),
+    (drill?.premoves || []).map((p) => p.from + p.to).join(","),
     repOrientation,
   ].join("|");
   if (
@@ -508,6 +511,9 @@ function renderRepertoireBoard(animate = true) {
 
       if (drillHintSquares.includes(squareName)) {
         square.classList.add("drill-hint");
+      }
+      if (drill && pmHas(drill.premoves, squareName)) {
+        square.classList.add("premove");
       }
 
       if (repSelectedSquare === squareName) {
@@ -659,38 +665,63 @@ function updateRepertoirePage(animate = true) {
   renderRepLibrary();
 }
 
+// Repertoire tahtasında hamle: rakip sırasındaysa ön hamle olarak sıraya alınır
+function repTryMove(from, to, animate = true) {
+  const pc = repPremoveCtx();
+  if (pc) {
+    pmQueue(pc.list, from, to, "q");
+    repSelectedSquare = null;
+    repLegalMoves = [];
+    updateRepertoireBoard(false);
+    return true;
+  }
+  const currentGame = drill ? drillGame : repertoireGame;
+  let played = null;
+  try {
+    played = currentGame.move({ from, to, promotion: "q" });
+  } catch {}
+  if (!played) return false;
+  repSelectedSquare = null;
+  repLegalMoves = [];
+  playSound(played.captured ? "capture" : "move");
+  updateRepertoirePage(animate);
+  if (drill) onDrillMove(played);
+  return true;
+}
+
+// Seçim/yasal hamleler için kullanılacak oyun (ön hamlede sırası çevrilmiş kopya)
+function repActiveGame() {
+  const pc = repPremoveCtx();
+  if (pc) return pmSim(drillGame, pc.color, pc.list) || drillGame;
+  return drill ? drillGame : repertoireGame;
+}
+
 repBoardEl?.addEventListener("pointerdown", (e) => {
   if (e.button !== 0 || repDrag) return;
-  if (drill && drill.phase !== "your-move") return;
+  const pc = repPremoveCtx();
+  if (drill && drill.phase !== "your-move" && !pc) return;
 
   const name = repSquareFromPoint(e.clientX, e.clientY);
   if (!name) return;
   e.preventDefault();
 
-  const currentGame = drill ? drillGame : repertoireGame;
+  const currentGame = repActiveGame();
   const piece = currentGame.get(name);
 
   if (repSelectedSquare) {
     const move = repLegalMoves.find((m) => m.to === name);
     if (move) {
-      const played = currentGame.move({
-        from: repSelectedSquare,
-        to: name,
-        promotion: "q",
-      });
-
-      if (played) {
-        repSelectedSquare = null;
-        repLegalMoves = [];
-        repSuppressClick = true;
-
-        playSound(played.captured ? "capture" : "move");
-        updateRepertoirePage();
-
-        if (drill) onDrillMove(played);
-      }
+      if (repTryMove(repSelectedSquare, name)) repSuppressClick = true;
       return;
     }
+  }
+
+  if (pc && !(piece && piece.color === currentGame.turn())) {
+    pc.list.length = 0; // boş kareye tıklamak ön hamleleri iptal eder
+    repSelectedSquare = null;
+    repLegalMoves = [];
+    updateRepertoireBoard(false);
+    return;
   }
 
   if (piece && piece.color === currentGame.turn()) {
@@ -739,22 +770,7 @@ function endRepDrag(e, cancelled = false) {
     return;
   }
 
-  const currentGame = drill ? drillGame : repertoireGame;
-  const played = currentGame.move({
-    from: currentDrag.from,
-    to: target,
-    promotion: "q",
-  });
-
-  if (played) {
-    repSelectedSquare = null;
-    repLegalMoves = [];
-
-    playSound(played.captured ? "capture" : "move");
-    updateRepertoirePage(false);
-
-    if (drill) onDrillMove(played);
-  }
+  repTryMove(currentDrag.from, target, false);
 }
 
 window.addEventListener("pointerup", (e) => endRepDrag(e));
@@ -787,28 +803,12 @@ repBoardEl?.addEventListener("click", (event) => {
   if (!square) return;
 
   const name = square.dataset.square;
-  const currentGame = drill ? drillGame : repertoireGame;
+  const currentGame = repActiveGame();
   const piece = currentGame.get(name);
 
   if (repSelectedSquare) {
     const move = repLegalMoves.find((m) => m.to === name);
-    if (move) {
-      const played = currentGame.move({
-        from: repSelectedSquare,
-        to: name,
-        promotion: "q",
-      });
-
-      if (played) {
-        playSound(played.captured ? "capture" : "move");
-        repSelectedSquare = null;
-        repLegalMoves = [];
-        updateRepertoirePage();
-
-        if (drill) onDrillMove(played);
-        return;
-      }
-    }
+    if (move && repTryMove(repSelectedSquare, name)) return;
   }
 
   if (piece && piece.color === currentGame.turn()) {
@@ -1192,11 +1192,7 @@ function renderBoard(animate = true) {
 
       if (name === selectedSquare) squareEl.classList.add("selected");
       if (name === checkSquare) squareEl.classList.add("check");
-      if (
-        bot?.premove &&
-        (name === bot.premove.from || name === bot.premove.to)
-      )
-        squareEl.classList.add("premove");
+      if (pmHas(playPremoveRaw(), name)) squareEl.classList.add("premove");
 
       const move = legalMoves.find((m) => m.to === name);
       if (move) {
@@ -2591,6 +2587,12 @@ function renderPuzzleBoard(animate = false) {
       if (puzzleCorrectSquares.includes(squareName)) {
         square.classList.add("puzzle-correct");
       }
+      if (
+        puzzlePremQ.id === puzzleLoadId &&
+        pmHas(puzzlePremQ.list, squareName)
+      ) {
+        square.classList.add("premove");
+      }
 
       if (
         lastMove &&
@@ -2722,9 +2724,10 @@ function clearSelection() {
 }
 
 function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
-  if (!byDrill && botPremoveMode()) {
-    // Stockfish düşünürken yapılan hamle: ön hamle olarak sıraya alınır
-    bot.premove = { from, to, promotion };
+  const pctx = byDrill ? null : playPremoveCtx();
+  if (pctx) {
+    // Rakip sırasındayken yapılan hamle: ön hamle olarak sıraya alınır
+    pmQueue(pctx.list, from, to, promotion);
     clearSelection();
     renderBoard();
     return;
@@ -2852,6 +2855,7 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
 }
 
 function handleTrainMistake(expectedMove, playedMove) {
+  if (lesson?.premoves) lesson.premoves.length = 0;
   trainPhase = "mistake";
   trainMistakeCount++;
   trainTotalMistakes++;
@@ -2973,6 +2977,7 @@ function continueTrain() {
       update(false);
       requestEngineEvaluation(game.fen(), "play");
       continueTrain();
+      if (trainPhase === "your-move") playRunPremove(lesson?.premoves);
     }, 500);
 
     renderLearnPanel();
@@ -2984,16 +2989,16 @@ function continueTrain() {
 }
 
 boardEl?.addEventListener("pointerdown", (e) => {
+  const pm = playPremoveCtx();
   if (
     botPageOpen &&
-    (!bot || bot.over || (game.turn() !== bot.humanColor && !bot.thinking))
+    (!bot || bot.over || (game.turn() !== bot.humanColor && !pm))
   )
     return;
-  const pm = botPremoveMode();
-  const turnGame = pm ? botPremoveGame() : game;
+  const turnGame = pm ? pmSim(game, pm.color, pm.list) : game;
   if (!turnGame) return;
   if (lesson && !trainMode) return;
-  if (trainMode && trainPhase !== "your-move") return;
+  if (trainMode && trainPhase !== "your-move" && !pm) return;
   if (e.button !== 0 || drag) return;
   if (viewPly !== null) return;
   if (drill && drill.phase !== "your-move") return;
@@ -3004,7 +3009,7 @@ boardEl?.addEventListener("pointerdown", (e) => {
 
   if (selectedSquare && legalMoves.some((m) => m.to === name)) {
     const fromSq = selectedSquare;
-    pickPromotion(game, fromSq, name).then((p) => {
+    pickPromotion(turnGame, fromSq, name).then((p) => {
       if (p) playMove(fromSq, name, p);
       else renderBoard();
     });
@@ -3031,7 +3036,7 @@ boardEl?.addEventListener("pointerdown", (e) => {
     return;
   }
 
-  if (pm && bot) bot.premove = null; // boş kareye tıklamak ön hamleyi iptal eder
+  if (pm) pm.list.length = 0; // boş kareye tıklamak ön hamleleri iptal eder
   clearSelection();
   renderBoard();
 });
@@ -3171,7 +3176,7 @@ function updateHover(name) {
 }
 
 function endDrag(e, cancelled = false) {
-  if (trainMode && trainPhase !== "your-move") return;
+  if (trainMode && trainPhase !== "your-move" && !playPremoveCtx()) return;
   if (!drag) return;
 
   const { from, moved, wasSelected, ghost } = drag;
@@ -3188,7 +3193,9 @@ function endDrag(e, cancelled = false) {
 
   const target = cancelled ? null : squareFromPoint(e.clientX, e.clientY);
   if (target && legalMoves.some((m) => m.to === target)) {
-    pickPromotion(game, from, target).then((p) => {
+    const pc = playPremoveCtx();
+    const pg = pc ? pmSim(game, pc.color, pc.list) : game;
+    pickPromotion(pg || game, from, target).then((p) => {
       if (p) playMove(from, target, p, false, false);
       else renderBoard();
     });
@@ -3655,7 +3662,7 @@ function startBotGame(opts, resume = false) {
     thinking: false,
     over: false,
     counted: false,
-    premove: null,
+    premoves: [],
   };
   botHideResult();
   game.reset();
@@ -3727,47 +3734,189 @@ function botBookMove() {
   }
 }
 
-function botPremoveMode() {
-  return !!(botPageOpen && bot && !bot.over && bot.thinking);
+const PREMOVE_KEY = "azurite-premove";
+function premoveOpts() {
+  return { on: true, multi: false, ...readJson(PREMOVE_KEY, {}) };
 }
 
-// Sıra Stockfish'teyken, insanın taşlarının hamlelerini üretmek için sırası çevrilmiş pozisyon
-function botPremoveGame() {
-  const parts = game.fen().split(" ");
-  parts[1] = bot.humanColor;
-  parts[3] = "-";
+// ---- Ortak premove yardımcıları (Stockfish, Train, drill, puzzle) ----
+// Liste elemanı: { from, to, promotion }. "Çoklu" kapalıysa listede en fazla 1 hamle kalır; açıksa sınır yok.
+function pmQueue(list, from, to, promotion) {
+  if (!premoveOpts().multi) list.length = 0;
+  list.push({ from, to, promotion });
+}
+
+function pmFlipFen(fen, color) {
+  const p = fen.split(" ");
+  p[1] = color;
+  p[3] = "-";
+  return p.join(" ");
+}
+
+// Sıra rakipteyken insanın hamlelerini üretmek için sırası çevrilmiş pozisyon.
+// Sıradaki ön hamleler de uygulanır, böylece art arda ön hamle yapılabilir.
+function pmSim(baseGame, color, list) {
+  let g;
   try {
-    return new Chess(parts.join(" "));
+    g = new Chess(pmFlipFen(baseGame.fen(), color));
   } catch {
     return null;
   }
+  for (const pm of list) {
+    let m = null;
+    try {
+      m = g.move({ from: pm.from, to: pm.to, promotion: pm.promotion || "q" });
+    } catch {}
+    if (!m) break;
+    try {
+      g = new Chess(pmFlipFen(g.fen(), color));
+    } catch {
+      return g;
+    }
+  }
+  return g;
 }
 
-function botRunPremove() {
-  const pm = bot?.premove;
-  if (!pm) return;
-  bot.premove = null;
-  if (bot.over || game.isGameOver() || game.turn() !== bot.humanColor) {
-    renderBoard();
-    return;
-  }
-  const ok = game
+// Gerçek pozisyonda (sıra insanda) bu ön hamle hâlâ yasal mı?
+function pmLegal(g, pm) {
+  return g
     .moves({ verbose: true })
     .some(
       (m) =>
         m.from === pm.from &&
         m.to === pm.to &&
-        (!m.promotion || m.promotion === pm.promotion),
+        (!m.promotion || m.promotion === (pm.promotion || "q")),
     );
-  if (!ok) {
-    renderBoard(); // artık yasal değil: iptal
+}
+
+const pmHas = (list, name) =>
+  !!list?.some((p) => p.from === name || p.to === name);
+
+// Ana tahta (Play sayfası): Stockfish veya opening Train rakip sırasındayken
+function playPremoveCtx() {
+  if (!premoveOpts().on) return null;
+  if (botPageOpen) {
+    if (bot && !bot.over && bot.thinking)
+      return { list: bot.premoves, color: bot.humanColor };
+    return null;
+  }
+  if (trainMode && lesson && trainPhase === "opponent") {
+    lesson.premoves ||= [];
+    return { list: lesson.premoves, color: lesson.opening.color[0] };
+  }
+  return null;
+}
+
+// Gösterim için ham liste (bekleyen ön hamleler)
+function playPremoveRaw() {
+  if (botPageOpen) return bot?.premoves;
+  if (trainMode) return lesson?.premoves;
+  return null;
+}
+
+// Play tahtasında bekleyen ön hamleyi uygula
+function playRunPremove(list) {
+  if (!list?.length) return;
+  const pm = list.shift();
+  const cancelAll = () => {
+    list.length = 0;
+    renderBoard();
+  };
+  const human = botPageOpen ? bot?.humanColor : lesson?.opening?.color?.[0];
+  if (
+    !premoveOpts().on ||
+    !human ||
+    game.isGameOver() ||
+    game.turn() !== human ||
+    (botPageOpen && (!bot || bot.over)) ||
+    (!botPageOpen && !(trainMode && trainPhase === "your-move")) ||
+    !pmLegal(game, pm)
+  ) {
+    cancelAll(); // artık yasal değil: kalan ön hamleler de iptal
     return;
   }
   setTimeout(() => {
-    if (bot && !bot.over && game.turn() === bot.humanColor) {
-      playMove(pm.from, pm.to, pm.promotion || "q", false, true);
-    }
+    const ok = botPageOpen
+      ? bot && !bot.over && game.turn() === bot.humanColor
+      : trainMode && trainPhase === "your-move" && game.turn() === human;
+    if (ok) playMove(pm.from, pm.to, pm.promotion || "q", false, true);
   }, 80);
+}
+
+// Repertoire drill tahtası: rakip hamlesi beklenirken
+function repPremoveCtx() {
+  if (!premoveOpts().on || !drill || drill.phase !== "opponent") return null;
+  drill.premoves ||= [];
+  return { list: drill.premoves, color: drill.rep.color };
+}
+
+function drillRunPremove() {
+  const list = drill?.premoves;
+  if (!list?.length) return;
+  const pm = list.shift();
+  if (
+    !premoveOpts().on ||
+    drill.phase !== "your-move" ||
+    drillGame.turn() !== drill.rep.color ||
+    !pmLegal(drillGame, pm)
+  ) {
+    list.length = 0;
+    updateRepertoireBoard(false);
+    return;
+  }
+  setTimeout(() => {
+    if (!drill || drill.phase !== "your-move") return;
+    repTryMove(pm.from, pm.to);
+  }, 80);
+}
+
+// Puzzle tahtası: rakibin cevabı beklenirken
+function puzzlePremoveCtx() {
+  if (!premoveOpts().on || !currentPuzzle || puzzleFinished) return null;
+  if (puzzleOppWaitId !== puzzleLoadId) return null;
+  if (puzzlePremQ.id !== puzzleLoadId)
+    puzzlePremQ = { id: puzzleLoadId, list: [] };
+  return { list: puzzlePremQ.list, color: puzzlePlayerColor };
+}
+
+function puzzleRunPremove() {
+  const q = puzzlePremQ;
+  if (q.id !== puzzleLoadId || !q.list.length) return;
+  const pm = q.list.shift();
+  if (
+    !premoveOpts().on ||
+    puzzleFinished ||
+    puzzleGame.turn() !== puzzlePlayerColor ||
+    !pmLegal(puzzleGame, pm)
+  ) {
+    q.list.length = 0;
+    renderPuzzleBoard(false);
+    return;
+  }
+  const id = puzzleLoadId;
+  setTimeout(() => {
+    if (id !== puzzleLoadId || puzzleFinished) return;
+    puzzleUserMove(pm.from, pm.to, true, pm.promotion);
+  }, 80);
+}
+
+// Ayar değişince veya kapanınca bekleyen listeleri düzenle
+function pmEnforce() {
+  const o = premoveOpts();
+  const lists = [
+    bot?.premoves,
+    lesson?.premoves,
+    drill?.premoves,
+    puzzlePremQ.list,
+  ];
+  for (const l of lists) {
+    if (!l) continue;
+    if (!o.on) l.length = 0;
+    else if (!o.multi && l.length > 1) l.splice(0, l.length - 1);
+  }
+  renderBoard();
+  updateRepertoireBoard(false);
+  renderPuzzleBoard(false);
 }
 
 const botDelay = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -3813,7 +3962,7 @@ async function botPlay() {
     return;
   }
   playMove(move.from, move.to, move.promotion, true, true);
-  botRunPremove();
+  playRunPremove(bot?.premoves);
 }
 
 function botAfterMove() {
@@ -4944,6 +5093,7 @@ function advanceDrill() {
       drillAnimateNext = true; // rakip hamlesi kayarak gelsin
       update(false);
       advanceDrill();
+      if (drill?.phase === "your-move") drillRunPremove();
     }
   }, OPPONENT_DELAY_MS);
 }
@@ -4975,6 +5125,7 @@ function onDrillMove(move) {
 
   drill.mistakes++;
   drill.mistakeCount++;
+  if (drill.premoves) drill.premoves.length = 0;
   if (drill.mistakeCount === 1) {
     srsRecord(drill.rep.id, move.before, "fail");
     renderSrsSummary();
@@ -5103,7 +5254,8 @@ if (puzzleBoardEl) {
     if (!currentPuzzle || isPuzzleMistakeState) return;
     if (puzzleFinished || puzzleSolutionPlaying) return;
     if (puzzleViewPly !== null) return; // geçmiş pozisyona bakarken hamle yapılamaz
-    if (puzzleGame.turn() !== puzzlePlayerColor) return;
+    const pc = puzzlePremoveCtx();
+    if (puzzleGame.turn() !== puzzlePlayerColor && !pc) return;
 
     const name = puzzleSquareFromPoint(e.clientX, e.clientY);
     if (!name) return;
@@ -5114,11 +5266,14 @@ if (puzzleBoardEl) {
       return; // <-- Burada fonksiyon içinde olduğu için hata vermez!
     }
 
-    const piece = puzzleGame.get(name);
+    const activeGame = pc
+      ? pmSim(puzzleGame, pc.color, pc.list) || puzzleGame
+      : puzzleGame;
+    const piece = activeGame.get(name);
     if (piece && piece.color === puzzlePlayerColor) {
       const wasSelected = puzzleSelectedSquare === name;
       puzzleSelectedSquare = name;
-      puzzleLegalMoves = puzzleGame.moves({ square: name, verbose: true });
+      puzzleLegalMoves = activeGame.moves({ square: name, verbose: true });
       renderPuzzleBoard(false);
 
       puzzleDrag = {
@@ -5134,6 +5289,7 @@ if (puzzleBoardEl) {
       return;
     }
 
+    if (pc) pc.list.length = 0; // boş kareye tıklamak ön hamleleri iptal eder
     puzzleSelectedSquare = null;
     puzzleLegalMoves = [];
     renderPuzzleBoard(false);
@@ -5624,10 +5780,23 @@ function puzzleRatingDelta(won) {
 let puzzleHintSquares = [];
 
 // Kullanıcı hamlesi: terfi seçimi açıksa önce taş sor, sonra hamleyi uygula
-function puzzleUserMove(from, to, animate) {
-  if (settings.promotionAsk && isPromotionMove(puzzleGame, from, to)) {
-    pickPromotion(puzzleGame, from, to).then((p) => {
-      if (p) executePuzzleMove(from, to, animate, p);
+function puzzleUserMove(from, to, animate, premovePromo = null) {
+  const pc = puzzlePremoveCtx();
+  const baseGame = pc
+    ? pmSim(puzzleGame, pc.color, pc.list) || puzzleGame
+    : puzzleGame;
+  if (
+    !premovePromo &&
+    settings.promotionAsk &&
+    isPromotionMove(baseGame, from, to)
+  ) {
+    pickPromotion(baseGame, from, to).then((p) => {
+      if (p && pc) {
+        pmQueue(pc.list, from, to, p);
+        puzzleSelectedSquare = null;
+        puzzleLegalMoves = [];
+        renderPuzzleBoard(false);
+      } else if (p) executePuzzleMove(from, to, animate, p);
       else {
         puzzleSelectedSquare = null;
         puzzleLegalMoves = [];
@@ -5636,7 +5805,14 @@ function puzzleUserMove(from, to, animate) {
     });
     return;
   }
-  executePuzzleMove(from, to, animate);
+  if (pc) {
+    pmQueue(pc.list, from, to, null);
+    puzzleSelectedSquare = null;
+    puzzleLegalMoves = [];
+    renderPuzzleBoard(false);
+    return;
+  }
+  executePuzzleMove(from, to, animate, premovePromo);
 }
 
 // chosenPromo: kullanıcı terfi taşı seçtiyse (yalnızca "terfi seç" ayarı açıkken)
@@ -5713,7 +5889,9 @@ function executePuzzleMove(from, to, animate = true, chosenPromo = null) {
       puzzleStatusEl.textContent = "Correct! Opponent is responding...";
 
     const replyLoadId = puzzleLoadId;
+    puzzleOppWaitId = replyLoadId; // rakip cevap verirken ön hamle yapılabilir
     setTimeout(() => {
+      puzzleOppWaitId = -1;
       if (replyLoadId !== puzzleLoadId || !currentPuzzle || puzzleFinished)
         return;
       const replyUci = currentPuzzle.solution[puzzleSolutionIndex];
@@ -5763,6 +5941,7 @@ function executePuzzleMove(from, to, animate = true, chosenPromo = null) {
 
         if (puzzleStatusEl)
           puzzleStatusEl.textContent = "Your turn. Find the next move.";
+        puzzleRunPremove();
       }
     }, 600);
   } else {
@@ -5770,6 +5949,7 @@ function executePuzzleMove(from, to, animate = true, chosenPromo = null) {
     // YANLIŞ HAMLE
     // ------------------------------------------
     isPuzzleMistakeState = true;
+    if (puzzlePremQ.id === puzzleLoadId) puzzlePremQ.list.length = 0;
     playSound("gameover", 2);
 
     puzzleGame.move({ from, to, promotion: chosenPromo || "q" });
@@ -6360,6 +6540,28 @@ function initSettingsPanel() {
   bindCheck("setting-last-move", "showLastMove");
   bindCheck("setting-auto-next", "autoNextPuzzle");
   bindCheck("setting-promo-ask", "promotionAsk");
+
+  // Ön hamle (premove) ayarları: ayrı anahtarda saklanır
+  {
+    const on = document.getElementById("setting-premove");
+    const multi = document.getElementById("setting-premove-multi");
+    const sync = () => {
+      const o = premoveOpts();
+      if (on) on.checked = o.on;
+      if (multi) {
+        multi.checked = o.multi;
+        multi.disabled = !o.on;
+      }
+    };
+    const save = (patch) => {
+      writeJson(PREMOVE_KEY, { ...premoveOpts(), ...patch });
+      sync();
+      pmEnforce();
+    };
+    on?.addEventListener("change", () => save({ on: on.checked }));
+    multi?.addEventListener("change", () => save({ multi: multi.checked }));
+    sync();
+  }
 
   // Ok rengi
   {

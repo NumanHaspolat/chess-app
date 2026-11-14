@@ -152,12 +152,12 @@
 
             <label for="bot-opening">Stockfish opening</label>
             <select id="bot-opening">
-              <option value="any">Any (Stockfish chooses)</option>
+              <option value="any">Any</option>
             </select>
             <div id="bot-variation-wrap" hidden>
               <label for="bot-variation">Variation</label>
               <select id="bot-variation">
-                <option value="random">Random (any variation)</option>
+                <option value="random">Random</option>
               </select>
             </div>
             <p id="bot-opening-hint" class="bot-hint"></p>
@@ -1018,6 +1018,17 @@
               <label for="setting-promo-ask"
                 >Choose promotion piece (otherwise queen)</label
               ><input id="setting-promo-ask" type="checkbox" />
+            </div>
+            <div class="settings-row">
+              <label for="setting-premove"
+                >Premove (queue moves while the opponent replies — vs Computer,
+                Train, drills, puzzles)</label
+              ><input id="setting-premove" type="checkbox" />
+            </div>
+            <div class="settings-row">
+              <label for="setting-premove-multi"
+                >Allow multiple premoves (no limit)</label
+              ><input id="setting-premove-multi" type="checkbox" />
             </div>
           </div>
         </div>

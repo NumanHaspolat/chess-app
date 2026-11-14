@@ -32,6 +32,7 @@
 
       <nav class="nav-links">
         <a href="#play" class="nav-link active">Play</a>
+        <a href="#bot" class="nav-link">Vs Computer</a>
         <a href="#analyse" class="nav-link">Analyse</a>
         <a href="#puzzles" class="nav-link">Puzzles</a>
         <a href="#openings" class="nav-link">Openings</a>
@@ -116,6 +117,64 @@
       </section>
 
       <section class="learn-section">
+        <div id="bot-panel" class="learn-panel bot-panel" hidden>
+          <h2>Play vs Stockfish</h2>
+
+          <div id="bot-setup">
+            <label for="bot-elo">Strength</label>
+            <select id="bot-elo"></select>
+
+            <label for="bot-color">You play</label>
+            <select id="bot-color">
+              <option value="w">White</option>
+              <option value="b">Black</option>
+              <option value="r">Random</option>
+            </select>
+
+            <label for="bot-opening">Stockfish opening</label>
+            <select id="bot-opening">
+              <option value="any">Any (Stockfish chooses)</option>
+            </select>
+            <div id="bot-variation-wrap" hidden>
+              <label for="bot-variation">Variation</label>
+              <select id="bot-variation">
+                <option value="random">Random (any variation)</option>
+              </select>
+            </div>
+            <p id="bot-opening-hint" class="bot-hint"></p>
+
+            <button id="bot-start" class="bot-primary">Start game</button>
+            <p id="bot-record" class="bot-hint"></p>
+          </div>
+
+          <div id="bot-game" hidden>
+            <p id="bot-info" class="bot-info"></p>
+            <p id="bot-result" class="bot-result"></p>
+            <div class="learn-controls">
+              <button id="bot-hint">Hint</button>
+              <button id="bot-takeback">Takeback</button>
+              <button id="bot-resign">Resign</button>
+              <button id="bot-analyse">Analyse</button>
+              <button id="bot-new">New game</button>
+            </div>
+          </div>
+
+          <div class="bot-options">
+            <h3>Options</h3>
+            <label class="bot-check"
+              ><input type="checkbox" id="bot-opt-eval" /> Show evaluation
+              bar</label
+            >
+            <label class="bot-check"
+              ><input type="checkbox" id="bot-opt-takeback" /> Allow
+              takeback</label
+            >
+            <label class="bot-check"
+              ><input type="checkbox" id="bot-opt-hint" /> Allow hints
+              (Stockfish's best move)</label
+            >
+          </div>
+        </div>
         <div id="learn-panel" class="learn-panel" hidden>
           <h2 id="learn-title">Learn</h2>
 

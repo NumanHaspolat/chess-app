@@ -4,7 +4,7 @@
 //  - Ses, görsel, taş, Stockfish dosyaları: önce önbellek            -> hızlı ve çevrimdışı
 //  - CDN (chess.js, yazı tipi): önbellekten ver, arkada yenile
 // Sürüm numarasını değiştirmek eski önbelleği siler.
-const VERSION = "azurite-v2";
+const VERSION = "cxess-v4";
 const CORE = [
   "./",
   "./index.html",
@@ -19,6 +19,8 @@ const CORE = [
   "./src/library.js",
   "./src/opening-trainer.js",
   "./src/opening-progress.js",
+  "./src/bot.js",
+  "./src/bot-book.js",
   "./src/openings.js",
   "./src/pgn.js",
   "./src/pieces.js",

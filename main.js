@@ -10,6 +10,8 @@ import { loadOpening } from "./src/opening-trainer.js";
 import { EnginePool } from "./src/engine-pool.js";
 import { srsRecord, pickReplySRS, srsSummary, resetSrs } from "./src/srs.js";
 import { initArrows } from "./src/arrows.js";
+import { BotEngine, BOT_LEVELS } from "./src/bot.js";
+import { BOT_BOOK } from "./src/bot-book.js";
 import {
   openingProgress,
   recordLearn,
@@ -151,6 +153,10 @@ let repHoverSquare = null;
 let drillMistakeTimer = null;
 let drillCompleteTimer = null;
 let learnCompleteTimer = null;
+const botEngine = new BotEngine();
+let bot = null; // { elo, humanColor, openingId, token, thinking, over }
+let botPageOpen = false;
+let botSavedPlay = null;
 let viewPly = null;
 let view = game;
 let learnHintMove = null;
@@ -1750,6 +1756,13 @@ async function reviewGame(
   if (reportContent) reportContent.style.display = "none";
   if (progressText) progressText.textContent = "Analyzing game... (0%)";
 
+  // Analiz yüklenirken ekran spinner'a kayar (PC, tablet, telefon)
+  if (progressBox) {
+    requestAnimationFrame(() =>
+      progressBox.scrollIntoView({ behavior: "smooth", block: "center" }),
+    );
+  }
+
   const chess = new Chess();
   const moves = [];
 
@@ -2662,11 +2675,14 @@ function update(animate = true) {
   view = syncView();
 
   const showAnalysis =
-    !document.querySelector("#play").hidden && !lesson && !trainMode;
+    !document.querySelector("#play").hidden &&
+    !lesson &&
+    !trainMode &&
+    !botPageOpen;
 
   if (analysisPanel) analysisPanel.hidden = !showAnalysis;
 
-  if (showAnalysis) {
+  if (showAnalysis || (botPageOpen && botOpts().eval)) {
     requestEngineEvaluation(view.fen(), "play");
   } else {
     if (analysisLinesEl) {
@@ -2701,6 +2717,13 @@ function clearSelection() {
 }
 
 function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
+  if (
+    botPageOpen &&
+    !byDrill &&
+    (!bot || bot.over || bot.thinking || game.turn() !== bot.humanColor)
+  )
+    return;
+  if (botPageOpen) drillHintSquares = [];
   if (lesson && !byDrill) {
     const expectedMove = lesson.variation.moves[lesson.index];
     if (!expectedMove) return;
@@ -2812,6 +2835,8 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
     if (byDrill) advanceDrill();
     else onDrillMove(move);
   }
+
+  if (bot) botAfterMove();
 }
 
 function handleTrainMistake(expectedMove, playedMove) {
@@ -2947,6 +2972,11 @@ function continueTrain() {
 }
 
 boardEl?.addEventListener("pointerdown", (e) => {
+  if (
+    botPageOpen &&
+    (!bot || bot.over || bot.thinking || game.turn() !== bot.humanColor)
+  )
+    return;
   if (lesson && !trainMode) return;
   if (trainMode && trainPhase !== "your-move") return;
   if (e.button !== 0 || drag) return;
@@ -3339,6 +3369,10 @@ window.addEventListener("keydown", (e) => {
 });
 
 undoBtnEl?.addEventListener("click", () => {
+  if (botPageOpen) {
+    botTakeback();
+    return;
+  }
   if (drill) return;
   game.undo();
   viewPly = null;
@@ -3352,6 +3386,10 @@ document.getElementById("btn-flip")?.addEventListener("click", () => {
 });
 
 document.getElementById("btn-reset")?.addEventListener("click", () => {
+  if (botPageOpen) {
+    botNewGame();
+    return;
+  }
   if (drill) {
     startDrill();
     return;
@@ -3361,6 +3399,513 @@ document.getElementById("btn-reset")?.addEventListener("click", () => {
   clearSelection();
   update();
 });
+
+// ---------- Stockfish'e karşı oyna ----------
+const BOT_GAME_KEY = "azurite-bot-game";
+const BOT_PREFS_KEY = "azurite-bot-prefs";
+const BOT_STATS_KEY = "azurite-bot-stats";
+
+const botEl = (id) => document.getElementById(id);
+
+function readJson(key, fallback) {
+  try {
+    return JSON.parse(localStorage.getItem(key)) ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+function writeJson(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+  } catch {}
+}
+
+const BOT_OPTS_KEY = "azurite-bot-opts";
+function botOpts() {
+  return {
+    eval: false,
+    takeback: true,
+    hint: false,
+    ...readJson(BOT_OPTS_KEY, {}),
+  };
+}
+function botApplyOptions() {
+  const o = botOpts();
+  document
+    .querySelector("#play")
+    ?.classList.toggle("bot-eval-off", botPageOpen && !o.eval);
+  const checks = {
+    "bot-opt-eval": o.eval,
+    "bot-opt-takeback": o.takeback,
+    "bot-opt-hint": o.hint,
+  };
+  for (const [id, v] of Object.entries(checks)) {
+    const el = botEl(id);
+    if (el) el.checked = v;
+  }
+  const hint = botEl("bot-hint");
+  if (hint) hint.hidden = !o.hint;
+  const tb = botEl("bot-takeback");
+  if (tb) tb.hidden = !o.takeback;
+}
+
+function botColorName(c) {
+  return c === "w" ? "White" : "Black";
+}
+
+// Yerleşik kitap + senin Openings kütüphanendeki (JSON) açılışlar
+function botOpeningList() {
+  const list = BOT_BOOK.map((o) => ({ ...o }));
+  const names = new Set(list.map((o) => o.name.toLowerCase()));
+  for (const o of openingLibrary) {
+    if (names.has(o.name.toLowerCase())) continue;
+    list.push({
+      id: o.id || o.name,
+      name: o.name,
+      color: o.color,
+      note: "",
+      variations: o.variations.map((v) => ({
+        name: v.name,
+        moves: v.moves.map((m) => m.san),
+      })),
+    });
+  }
+  return list;
+}
+
+function populateBotSetup() {
+  const eloSel = botEl("bot-elo");
+  const colorSel = botEl("bot-color");
+  const openSel = botEl("bot-opening");
+  const varSel = botEl("bot-variation");
+  if (!eloSel || !openSel) return;
+  const prefs = readJson(BOT_PREFS_KEY, {});
+
+  if (!eloSel.options.length) {
+    for (const lvl of BOT_LEVELS) {
+      const o = document.createElement("option");
+      o.value = String(lvl.elo);
+      o.textContent = lvl.label;
+      eloSel.appendChild(o);
+    }
+    eloSel.value = String(prefs.elo ?? 1500);
+    if (!eloSel.value) eloSel.value = "1500";
+    colorSel.value = prefs.color ?? "w";
+  }
+
+  // Stockfish'in oynayacağı taraf için açılışlar
+  const humanChoice = colorSel.value;
+  const keep = openSel.options.length ? openSel.value : prefs.opening;
+  const list = botOpeningList();
+  openSel.innerHTML = '<option value="any">Any (Stockfish chooses)</option>';
+  const sides =
+    humanChoice === "w"
+      ? ["black"]
+      : humanChoice === "b"
+        ? ["white"]
+        : ["white", "black"];
+  for (const opening of list) {
+    if (!sides.includes(opening.color)) continue;
+    const o = document.createElement("option");
+    o.value = opening.id;
+    o.textContent =
+      opening.name +
+      (opening.note ? ` (${opening.note})` : "") +
+      (humanChoice === "r" ? ` · SF plays ${opening.color}` : "");
+    openSel.appendChild(o);
+  }
+  openSel.value = [...openSel.options].some((o) => o.value === keep)
+    ? keep
+    : "any";
+
+  // Varyant seçici
+  const chosen = list.find((o) => o.id === openSel.value);
+  const keepVar = varSel.value;
+  varSel.innerHTML = '<option value="random">Random (any variation)</option>';
+  if (chosen) {
+    for (const v of chosen.variations) {
+      const o = document.createElement("option");
+      o.value = v.name;
+      o.textContent = v.name;
+      varSel.appendChild(o);
+    }
+  }
+  varSel.value = [...varSel.options].some((o) => o.value === keepVar)
+    ? keepVar
+    : "random";
+  botEl("bot-variation-wrap").hidden = !chosen;
+
+  const hint = botEl("bot-opening-hint");
+  if (hint) {
+    hint.textContent = !chosen
+      ? ""
+      : chosen.note
+        ? `Stockfish plays this as ${chosen.color} ${chosen.note}. It follows the line while your moves allow it, then plays on its own.`
+        : "Stockfish follows this opening for as long as your moves allow it, then plays on its own.";
+  }
+
+  const st = readJson(BOT_STATS_KEY, { w: 0, d: 0, l: 0 });
+  const rec = botEl("bot-record");
+  if (rec)
+    rec.textContent =
+      st.w + st.d + st.l
+        ? `Your record vs Stockfish: ${st.w}W · ${st.d}D · ${st.l}L`
+        : "";
+}
+
+function botRenderPanel() {
+  const panel = botEl("bot-panel");
+  if (!panel) return;
+  panel.hidden = !botPageOpen;
+  botApplyOptions();
+  if (!botPageOpen) return;
+  botEl("bot-setup").hidden = !!bot;
+  botEl("bot-game").hidden = !bot;
+  if (!bot) {
+    populateBotSetup();
+    return;
+  }
+  botEl("bot-info").textContent =
+    `You (${botColorName(bot.humanColor)}) vs Stockfish ${bot.elo >= 3190 ? "Max" : bot.elo}` +
+    (bot.opening ? ` · ${bot.opening.name}` : "");
+  const res = botEl("bot-result");
+  if (!bot.over)
+    res.textContent = bot.thinking
+      ? "Stockfish is thinking…"
+      : game.turn() === bot.humanColor
+        ? "Your move"
+        : "";
+  botEl("bot-takeback").disabled =
+    bot.over || bot.thinking || game.history().length === 0;
+  botEl("bot-hint").disabled =
+    bot.over || bot.thinking || game.turn() !== bot.humanColor;
+  botEl("bot-analyse").disabled = game.history().length === 0;
+  botEl("bot-resign").disabled = bot.over;
+}
+
+function enterBotPage() {
+  if (botPageOpen) {
+    botRenderPanel();
+    return;
+  }
+  botPageOpen = true;
+  botApplyOptions();
+  if (lesson) exitLearn();
+  if (drill) endDrill();
+  botSavedPlay = { pgn: game.pgn(), orientation };
+  const saved = readJson(BOT_GAME_KEY, null);
+  if (saved && saved.pgn !== undefined) {
+    startBotGame(saved, true);
+  } else {
+    game.reset();
+    viewPly = null;
+    clearSelection();
+    update(false);
+    botRenderPanel();
+  }
+}
+
+function leaveBotPage() {
+  botPageOpen = false;
+  if (bot) bot.token++;
+  botEngine.stop();
+  bot = null;
+  game.reset();
+  if (botSavedPlay?.pgn) game.loadPgn(botSavedPlay.pgn);
+  if (botSavedPlay) orientation = botSavedPlay.orientation;
+  botSavedPlay = null;
+  viewPly = null;
+  clearSelection();
+  const panel = botEl("bot-panel");
+  if (panel) panel.hidden = true;
+  botApplyOptions();
+  drillHintSquares = [];
+  update(false);
+}
+
+function startBotGame(opts, resume = false) {
+  const opening = botOpeningList().find((o) => o.id === opts.openingId) || null;
+  let humanColor = opts.humanColor;
+  if (humanColor === "r") humanColor = Math.random() < 0.5 ? "w" : "b";
+  const stockfishColor = humanColor === "w" ? "b" : "w";
+  bot = {
+    elo: Number(opts.elo) || 1500,
+    humanColor,
+    openingId: opts.openingId || "any",
+    opening: opening && opening.color[0] === stockfishColor ? opening : null,
+    variation: opts.variation || "random",
+    token: (bot?.token ?? 0) + 1,
+    thinking: false,
+    over: false,
+    counted: false,
+  };
+  game.reset();
+  if (resume && opts.pgn) {
+    try {
+      game.loadPgn(opts.pgn);
+    } catch {
+      game.reset();
+    }
+  }
+  orientation = humanColor;
+  viewPly = null;
+  clearSelection();
+  botPersist();
+  update(false);
+  botRenderPanel();
+  if (game.isGameOver()) botFinish();
+  else botPlay();
+}
+
+function botPersist() {
+  if (!bot || bot.over) {
+    try {
+      localStorage.removeItem(BOT_GAME_KEY);
+    } catch {}
+    return;
+  }
+  writeJson(BOT_GAME_KEY, {
+    elo: bot.elo,
+    humanColor: bot.humanColor,
+    openingId: bot.openingId,
+    variation: bot.variation,
+    pgn: game.pgn(),
+  });
+}
+
+// Stockfish'in seçili açılış varyantlarından birini sürdürmesi (oynanan hamleler uyuyorsa)
+function botBookMove() {
+  if (!bot?.opening) return null;
+  const hist = game.history();
+  const ply = hist.length;
+  const matching = [];
+  for (const v of bot.opening.variations) {
+    if (v.moves.length <= ply) continue;
+    let ok = true;
+    for (let i = 0; i < ply; i++) {
+      if (v.moves[i] !== hist[i]) {
+        ok = false;
+        break;
+      }
+    }
+    if (ok) matching.push(v);
+  }
+  if (!matching.length) return null;
+  // Seçilen varyant hâlâ uyuyorsa onu sürdür, uymuyorsa aynı açılışın diğer varyantlarına geç
+  const preferred =
+    bot.variation !== "random"
+      ? matching.filter((v) => v.name === bot.variation)
+      : [];
+  const pool = preferred.length ? preferred : matching;
+  const v = pool[Math.floor(Math.random() * pool.length)];
+  // Yasal olduğunu doğrula (chess.js ile); olmazsa Stockfish düşünsün
+  const probe = new Chess(game.fen());
+  try {
+    const m = probe.move(v.moves[ply]);
+    return { from: m.from, to: m.to, promotion: m.promotion || "q" };
+  } catch {
+    return null;
+  }
+}
+
+const botDelay = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function botPlay() {
+  if (!bot || bot.over || bot.thinking || game.isGameOver()) return;
+  if (game.turn() === bot.humanColor) return;
+  bot.thinking = true;
+  const token = bot.token;
+  botRenderPanel();
+
+  let move = botBookMove();
+  try {
+    if (move) {
+      await botDelay(300 + Math.random() * 500);
+    } else {
+      const legal = game
+        .moves({ verbose: true })
+        .map((m) => m.from + m.to + (m.promotion ?? ""));
+      const fen = game.fen();
+      const [uci] = await Promise.all([
+        botEngine.pickMove(fen, legal, bot?.elo ?? 1500),
+        botDelay(250),
+      ]);
+      if (uci)
+        move = {
+          from: uci.slice(0, 2),
+          to: uci.slice(2, 4),
+          promotion: uci[4] || "q",
+        };
+    }
+  } catch (error) {
+    console.error("Stockfish bot failed:", error);
+    const fallback = game.moves({ verbose: true });
+    const pick = fallback[Math.floor(Math.random() * fallback.length)];
+    if (pick)
+      move = { from: pick.from, to: pick.to, promotion: pick.promotion || "q" };
+  }
+  if (!bot || token !== bot.token || bot.over) return;
+  bot.thinking = false;
+  if (!move) {
+    botRenderPanel();
+    return;
+  }
+  playMove(move.from, move.to, move.promotion, true, true);
+}
+
+function botAfterMove() {
+  if (!bot) return;
+  botPersist();
+  if (game.isGameOver()) {
+    botFinish();
+    return;
+  }
+  botRenderPanel();
+  botPlay();
+}
+
+function botFinish(resigned = false) {
+  if (!bot || bot.over) return;
+  bot.over = true;
+  bot.thinking = false;
+  let text;
+  let outcome; // w | d | l  (insan açısından)
+  if (resigned) {
+    text = "You resigned. Stockfish wins.";
+    outcome = "l";
+  } else if (game.isCheckmate()) {
+    const loser = game.turn();
+    outcome = loser === bot.humanColor ? "l" : "w";
+    text =
+      outcome === "w" ? "Checkmate — you win!" : "Checkmate — Stockfish wins.";
+  } else {
+    outcome = "d";
+    text = game.isStalemate()
+      ? "Draw by stalemate."
+      : game.isThreefoldRepetition()
+        ? "Draw by repetition."
+        : game.isInsufficientMaterial()
+          ? "Draw — insufficient material."
+          : "Draw.";
+  }
+  if (!bot.counted) {
+    bot.counted = true;
+    const st = readJson(BOT_STATS_KEY, { w: 0, d: 0, l: 0 });
+    st[outcome] = (st[outcome] || 0) + 1;
+    writeJson(BOT_STATS_KEY, st);
+  }
+  botPersist();
+  botRenderPanel();
+  botEl("bot-result").textContent = text;
+  botEl("bot-takeback").disabled = true;
+  botEl("bot-resign").disabled = true;
+  statusEl.textContent = text;
+}
+
+function botTakeback() {
+  if (!bot || bot.over || bot.thinking || !botOpts().takeback) return;
+  const hist = game.history();
+  if (!hist.length) return;
+  game.undo();
+  // İnsan sırasına gelene kadar geri al
+  if (game.turn() !== bot.humanColor && game.history().length) game.undo();
+  viewPly = null;
+  clearSelection();
+  botPersist();
+  update(false);
+  botRenderPanel();
+  botPlay();
+}
+
+async function botHint() {
+  if (!bot || bot.over || bot.thinking || game.turn() !== bot.humanColor)
+    return;
+  const legal = game
+    .moves({ verbose: true })
+    .map((m) => m.from + m.to + (m.promotion ?? ""));
+  const btn = botEl("bot-hint");
+  btn.disabled = true;
+  try {
+    const uci = await botEngine.pickMove(game.fen(), legal, 3190);
+    if (uci && bot && !bot.over && game.turn() === bot.humanColor) {
+      drillHintSquares = [uci.slice(0, 2), uci.slice(2, 4)];
+      renderBoard();
+    }
+  } catch (error) {
+    console.error("Hint failed:", error);
+  }
+  botRenderPanel();
+}
+
+function botAnalyse() {
+  if (!bot || !game.history().length) return;
+  const copy = new Chess();
+  try {
+    copy.loadPgn(game.pgn());
+  } catch {
+    return;
+  }
+  const you = "You";
+  const sf = `Stockfish ${bot.elo >= 3190 ? "Max" : bot.elo}`;
+  const white = bot.humanColor === "w" ? you : sf;
+  const black = bot.humanColor === "w" ? sf : you;
+  copy.setHeader("Event", "Azurite vs Stockfish");
+  copy.setHeader("White", white);
+  copy.setHeader("Black", black);
+  const pgn = copy.pgn();
+  const orient = bot.humanColor;
+  showPage("analyse");
+  history.replaceState(null, "", "#analyse");
+  loadAnalyseGame(pgn, orient, white, black, you);
+}
+
+function botNewGame() {
+  if (bot) bot.token++;
+  botEngine.stop();
+  bot = null;
+  try {
+    localStorage.removeItem(BOT_GAME_KEY);
+  } catch {}
+  game.reset();
+  viewPly = null;
+  clearSelection();
+  update(false);
+  botRenderPanel();
+}
+
+botEl("bot-start")?.addEventListener("click", () => {
+  const opts = {
+    elo: botEl("bot-elo").value,
+    humanColor: botEl("bot-color").value,
+    openingId: botEl("bot-opening").value,
+    variation: botEl("bot-variation").value,
+  };
+  writeJson(BOT_PREFS_KEY, {
+    elo: opts.elo,
+    color: opts.humanColor,
+    opening: opts.openingId,
+  });
+  startBotGame(opts);
+});
+botEl("bot-color")?.addEventListener("change", populateBotSetup);
+botEl("bot-opening")?.addEventListener("change", () => {
+  botEl("bot-variation").value = "random";
+  populateBotSetup();
+});
+botEl("bot-takeback")?.addEventListener("click", botTakeback);
+botEl("bot-resign")?.addEventListener("click", () => botFinish(true));
+botEl("bot-new")?.addEventListener("click", botNewGame);
+botEl("bot-hint")?.addEventListener("click", botHint);
+botEl("bot-analyse")?.addEventListener("click", botAnalyse);
+for (const key of ["eval", "takeback", "hint"]) {
+  botEl(`bot-opt-${key}`)?.addEventListener("change", (e) => {
+    writeJson(BOT_OPTS_KEY, { ...botOpts(), [key]: e.target.checked });
+    botApplyOptions();
+    drillHintSquares = [];
+    update(false);
+    botRenderPanel();
+  });
+}
 
 let openingBook = null;
 let curatedOpening = null;
@@ -6112,9 +6657,13 @@ const pages = {
 };
 
 function showPage(pageName) {
+  const visiblePage = pageName === "bot" ? "play" : pageName;
   Object.entries(pages).forEach(([name, element]) => {
-    if (element) element.hidden = name !== pageName;
+    if (element) element.hidden = name !== visiblePage;
   });
+
+  if (pageName === "bot") enterBotPage();
+  else if (botPageOpen) leaveBotPage();
 
   navLinks.forEach((link) => {
     link.classList.toggle(

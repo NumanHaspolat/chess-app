@@ -2517,7 +2517,7 @@ css .analysis-rank,
 }
 
 /* Mobil Ekranlar (800px ve altı) */
-@media (max-width: 800px) {
+@media (max-width: 919px) {
   .navbar {
     position: relative;
     justify-content: space-between;
@@ -4141,4 +4141,101 @@ main.app#play:has(#learn-panel:not([hidden])) .evaluation {
   .openings-toolbar {
     width: calc(100% - 28px);
   }
+}
+
+/* VS COMPUTER */
+.bot-panel label {
+  display: block;
+  margin: 12px 0 6px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+.bot-panel select {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: var(--control);
+  color: var(--text);
+  font-family: var(--font-pixel);
+  font-size: 1rem;
+  cursor: pointer;
+  outline: none;
+}
+.bot-panel select:hover,
+.bot-panel select:focus {
+  border-color: var(--accent);
+  background: var(--control-hover);
+}
+.bot-panel select option {
+  background: var(--panel);
+  color: var(--text);
+}
+.bot-primary {
+  width: 100%;
+  margin-top: 16px;
+  padding: 12px;
+  background: var(--accent-strong);
+  color: #062b2b;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+}
+.bot-primary:hover {
+  background: var(--accent);
+}
+.bot-hint {
+  margin: 8px 0 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.4;
+}
+.bot-hint:empty {
+  display: none;
+}
+.bot-info {
+  margin: 0 0 8px;
+  color: var(--text);
+  line-height: 1.5;
+}
+.bot-result {
+  margin: 0 0 12px;
+  min-height: 1.4em;
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+.bot-result:empty {
+  display: none;
+}
+
+.bot-options {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid var(--panel-border);
+}
+.bot-options h3 {
+  margin: 0 0 6px;
+  font-size: 0.95rem;
+  color: var(--accent);
+}
+.bot-panel label.bot-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0;
+  color: var(--text);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.bot-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+#bot-game .learn-controls button {
+  flex: 1 1 calc(50% - 8px);
+}
+#play.bot-eval-off .evaluation {
+  display: none;
 }

@@ -3520,7 +3520,7 @@ function populateBotSetup() {
   const humanChoice = colorSel.value;
   const keep = openSel.options.length ? openSel.value : prefs.opening;
   const list = botOpeningList();
-  openSel.innerHTML = '<option value="any">Any (Stockfish chooses)</option>';
+  openSel.innerHTML = '<option value="any">Any</option>';
   const sides =
     humanChoice === "w"
       ? ["black"]
@@ -3544,7 +3544,7 @@ function populateBotSetup() {
   // Varyant seçici
   const chosen = list.find((o) => o.id === openSel.value);
   const keepVar = varSel.value;
-  varSel.innerHTML = '<option value="random">Random (any variation)</option>';
+  varSel.innerHTML = '<option value="random">Random</option>';
   if (chosen) {
     for (const v of chosen.variations) {
       const o = document.createElement("option");

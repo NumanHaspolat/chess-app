@@ -849,7 +849,7 @@ button:disabled {
 
 @media (max-width: 755px) and (min-width: 600px) {
   #openings-list {
-    grid-template-columns: repeat(2, 1fr) !important;
+    grid-template-columns: repeat(2, 2fr) !important;
   }
 }
 
@@ -2036,7 +2036,7 @@ css .analysis-rank,
   }
 
   .openings-list {
-    grid-template-columns: 1fr;
+    grid-template-columns: 2fr;
   }
 
   #profile .page-heading,

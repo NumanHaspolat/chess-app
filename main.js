@@ -12,6 +12,7 @@ import { srsRecord, pickReplySRS, srsSummary, resetSrs } from "./src/srs.js";
 import { initArrows } from "./src/arrows.js";
 import { BotEngine, BOT_LEVELS } from "./src/bot.js";
 import { BOT_BOOK } from "./src/bot-book.js";
+import { PUZZLE_OPENINGS } from "./src/puzzle-openings.js";
 import {
   openingProgress,
   recordLearn,
@@ -2922,16 +2923,31 @@ function continueTrain() {
     if (!lesson.fixing && lesson.mistakes?.size) {
       lesson.fixing = true;
       lesson.fixQueue = [...lesson.mistakes].sort((a, b) => a - b);
+      lesson.fixTotal = lesson.fixQueue.length;
+      // Hataları birden ekrana atmak yerine önce ne olacağını açıkla
+      showTrainFixIntro();
+      return;
     }
     if (lesson.fixQueue?.length) {
-      startTrainFix(lesson.fixQueue.shift());
+      // Önceki hata düzeltildi: kısa bir "Doğru!" molası, sonra sıradaki hata
+      trainPhase = "fix-wait";
+      renderLearnPanel();
+      clearTimeout(trainOpponentTimer);
+      trainOpponentTimer = setTimeout(() => {
+        if (!trainMode || !lesson || trainPhase !== "fix-wait") return;
+        startTrainFix(lesson.fixQueue.shift());
+      }, 1100);
       return;
     }
 
     trainPhase = "complete";
 
     const message = document.getElementById("learn-complete-message");
-    message.innerHTML = `You've completed <span class="completed-variation">${lesson.variation.name}</span>!`;
+    message.innerHTML =
+      `You've completed <span class="completed-variation">${lesson.variation.name}</span>!` +
+      (lesson.fixTotal
+        ? `<br>You also fixed ${lesson.fixTotal} mistake${lesson.fixTotal === 1 ? "" : "s"} during the review.`
+        : "");
 
     playSound("promote", 0.5);
 
@@ -3478,10 +3494,25 @@ function botColorName(c) {
 
 // Yerleşik kitap + senin Openings kütüphanendeki (JSON) açılışlar
 function botOpeningList() {
-  const list = BOT_BOOK.map((o) => ({ ...o }));
-  const names = new Set(list.map((o) => o.name.toLowerCase()));
+  const list = BOT_BOOK.map((o) => ({ ...o, variations: [...o.variations] }));
+  const byName = new Map(list.map((o) => [o.name.toLowerCase(), o]));
   for (const o of openingLibrary) {
-    if (names.has(o.name.toLowerCase())) continue;
+    const existing = byName.get(o.name.toLowerCase());
+    if (existing) {
+      // Aynı isimli açılış (örn. Scotch Game): Openings kütüphanesindeki varyantları da kitaba kat
+      const have = new Set(
+        existing.variations.map((v) => v.name.toLowerCase()),
+      );
+      for (const v of o.variations) {
+        if (have.has(v.name.toLowerCase())) continue;
+        have.add(v.name.toLowerCase());
+        existing.variations.push({
+          name: v.name,
+          moves: v.moves.map((m) => m.san),
+        });
+      }
+      continue;
+    }
     list.push({
       id: o.id || o.name,
       name: o.name,
@@ -3705,11 +3736,12 @@ function botBookMove() {
   const hist = game.history();
   const ply = hist.length;
   const matching = [];
+  const norm = (s) => String(s).replace(/[+#]/g, "");
   for (const v of bot.opening.variations) {
     if (v.moves.length <= ply) continue;
     let ok = true;
     for (let i = 0; i < ply; i++) {
-      if (v.moves[i] !== hist[i]) {
+      if (norm(v.moves[i]) !== norm(hist[i])) {
         ok = false;
         break;
       }
@@ -4419,6 +4451,7 @@ function beginTrainRun(partIdx = lesson?.partIdx ?? -1) {
   trainTotalMistakes = 0;
 
   document.getElementById("learn-complete-overlay").hidden = true;
+  hideTrainFixIntro();
   document.getElementById("train-hint").hidden = false;
   populatePartSelect();
 
@@ -4430,6 +4463,33 @@ function beginTrainRun(partIdx = lesson?.partIdx ?? -1) {
 function startCurrentLearnTrain() {
   beginTrainRun(lesson?.partIdx ?? -1);
 }
+
+function hideTrainFixIntro() {
+  const el = document.getElementById("train-fix-overlay");
+  if (el) el.hidden = true;
+}
+
+function showTrainFixIntro() {
+  const n = lesson.fixTotal || lesson.mistakes?.size || 0;
+  trainPhase = "fix-intro";
+  clearTimeout(trainMistakeTimer);
+  clearTimeout(trainOpponentTimer);
+  clearTimeout(learnCompleteTimer);
+  document.getElementById("learn-complete-overlay").hidden = true;
+  const msg = document.getElementById("train-fix-message");
+  if (msg)
+    msg.innerHTML = `You finished the line, but made a mistake in <b class="mistake-count-b">${n}</b> position${n === 1 ? "" : "s"}.`;
+  playSound("promote", 0.5);
+  const el = document.getElementById("train-fix-overlay");
+  if (el) el.hidden = false;
+  renderLearnPanel();
+}
+
+document.getElementById("train-fix-start")?.addEventListener("click", () => {
+  hideTrainFixIntro();
+  if (!trainMode || !lesson || trainPhase !== "fix-intro") return;
+  if (lesson.fixQueue?.length) startTrainFix(lesson.fixQueue.shift());
+});
 
 function startTrainFix(ply) {
   const m = lesson.variation.moves[ply];
@@ -4447,6 +4507,7 @@ function startTrainFix(ply) {
   learnHintMove = null;
   clearSelection();
   document.getElementById("learn-complete-overlay").hidden = true;
+  hideTrainFixIntro();
   update(false);
   renderLearnPanel();
 }
@@ -4532,6 +4593,7 @@ function selectLearnVariation() {
 
   learnHintMove = null;
   document.getElementById("learn-complete-overlay").hidden = true;
+  hideTrainFixIntro();
   update();
 }
 
@@ -4600,7 +4662,8 @@ function renderLearnPanel() {
   const isTrain = trainMode;
 
   document.getElementById("learn-progress").hidden = isTrain && !lesson.fixing;
-  document.getElementById("learn-explanation").hidden = isTrain;
+  document.getElementById("learn-explanation").hidden =
+    isTrain && !lesson.fixing;
   const partSelect = document.getElementById("train-part-select");
   if (partSelect) partSelect.hidden = !isTrain || partSelect.options.length < 2;
   document.getElementById("learn-back").hidden = isTrain;
@@ -4629,12 +4692,36 @@ function renderLearnPanel() {
   const moves = lesson.variation.moves;
   const currentMove = moves[lesson.index - 1];
 
-  document.getElementById("learn-progress").textContent =
-    isTrain && lesson.fixing
-      ? `Fix your mistakes · ${(lesson.fixQueue?.length ?? 0) + 1} left`
-      : `Move ${lesson.index} / ${moves.length}`;
-  document.getElementById("learn-explanation").textContent =
-    currentMove?.explanation || "Starting position. Press Next to begin.";
+  const fixing = isTrain && lesson.fixing;
+  const fixTotal = lesson.fixTotal || 0;
+  const fixLeft = lesson.fixQueue?.length ?? 0;
+  // Sıradaki hata kuyruktan çıkarıldığı için mevcut sıra = toplam - kalan
+  const fixNo = fixTotal - fixLeft;
+  document.getElementById("learn-progress").textContent = fixing
+    ? `Mistake review · ${Math.min(Math.max(fixNo, 1), fixTotal)} / ${fixTotal}`
+    : `Move ${lesson.index} / ${moves.length}`;
+  if (fixing) {
+    const side = game.turn() === "w" ? "White" : "Black";
+    let text;
+    if (trainPhase === "fix-intro") {
+      text = "Press “Start review” to begin fixing your mistakes.";
+    } else if (trainPhase === "fix-wait") {
+      text = fixLeft
+        ? "✔ Correct! Next mistake coming up…"
+        : "✔ Correct! That was the last one.";
+    } else {
+      text =
+        `You played a wrong move in this position earlier. ` +
+        `Find the correct move for ${side}.` +
+        (trainMistakeCount >= 1
+          ? " The highlighted square shows where to look."
+          : " Press Hint if you need help.");
+    }
+    document.getElementById("learn-explanation").textContent = text;
+  } else {
+    document.getElementById("learn-explanation").textContent =
+      currentMove?.explanation || "Starting position. Press Next to begin.";
+  }
   document.getElementById("learn-back").disabled = lesson.index === 0;
   document.getElementById("learn-next").disabled = lesson.index >= moves.length;
 }
@@ -5518,7 +5605,15 @@ function puzzleDistanceToRange(rating, level) {
 }
 
 // Aralıkta bir puzzle bulana kadar dener; gelen rating düşük/yüksekse Lichess seviyesini ayarlar
-async function fetchPuzzleInRange(level, loadId) {
+// Seçili açılış/varyanta göre Lichess "angle" değeri; seçilmediyse "mix" (eski davranış)
+function puzzleAngle() {
+  const o = document.getElementById("puzzle-opening-select")?.value;
+  if (!o || o === "any") return "mix";
+  const v = document.getElementById("puzzle-variation-select")?.value;
+  return v && v !== "any" ? `${o}_${v}` : o;
+}
+
+async function fetchPuzzleInRange(level, loadId, angle = "mix") {
   let apiIndex = level.api;
   let best = null;
 
@@ -5535,13 +5630,18 @@ async function fetchPuzzleInRange(level, loadId) {
     }
 
     const res = await fetch(
-      `https://lichess.org/api/puzzle/next?angle=mix&difficulty=${LICHESS_DIFFICULTIES[apiIndex]}`,
+      `https://lichess.org/api/puzzle/next?angle=${encodeURIComponent(angle)}&difficulty=${LICHESS_DIFFICULTIES[apiIndex]}`,
       { headers: { Accept: "application/json" }, cache: "no-store" },
     );
     if (res.status === 429) {
       puzzleCooldownUntil = Date.now() + PUZZLE_RATE_LIMIT_MS;
       const err = new Error("Rate limited");
       err.rateLimited = true;
+      throw err;
+    }
+    if (res.status === 404 || res.status === 400) {
+      const err = new Error("No puzzles for this angle");
+      err.noPuzzles = true;
       throw err;
     }
     if (!res.ok) throw new Error("API error " + res.status);
@@ -5620,7 +5720,7 @@ async function fetchNewPuzzle() {
     : "medium";
 
   try {
-    const data = await fetchPuzzleInRange(level, loadId);
+    const data = await fetchPuzzleInRange(level, loadId, puzzleAngle());
     if (loadId !== puzzleLoadId) return; // arada skip/yeni istek geldiyse bunu çöpe at
     if (!data) throw new Error("No puzzle returned");
 
@@ -5709,7 +5809,9 @@ async function fetchNewPuzzle() {
       return;
     }
     if (puzzleStatusEl)
-      puzzleStatusEl.textContent = "Could not load puzzle. Click Skip.";
+      puzzleStatusEl.textContent = error.noPuzzles
+        ? "No puzzles found for this opening/variation. Pick another one or set it to Any."
+        : "Could not load puzzle. Click Skip.";
   }
 }
 
@@ -5729,6 +5831,62 @@ document.getElementById("puzzle-btn-skip")?.addEventListener("click", () => {
     sel.value = settings.defaultPuzzleLevel;
   }
   sel?.addEventListener("change", () => fetchNewPuzzle());
+}
+
+// Açılış / varyant seçici (boşsa "Any" = eski karışık mod)
+{
+  const PUZZLE_OPENING_KEY = "azurite-puzzle-opening";
+  const openSel = document.getElementById("puzzle-opening-select");
+  const varSel = document.getElementById("puzzle-variation-select");
+  const varWrap = document.getElementById("puzzle-variation-wrap");
+
+  if (openSel && varSel) {
+    for (const o of PUZZLE_OPENINGS) {
+      const opt = document.createElement("option");
+      opt.value = o.key;
+      opt.textContent = o.label;
+      openSel.appendChild(opt);
+    }
+
+    const fillVariations = (key, keepVar = "any") => {
+      const o = PUZZLE_OPENINGS.find((x) => x.key === key);
+      varSel.innerHTML = '<option value="any">Any variation</option>';
+      for (const v of o?.variations || []) {
+        const opt = document.createElement("option");
+        opt.value = v.key;
+        opt.textContent = v.label;
+        varSel.appendChild(opt);
+      }
+      varSel.value = [...varSel.options].some((x) => x.value === keepVar)
+        ? keepVar
+        : "any";
+      if (varWrap) varWrap.hidden = !o || !o.variations.length;
+    };
+
+    const saved = readJson(PUZZLE_OPENING_KEY, {});
+    if (PUZZLE_OPENINGS.some((o) => o.key === saved.opening)) {
+      openSel.value = saved.opening;
+      fillVariations(saved.opening, saved.variation || "any");
+    } else {
+      fillVariations("any");
+    }
+
+    const persist = () =>
+      writeJson(PUZZLE_OPENING_KEY, {
+        opening: openSel.value,
+        variation: varSel.value,
+      });
+
+    openSel.addEventListener("change", () => {
+      fillVariations(openSel.value);
+      persist();
+      fetchNewPuzzle();
+    });
+    varSel.addEventListener("change", () => {
+      persist();
+      fetchNewPuzzle();
+    });
+  }
 }
 
 function showPuzzleCompletePopup() {
@@ -7076,6 +7234,7 @@ document
   .getElementById("learn-complete-close")
   ?.addEventListener("click", () => {
     document.getElementById("learn-complete-overlay").hidden = true;
+    hideTrainFixIntro();
 
     clearTimeout(learnCompleteTimer);
     clearTimeout(trainMistakeTimer);

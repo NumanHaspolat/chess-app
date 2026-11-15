@@ -75,13 +75,22 @@
               </div>
             </div>
           </div>
+          <div id="train-fix-overlay" class="drill-complete-overlay" hidden>
+            <div class="drill-complete-card">
+              <h2 class="mistake-h2">Review your mistakes</h2>
+              <p id="train-fix-message"></p>
+              <div class="drill-complete-buttons">
+                <button id="train-fix-start">Start review</button>
+              </div>
+            </div>
+          </div>
           <div
             id="learn-complete-overlay"
             class="drill-complete-overlay"
             hidden
           >
             <div class="drill-complete-card">
-              <h2>Line Complete!</h2>
+              <h2 class="mistake-h2">Line Complete!</h2>
               <p id="learn-complete-message"></p>
               <div id="learn-complete-stats" class="drill-complete-stats"></div>
               <div class="drill-complete-buttons">
@@ -594,6 +603,60 @@
           </select>
         </div>
 
+        <div style="margin-bottom: 16px">
+          <label
+            for="puzzle-opening-select"
+            style="
+              display: block;
+              margin-bottom: 6px;
+              color: var(--text-muted);
+              font-size: 0.9rem;
+            "
+            >Opening</label
+          >
+          <select
+            id="puzzle-opening-select"
+            style="
+              width: 100%;
+              padding: 9px 12px;
+              border: 1px solid var(--panel-border);
+              border-radius: 6px;
+              background: var(--control);
+              color: var(--text);
+              font-family: var(--font-pixel);
+            "
+          >
+            <option value="any" selected>Any opening</option>
+          </select>
+        </div>
+
+        <div id="puzzle-variation-wrap" style="margin-bottom: 16px" hidden>
+          <label
+            for="puzzle-variation-select"
+            style="
+              display: block;
+              margin-bottom: 6px;
+              color: var(--text-muted);
+              font-size: 0.9rem;
+            "
+            >Variation</label
+          >
+          <select
+            id="puzzle-variation-select"
+            style="
+              width: 100%;
+              padding: 9px 12px;
+              border: 1px solid var(--panel-border);
+              border-radius: 6px;
+              background: var(--control);
+              color: var(--text);
+              font-family: var(--font-pixel);
+            "
+          >
+            <option value="any" selected>Any variation</option>
+          </select>
+        </div>
+
         <button
           id="puzzle-btn-analyse"
           class="import-rep-btn"
@@ -641,7 +704,7 @@
               hidden
             >
               <div class="drill-complete-card">
-                <h2>Line Complete!</h2>
+                <h2 class="mistake-h2">Line Complete!</h2>
                 <p id="drill-complete-stats"></p>
                 <div class="drill-complete-buttons">
                   <button id="btn-drill-continue">Continue</button>

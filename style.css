@@ -4340,3 +4340,11 @@ main.app#play:has(#learn-panel:not([hidden])) .evaluation {
 .puzzle-rating-color {
   color: var(--accent-strong);
 }
+
+.mistake-count-b {
+  color: red;
+}
+
+.mistake-h2{
+  color: var(--accent-strong);
+}

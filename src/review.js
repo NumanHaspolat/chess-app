@@ -1,15 +1,15 @@
-// Analiz matematiği: kazanma yüzdesi, doğruluk, feda hesabı ve hamle sınıflandırması (DOM'a dokunmaz).
+// Analysis math: win percentage, accuracy, sacrifice detection and move classification (never touches the DOM).
 import { Chess } from "https://cdn.jsdelivr.net/npm/chess.js@1.0.0/+esm";
 
 export const PIECE_VAL = { p: 1, n: 3, b: 3, r: 5, q: 9, k: 0 };
 
-// Lichess/chess.com tarzı: centipawn -> kazanma yüzdesi (beklenen puan x 100)
+// Lichess / chess.com style: centipawns -> win percentage (expected score x 100)
 export function winPercent(cp) {
   const c = Math.max(-1200, Math.min(1200, cp));
   return 50 + 50 * (2 / (1 + Math.exp(-0.00368208 * c)) - 1);
 }
 
-// Hamle doğruluğu: kazanma yüzdesi kaybına göre (Lichess formülü)
+// Move accuracy from the win-percentage loss (Lichess formula)
 export function moveAccuracy(winLoss) {
   const acc =
     103.1668100711649 * Math.exp(-0.04354415386753951 * Math.max(0, winLoss)) -
@@ -18,7 +18,7 @@ export function moveAccuracy(winLoss) {
   return Math.max(0, Math.min(100, acc));
 }
 
-// Oyun doğruluğu: oynaklık ağırlıklı ortalama ile harmonik ortalamanın ortalaması
+// Game accuracy: mean of the volatility-weighted mean and the harmonic mean
 export function combineAccuracy(accs, weights) {
   if (!accs.length) return null;
   const weightSum = weights.reduce((a, b) => a + b, 0) || 1;
@@ -61,7 +61,7 @@ export function materialDiff(chess, color) {
   return diff;
 }
 
-// Bir karedeki alış-veriş zincirinin, sırası gelen taraf için net kazancı (basit statik takas).
+// Net gain of the capture chain on one square for the side to move (simple static exchange).
 export function quiesceGain(chess, square, depth) {
   if (depth <= 0) return 0;
 
@@ -72,7 +72,7 @@ export function quiesceGain(chess, square, depth) {
 
   captures.sort((a, b) => PIECE_VAL[a.piece] - PIECE_VAL[b.piece]);
 
-  let best = 0; // almamak serbest
+  let best = 0; // not capturing is always allowed
   for (const m of captures.slice(0, 3)) {
     chess.move({ from: m.from, to: m.to, promotion: m.promotion });
     const value = PIECE_VAL[m.captured] - quiesceGain(chess, square, depth - 1);
@@ -82,8 +82,8 @@ export function quiesceGain(chess, square, depth) {
   return best;
 }
 
-// Motorun ana varyantını oynatıp, takaslar bitince hamle yapanın materyal farkını ölçer.
-// Negatif sonuç = materyal feda edilmiş (örn. -3 = bir taş).
+// Plays the engine's principal variation and measures the mover's material difference
+// once the exchanges are over. Negative = material was sacrificed (e.g. -3 = a piece).
 export function pvMaterialSwing(fenBefore, pvMoves, color) {
   if (!pvMoves || pvMoves.length < 2) return 0;
 
@@ -112,14 +112,14 @@ export function pvMaterialSwing(fenBefore, pvMoves, color) {
 
   if (diffs.length < 2) return 0;
 
-  // İlk "sakin" nokta: rakibin en az bir hamlesi oynanmış ve sıradaki hamle alma değil
+  // First "quiet" point: the opponent has moved at least once and the next move is not a capture
   for (let k = 1; k + 1 < diffs.length; k++) {
     if (!captures[k + 1]) return diffs[k] - start;
   }
 
   if (chess.isGameOver()) return diffs[diffs.length - 1] - start;
 
-  // Hat takasın ortasında kesildiyse, son karedeki alış-verişi tahmin ederek tamamla
+  // The line was cut in the middle of an exchange: estimate the rest of the capture chain
   let final = diffs[diffs.length - 1];
   if (captures[captures.length - 1]) {
     const gain = quiesceGain(chess, lastTo, 4);
@@ -128,9 +128,9 @@ export function pvMaterialSwing(fenBefore, pvMoves, color) {
   return final - start;
 }
 
-// İleriye bakış: motorun hattı sonuna kadar oynanınca feda edilen materyal GERİ ALINMIYOR mu?
-// Pozitif sayı = hat sonunda hâlâ o kadar materyal geride (ya da rakip değil, hamle yapan mat ediyor = 99).
-// Feda hemen geri alınıyorsa (takas) ya da küçük bir oyalamaysa brilliant sayılmaz.
+// Look-ahead: after the engine line is played to the end, is the sacrificed material still missing?
+// Positive = still that much material behind (99 = the mover delivers checkmate).
+// A sacrifice that is regained at once (a trade) or a short delay is not brilliant.
 export function persistentDeficit(fenBefore, pvMoves, color) {
   if (!pvMoves || pvMoves.length < 3) return 0;
   const chess = new Chess(fenBefore);
@@ -158,20 +158,20 @@ export function persistentDeficit(fenBefore, pvMoves, color) {
   if (played < 3) return 0;
 
   if (chess.isCheckmate()) {
-    // sırası gelen taraf mat olmuş: hamle yapan taraf kazandıysa fedası karşılığını almıştır
+    // The side to move is mated: if the mover delivered it, the sacrifice paid off
     return chess.turn() !== color ? 99 : -99;
   }
 
   let final = materialDiff(chess, color);
   if (lastCapture) {
-    // Hat bir takasın ortasında kesilmiş olabilir: o karedeki alış-verişi tamamla
+    // The line may stop in the middle of an exchange: finish the capture chain on that square
     const gain = quiesceGain(chess, lastTo, 4);
     final += (chess.turn() === color ? 1 : -1) * gain;
   }
   return start - final;
 }
 
-// Rakibin, sırası ona geçseydi (ya da şimdi) bir pozisyonda alabileceği en kârlı takas zinciri.
+// The most profitable capture chain the side to move has in a position.
 export function maxCaptureGain(chess) {
   const squares = new Set(
     chess
@@ -186,12 +186,12 @@ export function maxCaptureGain(chess) {
   return maxGain;
 }
 
-// Hamleden hemen sonra feda edilen materyal (statik takas hesabı, motor hattından bağımsız).
-// raw = rakibin kazanabileceği - bu hamlede alınan taş
-// net = raw - HAMLEDEN ÖNCE zaten var olan tehdit (zaten asılı duran taş feda sayılmaz)
+// Material given up right after a move (static exchange, independent of the engine line).
+// raw = what the opponent can win - what this move captured
+// net = raw - the threat that already existed BEFORE the move (a piece that was already hanging is not a sacrifice)
 export function staticSacrifice(fenBefore, uci, color) {
   try {
-    // Hamleden önceki tehdit: sırayı rakibe verip alabileceği en çok materyal
+    // Threat before the move: give the turn to the opponent and see what they could win
     let threatBefore = 0;
     try {
       const parts = fenBefore.split(" ");
@@ -219,52 +219,553 @@ export function staticSacrifice(fenBefore, uci, color) {
   }
 }
 
-// Sınıflandırma (kaybedilen kazanma % eşikleri):
-//   brilliant (!!)  : iyi hamle + büyük feda
-//   excellent (!)   : zor bulunan hamle (tek iyi hamle / küçük feda)
-//   best            : motorun en iyisi ya da kaybı ≤ 2
-//   good ≤ 5 · inaccuracy ≤ 10 · mistake ≤ 20 · blunder > 20
+// A piece (value >= 3) left standing where the opponent wins material by taking
+// it, even if the engine line later recoups a pawn or two (e.g. a bishop taking a
+// pawn on h3 with the attack running). victim = value of the offered piece,
+// net = what the opponent nets by the best capture, minus any threat that already
+// existed before the move.
+export function offeredSacrifice(fenBefore, uci) {
+  const out = { net: 0, victim: 0, square: null };
+  try {
+    let threatBefore = 0;
+    try {
+      const parts = fenBefore.split(" ");
+      parts[1] = parts[1] === "w" ? "b" : "w";
+      parts[3] = "-";
+      threatBefore = maxCaptureGain(new Chess(parts.join(" ")));
+    } catch {
+      threatBefore = 0;
+    }
+    const chess = new Chess(fenBefore);
+    const mv = chess.move(uciToMove(uci));
+    if (!mv) return out;
+    const gained = mv.captured ? PIECE_VAL[mv.captured] : 0;
+    const squares = new Set(
+      chess
+        .moves({ verbose: true })
+        .filter((m) => m.captured)
+        .map((m) => m.to),
+    );
+    for (const sq of squares) {
+      const victimPiece = chess.get(sq);
+      if (!victimPiece || victimPiece.type === "k") continue;
+      const victim = PIECE_VAL[victimPiece.type];
+      const net = quiesceGain(chess, sq, 4) - gained - threatBefore;
+      if (victim >= 3 && net > out.net) {
+        out.net = net;
+        out.victim = victim;
+        out.square = sq;
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------
+// Brilliant moves (!!)  –  chess.com definition: "a good piece sacrifice".
+//
+// What a brilliant move must be (all of it is checked, see assessBrilliant):
+//  1. a REAL piece sacrifice: the mover gives up at least a minor piece and the
+//     material stays missing after the exchanges settle (or the line ends in
+//     mate). A trade, a pawn fork that wins the piece back a move later, a
+//     pawn grab or a pure exchange sacrifice (rook for minor) is NOT enough.
+//  2. the sacrifice is a CHOICE: if the piece would have been lost anyway (it was
+//     already hanging / trapped) the best alternative line loses it too, so the
+//     "sacrifice" is subtracted and nothing is left.
+//  3. the move is the best or nearly best at deep depth (loss <= maxLoss).
+//  4. the position afterwards is not bad (winAfter >= minWinAfter).
+//  5. the best ALTERNATIVE is not already completely winning (winAlt <= maxWinAlt).
+//  6. it is not a recapture, a king move, a checkmating move or the only legal move.
+//
+// Notes:
+//  - A sacrifice usually does not move the eval when it is played; its value
+//    shows only after the opponent's best reply, so the verification always
+//    runs at a deeper depth than the normal review (see checkBrilliant in main.js).
+//  - If the opponent is practically forced (best reply far better than the
+//    second best), thresholds are relaxed a little ("forced" mode).
+// All thresholds live here so they are easy to tune.
+// ---------------------------------------------------------------------------
+export const BRILLIANT_CFG = {
+  maxLoss: 4, // max win% lost versus the engine's best line
+  maxLossForced: 6, // same, when the opponent is practically forced
+  minWinAfter: 40, // must not be in a bad position afterwards (win%)
+  minWinAfterForced: 34,
+  maxWinAlt: 88, // best alternative must not already be completely winning (~ +540 cp)
+  minSacrifice: 2, // net material points given up (piece for pawn = 2)
+  minPieceValue: 3, // the piece given away must be at least a minor piece
+  minSustained: 2, // a sacrifice that is regained later must stay down for this many opponent replies (1 = a plain trade)
+  forcedGap: 15, // win% gap between the opponent's best and second best reply
+  pvPlies: 14, // how far along the engine line the sacrifice is measured
+  mateCp: 2900, // cp at or above this = the engine sees a forced mate
+  candidateMinWinAfter: 4, // shallow pre-filter: skip moves that are plainly losing even with compensation
+  maxChecks: 24, // deep verifications per game (best candidates first)
+  allowExchangeSac: true, // rook for a minor piece counts (chess.com marks these brilliant)
+  minOfferedNet: 1, // a piece (>= 3 points) put en prise that nets the opponent at least this much
+};
+
+// chess.com: "we are also more generous in defining a piece sacrifice for newer
+// players". The thresholds therefore depend on the mover's rating (PGN WhiteElo /
+// BlackElo). Unknown rating = the base values above.
+export function brilliantConfigFor(rating) {
+  const base = BRILLIANT_CFG;
+  const r = Number(rating);
+  if (!Number.isFinite(r) || r <= 0) return base;
+  if (r < 1000) {
+    return {
+      ...base,
+      maxLoss: base.maxLoss + 2,
+      maxLossForced: base.maxLossForced + 2,
+      minWinAfter: base.minWinAfter - 4,
+      minWinAfterForced: base.minWinAfterForced - 4,
+      maxWinAlt: 95,
+      allowExchangeSac: true, // rook for a minor piece may count
+    };
+  }
+  if (r < 1600) {
+    return {
+      ...base,
+      maxLoss: base.maxLoss + 1,
+      maxLossForced: base.maxLossForced + 1,
+      maxWinAlt: 92,
+    };
+  }
+  // 1600+: the base values. Higher rated players are NOT judged more strictly:
+  // chess.com only says it is more generous for newer players.
+  return base;
+}
+
+function uciToMove(u) {
+  return {
+    from: u.slice(0, 2),
+    to: u.slice(2, 4),
+    promotion: u.length > 4 ? u[4] : undefined,
+  };
+}
+
+function isCaptureUci(g, u) {
+  return !!g.get(u.slice(2, 4));
+}
+
+// Replays an engine line (first move = the mover's move) and describes the
+// sacrifice. Only "settled" moments count: right after an opponent move, when
+// the mover's next move is not a capture (so a pending exchange is not mistaken
+// for a sacrifice). Returns:
+//   peak          deepest material deficit at a settled moment
+//   final         deficit once the line ends and the last exchange is finished
+//   sustained     number of settled moments with deficit >= minSacrifice
+//   mate          the mover delivers checkmate inside the line
+//   lostMax       value of the most valuable mover piece lost up to the peak
+//   exchangeOnly  the deficit is just a rook given for a minor piece
+export function sacrificeProfile(
+  fenBefore,
+  pv,
+  color,
+  maxPlies = BRILLIANT_CFG.pvPlies,
+) {
+  const out = {
+    valid: false,
+    peak: 0,
+    final: 0,
+    sustained: 0,
+    mate: false,
+    plies: 0,
+    lostMax: 0,
+    exchangeOnly: false,
+  };
+  if (!pv || !pv.length) return out;
+
+  let g;
+  try {
+    g = new Chess(fenBefore);
+  } catch {
+    return out;
+  }
+
+  const min = BRILLIANT_CFG.minSacrifice;
+  const start = materialDiff(g, color);
+  const list = pv.slice(0, maxPlies);
+  const lost = {};
+  const gained = {};
+  let peakLost = {};
+  let peakGained = {};
+  let played = 0;
+  let last = null;
+
+  for (let k = 0; k < list.length; k++) {
+    let mv = null;
+    try {
+      mv = g.move(uciToMove(list[k]));
+    } catch {
+      mv = null;
+    }
+    if (!mv) break;
+    played++;
+    last = mv;
+
+    if (mv.captured) {
+      const bag = mv.color === color ? gained : lost;
+      bag[mv.captured] = (bag[mv.captured] || 0) + 1;
+    }
+
+    if (k % 2 === 1) {
+      const next = list[k + 1];
+      if (!(next && isCaptureUci(g, next))) {
+        const deficit = start - materialDiff(g, color);
+        if (deficit >= min) out.sustained++;
+        if (deficit > out.peak) {
+          out.peak = deficit;
+          peakLost = { ...lost };
+          peakGained = { ...gained };
+        }
+      }
+    }
+  }
+  if (!played) return out;
+
+  out.valid = true;
+  out.plies = played;
+  out.mate = g.isCheckmate() && last.color === color;
+
+  // Finish a capture chain the line was cut in the middle of
+  let finalDiff = materialDiff(g, color);
+  if (last && last.captured) {
+    const gain = quiesceGain(g, last.to, 4);
+    finalDiff += (g.turn() === color ? 1 : -1) * gain;
+  }
+  out.final = start - finalDiff;
+
+  out.lostMax = Math.max(0, ...Object.keys(peakLost).map((t) => PIECE_VAL[t]));
+  const lostKeys = Object.keys(peakLost);
+  const gainedKeys = Object.keys(peakGained);
+  out.exchangeOnly =
+    out.peak === 2 &&
+    lostKeys.length === 1 &&
+    lostKeys[0] === "r" &&
+    peakLost.r === 1 &&
+    gainedKeys.length === 1 &&
+    (gainedKeys[0] === "n" || gainedKeys[0] === "b") &&
+    peakGained[gainedKeys[0]] === 1;
+
+  return out;
+}
+
+// Is that profile a real, lasting piece sacrifice? `alt` = profile of the best
+// alternative move: material the mover would lose anyway is not a sacrifice.
+export function judgeSacrifice(
+  profile,
+  alt = null,
+  { matingEval = false, cfg = BRILLIANT_CFG } = {},
+) {
+  const c = cfg;
+  if (!profile || !profile.valid) {
+    return { ok: false, reason: "no-line", size: 0 };
+  }
+  const mate = profile.mate || matingEval;
+  const altCost = alt && alt.valid && !alt.mate ? Math.max(0, alt.final) : 0;
+  const size = profile.peak - altCost;
+  const realPiece =
+    profile.lostMax >= c.minPieceValue &&
+    (!profile.exchangeOnly || mate || !!c.allowExchangeSac);
+  const persistent =
+    mate ||
+    profile.final - altCost >= c.minSacrifice ||
+    profile.sustained >= c.minSustained;
+  const longEnough = profile.plies >= 3;
+
+  let reason = "ok";
+  if (size < c.minSacrifice) reason = "no-sacrifice";
+  else if (!realPiece) reason = "not-a-piece";
+  else if (!persistent) reason = "regained";
+  else if (!longEnough) reason = "line-too-short";
+
+  return {
+    ok: reason === "ok",
+    reason,
+    size,
+    mate,
+    altCost,
+    realPiece,
+    persistent,
+  };
+}
+
+// Pure decision function (no chess logic besides the sacrifice profile).
+// With `profile` the sacrifice is judged properly (persistence, alternative,
+// piece value). Without it only the plain `sacrifice` number is used (legacy).
+// allowNullAlt: true when the caller could not obtain an alternative line.
+export function brilliantVerdict({
+  loss,
+  winAfter,
+  winAlt,
+  sacrifice = 0,
+  oppGap = 0,
+  moverPiece = "p",
+  allowNullAlt = false,
+  profile = null,
+  altProfile = null,
+  matingEval = false,
+  cfg = BRILLIANT_CFG,
+}) {
+  const c = cfg;
+  const forced = oppGap >= c.forcedGap;
+  const okLoss = loss <= (forced ? c.maxLossForced : c.maxLoss);
+  const okAfter = winAfter >= (forced ? c.minWinAfterForced : c.minWinAfter);
+  const okAlt = winAlt === null ? allowNullAlt : winAlt <= c.maxWinAlt;
+  const sac = profile
+    ? judgeSacrifice(profile, altProfile, { matingEval, cfg: c })
+    : { ok: sacrifice >= c.minSacrifice, size: sacrifice, reason: "legacy" };
+  const okPiece = moverPiece !== "k";
+  return {
+    brilliant: okLoss && okAfter && okAlt && sac.ok && okPiece,
+    forced,
+    okLoss,
+    okAfter,
+    okAlt,
+    okSac: sac.ok,
+    sac,
+  };
+}
+
+// Walks an engine line and reports the mover's deepest material deficit at a
+// "quiet" moment (kept for compatibility; sacrificeProfile is the stricter version).
+export function pvSacrifice(fenBefore, pv, color, maxPlies = 8) {
+  const p = sacrificeProfile(fenBefore, pv, color, maxPlies);
+  return { worst: p.peak, last: p.final };
+}
+
+// Cheap pre-filter: after the move, can the opponent win a piece (>= 3 points)
+// with a capture that nets >= 2 points of material (1-ply exchange check)?
+export function leavesPieceEnPrise(fenBefore, uci) {
+  const g = new Chess(fenBefore);
+  try {
+    if (!g.move(uciToMove(uci))) return false;
+  } catch {
+    return false;
+  }
+  for (const opp of g.moves({ verbose: true })) {
+    if (!opp.captured) continue;
+    const victim = PIECE_VAL[opp.captured];
+    if (victim < 3) continue;
+    const g2 = new Chess(g.fen());
+    g2.move({ from: opp.from, to: opp.to, promotion: opp.promotion });
+    const recapture = g2
+      .moves({ verbose: true })
+      .some((x) => x.to === opp.to && x.captured);
+    const net = victim - (recapture ? PIECE_VAL[opp.piece] : 0);
+    if (net >= 1) return true;
+  }
+  return false;
+}
+
+// Full brilliant assessment from engine results. No engine calls and no DOM,
+// so it can be unit tested; main.js feeds it the (deep) evaluations.
+//   before = engine result for the position BEFORE the move
+//            { cp, best, second, lines: { 1: {cp, pv}, 2: {cp, pv}, ... } }
+//   after  = engine result for the position AFTER the move { cp, pv, second }
+//   mv     = { uci, san, color, piece }
+// Returns { brilliant, info } (info explains every rule, for logging/tuning).
+export function assessBrilliant({
+  fenBefore,
+  mv,
+  before,
+  after,
+  isRecapture = false,
+  rating = null, // mover's rating (PGN header) – lower rated players get more leeway
+}) {
+  const c = brilliantConfigFor(rating);
+  const sign = mv.color === "w" ? 1 : -1;
+  const info = { san: mv.san, brilliant: false, reason: "" };
+  const no = (reason) => ({ brilliant: false, info: { ...info, reason } });
+
+  if (isRecapture) return no("recapture");
+  if (mv.piece === "k") return no("king-move");
+  if ((mv.san || "").includes("#")) return no("gives-mate");
+
+  try {
+    if (new Chess(fenBefore).moves().length < 2) return no("only-legal-move");
+  } catch {
+    return no("bad-fen");
+  }
+  if (!before || !after) return no("no-eval");
+
+  const lines = before.lines || {};
+  const ranked = Object.keys(lines)
+    .map(Number)
+    .sort((a, b) => a - b)
+    .map((k) => lines[k])
+    .filter((l) => l && l.pv && l.pv.length);
+  const playedLine = ranked.find((l) => l.pv[0] === mv.uci);
+  const altLine = ranked.find((l) => l.pv[0] !== mv.uci);
+
+  const playedCp = playedLine ? playedLine.cp : after.cp;
+  const pv = playedLine ? playedLine.pv : [mv.uci, ...(after.pv || [])];
+  let altCp = altLine ? altLine.cp : null;
+  if (altCp === null && before.best && before.best !== mv.uci)
+    altCp = before.cp;
+
+  const winBest = winPercent(sign * before.cp);
+  const winPlayed = winPercent(sign * playedCp);
+  const winAlt = altCp === null ? null : winPercent(sign * altCp);
+  const loss = Math.max(0, winBest - winPlayed);
+
+  let oppGap = 0;
+  if (after.second != null) {
+    oppGap = winPercent(-sign * after.cp) - winPercent(-sign * after.second);
+  }
+
+  const profile = sacrificeProfile(fenBefore, pv, mv.color);
+  const altProfile = altLine
+    ? sacrificeProfile(fenBefore, altLine.pv, mv.color)
+    : null;
+  const matingEval = sign * playedCp >= c.mateCp;
+
+  const verdict = brilliantVerdict({
+    loss,
+    winAfter: winPlayed,
+    winAlt,
+    oppGap,
+    moverPiece: mv.piece,
+    allowNullAlt: true,
+    profile,
+    altProfile,
+    matingEval,
+    cfg: c,
+  });
+
+  // Without a known alternative the "already winning" test falls back to the best eval
+  const okBest = winAlt !== null || winBest < 97;
+
+  // Second route: the piece is offered (opponent wins material by taking it) and
+  // the engine line does not simply regain it by force. Covers a bishop given for
+  // pawns + attack, which the persistence test above can miss.
+  const off = offeredSacrifice(fenBefore, mv.uci);
+  const altCost =
+    altProfile && altProfile.valid && !altProfile.mate
+      ? Math.max(0, altProfile.final)
+      : 0;
+  const takenInLine =
+    pv.length > 1 && !!off.square && pv[1].slice(2, 4) === off.square;
+  const offeredOk =
+    off.victim >= c.minPieceValue &&
+    off.net >= c.minOfferedNet &&
+    altCost < off.net &&
+    (profile.peak >= 1 || takenInLine);
+  const viaOffer =
+    !verdict.okSac &&
+    offeredOk &&
+    verdict.okLoss &&
+    verdict.okAfter &&
+    verdict.okAlt;
+  const brilliant = (verdict.brilliant || viaOffer) && okBest;
+
+  const f = (n) => (n === null ? null : +n.toFixed(1));
+  return {
+    brilliant,
+    info: {
+      san: mv.san,
+      brilliant,
+      viaOffer,
+      offered: off.net,
+      reason: brilliant
+        ? viaOffer
+          ? "ok-offered"
+          : "ok"
+        : !verdict.okSac
+          ? verdict.sac.reason
+          : !verdict.okLoss
+            ? "loss"
+            : !verdict.okAfter
+              ? "bad-position"
+              : !verdict.okAlt
+                ? "already-winning"
+                : "already-winning-no-alt",
+      loss: f(loss),
+      winPlayed: f(winPlayed),
+      winAlt: f(winAlt),
+      oppGap: f(oppGap),
+      forced: verdict.forced,
+      sacrifice: verdict.sac.size,
+      peak: profile.peak,
+      final: profile.final,
+      sustained: profile.sustained,
+      mate: profile.mate || matingEval,
+      altCost: verdict.sac.altCost ?? 0,
+      rating: rating || null,
+    },
+  };
+}
+
+// Classification (win-percentage loss thresholds):
+//   brilliant (!!)  : good move + a real, lasting piece sacrifice (see above)
+//   excellent (!)   : hard-to-find move (only good move) or a pawn sacrifice – never a piece sacrifice
+//   best            : the engine's best move or a loss <= 2
+//   good <= 5 · inaccuracy <= 10 · mistake <= 20 · blunder > 20
+//
+// IMPORTANT: at review depth this function can only suggest a brilliant move
+// (shallow evals are not trustworthy for sacrifices). main.js therefore calls it
+// with allowBrilliant:false and awards "brilliant" only after the deep check
+// (assessBrilliant). The brilliant branch is kept for direct callers and tests.
 export function classifyMove({
   uci,
   best,
   loss,
   winBefore,
   winAfter,
-  winAlt, // oynanan hamle dışındaki en iyi alternatifin değeri (yoksa null = tek yasal/zorunlu hamle)
+  winAlt, // value of the best alternative to the played move (null = only legal/forced move)
   gap,
   isRecapture,
   sacrificeSwing,
   hangSwing = 0,
-  persist = 0, // hat sonunda hâlâ geride kalınan materyal (ileriye bakış)
+  persist = 0, // material still missing at the end of the engine line (look-ahead)
+  oppGap = 0, // how forced the opponent's reply is (win% gap best vs second best reply)
   moverPiece,
   cpBefore,
   cpAfter,
+  profile = null, // sacrificeProfile of the played line
+  altProfile = null, // sacrificeProfile of the best alternative
+  matingEval = false,
+  givesMate = false,
+  allowBrilliant = true,
 }) {
   const playedBest = uci === best;
 
-  // Brilliant (chess.com tanımı): iyi bir taş feda etmek. Hamle en iyi ya da en iyiye yakın olmalı,
-  // hamleden sonra pozisyon kötü olmamalı ve hamleyi bulmasan da zaten tamamen kazanıyor olmamalısın.
-  // "Hamleyi bulmasan da zaten tamamen kazanıyor olmamalısın" = en iyi ALTERNATİF de kazanç olmamalı.
-  // (winBefore kullanılamaz: motor hamleyi bulduğu için feda sonrası matı zaten görür ve winBefore ~%100 çıkar.)
   if (
-    moverPiece !== "k" &&
+    allowBrilliant &&
+    !givesMate &&
     winAlt !== null &&
-    loss <= 2 &&
-    sacrificeSwing <= -2 &&
-    winAlt < 97 &&
-    winAfter >= 47
+    !isRecapture &&
+    brilliantVerdict({
+      loss,
+      winAfter,
+      winAlt,
+      // legacy callers (no profile): a sacrifice only counts if it persists
+      sacrifice: persist >= BRILLIANT_CFG.minSacrifice ? -sacrificeSwing : 0,
+      oppGap,
+      moverPiece,
+      profile,
+      altProfile,
+      matingEval,
+    }).brilliant
   ) {
     return "brilliant";
   }
 
-  // Excellent (!): zor bulunan hamle. Ya tek iyi hamle (alternatifler belirgin kötü)
-  // ya da küçük bir feda (genelde piyon). Brilliant (!!) kadar büyük değil.
+  // Excellent (!): a hard-to-find move. Either the only good move (alternatives are clearly worse)
+  // or a small sacrifice (usually a pawn). Not as big as a Brilliant (!!).
+  // A sacrifice of a piece worth more than a pawn (>= 2 points down) belongs to
+  // Brilliant only. If the deep check rejected it, it must not fall back to
+  // Excellent: Excellent = pawn sacrifice or a hard-to-find move WITHOUT a sacrifice.
   const nearBest = loss <= 1;
-  const onlyMove = winAlt !== null && gap >= 12 && !isRecapture;
+  const pieceSacrifice = sacrificeSwing <= -2;
+  const onlyMove =
+    winAlt !== null && gap >= 12 && !isRecapture && !pieceSacrifice;
   const smallSacrifice =
     moverPiece !== "k" &&
     winAlt !== null &&
     sacrificeSwing <= -1 &&
+    !pieceSacrifice &&
     winAlt < 97 &&
     winAfter >= 45;
 
@@ -272,17 +773,17 @@ export function classifyMove({
     return "excellent";
   }
 
-  // Best: motorun en iyi hamlesi ya da onunla pratikte aynı seviye (kayıp < 0.5).
-  // Good: makul bir seçenek ama daha iyi hamleler var.
+  // Best: the engine's best move or practically equal to it (loss < 0.5).
+  // Good: a reasonable option, but there were better moves.
   if (playedBest || loss < 0.5) return "best";
   if (loss <= 5) return "good";
   if (loss <= 10) return "inaccuracy";
 
-  // Blunder: bedava taş vermek, matı kaçırmak, mat yemek ya da oyunu tamamen çevirmek.
-  // Bunların dışındaki büyük hatalar "mistake" kalır.
+  // Blunder: giving away a free piece, missing a mate, allowing mate or completely turning the game.
+  // Other large mistakes stay "mistake".
   const missedMate = cpBefore >= 3000 && cpAfter < 3000;
   const allowsMate = cpAfter <= -3000 && cpBefore > -3000;
-  const hangsPiece = hangSwing <= -3 || sacrificeSwing <= -3; // motorun hattında en az bir taş kaybı
+  const hangsPiece = hangSwing <= -3 || sacrificeSwing <= -3; // at least one piece lost in the engine line
   const flipsGame = loss > 20 && winBefore >= 40 && winAfter <= 25;
 
   if (allowsMate || missedMate || hangsPiece || flipsGame || loss >= 35) {

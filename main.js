@@ -57,6 +57,10 @@ import {
   persistentDeficit,
   staticSacrifice,
   classifyMove,
+  BRILLIANT_CFG,
+  assessBrilliant,
+  sacrificeProfile,
+  leavesPieceEnPrise,
 } from "./src/review.js";
 
 const game = new Chess();
@@ -155,6 +159,8 @@ let drillMistakeTimer = null;
 let drillCompleteTimer = null;
 let learnCompleteTimer = null;
 const botEngine = new BotEngine();
+// Load the bot engine in the background so the first bot move is instant.
+setTimeout(() => botEngine.warmUp(), 2000);
 let bot = null; // { elo, humanColor, openingId, token, thinking, over }
 let botPageOpen = false;
 let botSavedPlay = null;
@@ -1684,6 +1690,9 @@ if (!ENABLE_GREAT_MOVES) {
 
 let analyseMoveClasses = [];
 let reviewRunId = 0;
+// Mover ratings of the game being reviewed (PGN WhiteElo/BlackElo), used to
+// give lower-rated players more leeway for brilliant moves (like chess.com).
+let reviewRatings = { w: null, b: null };
 let reviewEnginePromise = null;
 let reviewWorker = null;
 let analyseMainLine = null;
@@ -1711,6 +1720,83 @@ const enginePool = new EnginePool();
 
 function runEvaluation(fen, depth = reviewDepth(), isCancelled = () => false) {
   return enginePool.evaluate(fen, depth, isCancelled);
+}
+
+// ---------------------------------------------------------------------------
+// Deep brilliant verification (chess.com style).
+//
+// A real sacrifice is often not ranked first at review depth, and the position
+// right after it looks bad because the compensation is beyond the horizon. So
+// brilliant is NEVER awarded from the shallow review: every candidate (a piece
+// sacrifice along the engine line, or a piece left en prise) is re-evaluated
+// BEFORE and AFTER at the same, deeper depth, and src/review.js assessBrilliant()
+// then checks that the sacrifice is real and lasting (not a trade, not regained
+// a move later, not a piece that was lost anyway), that the move is best or
+// nearly best, that the position afterwards is fine and that the best
+// alternative was not already completely winning.
+// The thresholds live in BRILLIANT_CFG (src/review.js).
+// ---------------------------------------------------------------------------
+const BRILLIANT_EXTRA_DEPTH = 4; // verification depth = review depth + this
+const BRILLIANT_MAX_DEPTH = 18;
+const BRILLIANT_BATCH = 4; // candidates verified in parallel (engine pool)
+
+// Decides whether a candidate move deserves "brilliant". Never throws.
+async function checkBrilliant({
+  mv,
+  i,
+  moves,
+  deepCache,
+  depthUsed,
+  isCancelled,
+}) {
+  try {
+    const isRecapture =
+      i > 0 && moves[i - 1].captured && moves[i - 1].to === mv.to;
+    if (isRecapture) return { brilliant: false };
+
+    const sign = mv.color === "w" ? 1 : -1;
+    // Same depth for BEFORE and AFTER (comparing deep vs shallow inflates the loss).
+    const depth = Math.min(
+      depthUsed + BRILLIANT_EXTRA_DEPTH,
+      BRILLIANT_MAX_DEPTH,
+    );
+    const kB = `bril:b:${depth}:${i}`;
+    const kA = `bril:a:${depth}:${i}`;
+    let dBefore = deepCache[kB];
+    let dAfter = deepCache[kA];
+    if (!dBefore || !dAfter) {
+      const afterPos = new Chess(mv.fenAfter);
+      const jobs = [
+        dBefore
+          ? Promise.resolve(dBefore)
+          : runEvaluation(mv.fenBefore, depth, isCancelled),
+        dAfter
+          ? Promise.resolve(dAfter)
+          : afterPos.isCheckmate()
+            ? Promise.resolve({ cp: sign * 3000, best: null })
+            : runEvaluation(mv.fenAfter, depth, isCancelled),
+      ];
+      [dBefore, dAfter] = await Promise.all(jobs);
+      if (dBefore) deepCache[kB] = dBefore;
+      if (dAfter) deepCache[kA] = dAfter;
+    }
+    if (isCancelled() || !dBefore || !dAfter) return { brilliant: false };
+
+    const out = assessBrilliant({
+      fenBefore: mv.fenBefore,
+      mv,
+      before: dBefore,
+      after: dAfter,
+      isRecapture,
+      rating: reviewRatings[mv.color],
+    });
+    const info = { ply: i + 1, depth, ...out.info };
+    console.log("[review] brilliant check", info);
+    return { brilliant: out.brilliant, info };
+  } catch (e) {
+    console.log("[review] brilliant check error", e);
+    return { brilliant: false };
+  }
 }
 
 function cancelReview() {
@@ -1889,11 +1975,19 @@ async function reviewGame(
     const isRecapture =
       i > 0 && moves[i - 1].captured && moves[i - 1].to === mv.to;
 
-    // Feda miktarı: hem motor hattındaki materyal değişimi hem statik takas hesabı
+    // How forced is the opponent's reply? (best vs second best answer in the position after the move)
+    let oppGap = 0;
+    if (after.second != null) {
+      oppGap = winPercent(-sign * after.cp) - winPercent(-sign * after.second);
+    }
+
+    // Sacrifice size: material change along the engine line and the static exchange
     let sacrifice = 0;
     let persist = 0;
     let hang = 0;
-    const needSwing = (loss <= 3 && winAfter >= 35) || loss > 10;
+    // Sacrifice measurement is static chess.js work (no engine), so do it for
+    // every move: a real brilliant move can look like a loss at shallow depth.
+    const needSwing = true;
     if (needSwing) {
       const swing = pvMaterialSwing(mv.fenBefore, pv, mv.color);
       const st = staticSacrifice(mv.fenBefore, mv.uci, mv.color);
@@ -1903,6 +1997,8 @@ async function reviewGame(
         persist = persistentDeficit(mv.fenBefore, pv, mv.color);
     }
 
+    // Brilliant is only awarded by the deep verification below (shallow evals
+    // cannot tell a sacrifice from a trade), so the class here never is "brilliant".
     const cls = classifyMove({
       uci: mv.uci,
       best: before.best,
@@ -1915,77 +2011,111 @@ async function reviewGame(
       sacrificeSwing: -sacrifice,
       hangSwing: -hang,
       persist,
+      oppGap,
       moverPiece: mv.piece,
       cpBefore: sign * before.cp,
       cpAfter: sign * afterCp,
+      allowBrilliant: false,
     });
-    return { cls, loss, winBefore, winAfter, winAlt, sacrifice, persist };
+
+    // Brilliant candidate priority (0 = none): a piece sacrifice along the engine
+    // line, a static piece sacrifice, or a piece left en prise. The shallow class
+    // does not matter: a real sacrifice often looks like a mistake at review depth.
+    let candidate = 0;
+    if (
+      !isRecapture &&
+      mv.piece !== "k" &&
+      !mv.san.includes("#") &&
+      winAfter >= BRILLIANT_CFG.candidateMinWinAfter
+    ) {
+      const prof = sacrificeProfile(mv.fenBefore, pv, mv.color);
+      candidate = Math.max(
+        prof.lostMax >= BRILLIANT_CFG.minPieceValue ? prof.peak : 0,
+        sacrifice,
+      );
+      if (!candidate && leavesPieceEnPrise(mv.fenBefore, mv.uci)) candidate = 1;
+    }
+    return {
+      cls,
+      loss,
+      winBefore,
+      winAfter,
+      winAlt,
+      sacrifice,
+      persist,
+      candidate,
+    };
   };
 
-  let deepChecks = 0;
+  // Pass 1: shallow judgement of every move
+  const results = new Array(moves.length);
   for (let i = 0; i < moves.length; i++) {
+    results[i] = judge(moves[i], i, evals[i], evals[i + 1]);
+  }
+
+  // Pass 2: deep verification of brilliant candidates (most promising first).
+  // Book moves never get a badge.
+  const candidates = [];
+  for (let i = bookPlies; i < moves.length; i++) {
+    if (results[i].candidate > 0) candidates.push(i);
+  }
+  candidates.sort(
+    (a, b) => results[b].candidate - results[a].candidate || a - b,
+  );
+  const toCheck = candidates.slice(0, BRILLIANT_CFG.maxChecks);
+  const brilliantReport = [];
+
+  for (let n = 0; n < toCheck.length; n += BRILLIANT_BATCH) {
     if (runId !== reviewRunId) return;
+    if (progressText) {
+      progressText.textContent = "Analyzing key moves deeper...";
+    }
+    const batch = toCheck.slice(n, n + BRILLIANT_BATCH);
+    const probes = await Promise.all(
+      batch.map((i) =>
+        checkBrilliant({
+          mv: moves[i],
+          i,
+          moves,
+          deepCache,
+          depthUsed,
+          isCancelled: () => runId !== reviewRunId,
+        }),
+      ),
+    );
+    if (runId !== reviewRunId) return;
+    batch.forEach((i, k) => {
+      if (probes[k].brilliant) results[i] = { ...results[i], cls: "brilliant" };
+      if (probes[k].info) brilliantReport.push(probes[k].info);
+    });
+  }
+  if (brilliantReport.length) {
+    console.log(
+      "[review] brilliant candidates (reason = why accepted/rejected)",
+    );
+    console.table(
+      brilliantReport.map((x) => ({
+        ply: x.ply,
+        move: x.san,
+        brilliant: x.brilliant,
+        reason: x.reason,
+        loss: x.loss,
+        winAfter: x.winPlayed,
+        winAlt: x.winAlt,
+        sacrifice: x.sacrifice,
+        sustained: x.sustained,
+        final: x.final,
+        mate: x.mate,
+        rating: x.rating,
+      })),
+    );
+  }
+
+  // Pass 3: classes and summary
+  for (let i = 0; i < moves.length; i++) {
     const mv = moves[i];
     const s = summary[mv.color];
-    const before = evals[i];
-    const after = evals[i + 1];
-
-    let res = judge(mv, i, before, after);
-
-    // Brilliant adayı (feda var, ama henüz brilliant değil): daha derin analizle tekrar kontrol et.
-    // Sığ analiz feda sonrası kazancı görmeyebilir.
-    if (
-      res.cls !== "brilliant" &&
-      res.sacrifice >= 2 &&
-      res.loss <= 8 &&
-      res.winAfter >= 35 &&
-      deepChecks < 4 &&
-      before.lines?.[1]
-    ) {
-      deepChecks++;
-      if (progressText)
-        progressText.textContent = "Analyzing key moves deeper...";
-      try {
-        const deepKey = String(i);
-        let deep = deepCache[deepKey];
-        if (!deep) {
-          deep = await runEvaluation(
-            mv.fenBefore,
-            Math.min(depthUsed + 2, 18),
-            () => runId !== reviewRunId,
-          );
-          if (deep) deepCache[deepKey] = deep;
-        }
-        if (runId !== reviewRunId) return;
-        if (deep && deep.lines?.[1]) {
-          const deepRes = judge(mv, i, deep, after);
-          console.log("[review] derin kontrol", {
-            ply: i + 1,
-            san: mv.san,
-            sacrifice: deepRes.sacrifice,
-            persist: deepRes.persist,
-            loss: +deepRes.loss.toFixed(1),
-            winAlt: deepRes.winAlt === null ? null : +deepRes.winAlt.toFixed(1),
-            winAfter: +deepRes.winAfter.toFixed(1),
-            sonuc: deepRes.cls,
-          });
-          if (deepRes.cls === "brilliant") res = deepRes;
-        }
-      } catch (e) {
-        console.log("[review] derin kontrol hatası", e);
-      }
-    } else if (res.sacrifice >= 2 && res.loss <= 3) {
-      console.log("[review] feda adayı", {
-        ply: i + 1,
-        san: mv.san,
-        sonuc: res.cls,
-        sacrifice: res.sacrifice,
-        persist: res.persist,
-        loss: +res.loss.toFixed(1),
-        winAlt: res.winAlt === null ? null : +res.winAlt.toFixed(1),
-        winAfter: +res.winAfter.toFixed(1),
-      });
-    }
+    const res = results[i];
 
     // Teori hamlelerine rozet verilmez ama rapor sayımına motor değerlendirmesiyle girer
     if (i >= bookPlies) classes[i + 1] = res.cls;
@@ -2135,6 +2265,14 @@ function loadAnalyseGame(
   if (!sanMoves.length) {
     analyseGamesStatusEl.textContent = "This game has no moves.";
     return;
+  }
+  {
+    const h = chess.getHeaders?.() || {};
+    const num = (v) => {
+      const n = parseInt(v, 10);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    };
+    reviewRatings = { w: num(h.WhiteElo), b: num(h.BlackElo) };
   }
 
   cancelReview();

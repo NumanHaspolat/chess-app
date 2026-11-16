@@ -30,8 +30,8 @@ const MAX_UCI_ELO = 3190;
 // Tune these two tables if a level still feels too weak or too strong.
 const ELO_BOOST = [
   // [requested elo, extra elo sent to the engine]
-  [1300, 50],
-  [1500, 120],
+  [1300, 150],
+  [1500, 180],
   [1800, 240],
   [2000, 250],
   [2200, 260],

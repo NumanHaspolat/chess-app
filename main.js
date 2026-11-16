@@ -5734,6 +5734,9 @@ const PUZZLE_LEVELS = {
 };
 PUZZLE_LEVELS.master = PUZZLE_LEVELS.expert; // menüde "Master" yazıyorsa da çalışsın
 const PUZZLE_MAX_ATTEMPTS = 4;
+// Belirli bir açılış/varyant seçilince havuz küçük olduğu için aralığa düşen puzzle daha seyrek gelir: daha çok dene
+const PUZZLE_MAX_ATTEMPTS_ANGLE = 10;
+let puzzleLastInRange = true; // son çekilen puzzle istenen zorluk aralığında mıydı
 const PUZZLE_ATTEMPT_DELAY_MS = 500; // istekler arası bekleme (rate limit için)
 const PUZZLE_RATE_LIMIT_MS = 60_000; // Lichess 429 verince 1 dakika bekle
 let puzzleCooldownUntil = 0;
@@ -5756,8 +5759,11 @@ function puzzleAngle() {
 async function fetchPuzzleInRange(level, loadId, angle = "mix") {
   let apiIndex = level.api;
   let best = null;
+  const maxAttempts =
+    angle === "mix" ? PUZZLE_MAX_ATTEMPTS : PUZZLE_MAX_ATTEMPTS_ANGLE;
+  puzzleLastInRange = true;
 
-  for (let attempt = 1; attempt <= PUZZLE_MAX_ATTEMPTS; attempt++) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     if (attempt > 1) {
       await new Promise((resolve) =>
         setTimeout(resolve, PUZZLE_ATTEMPT_DELAY_MS),
@@ -5766,7 +5772,7 @@ async function fetchPuzzleInRange(level, loadId, angle = "mix") {
     }
 
     if (puzzleStatusEl && attempt > 1) {
-      puzzleStatusEl.textContent = `Finding a puzzle (${level.min}${Number.isFinite(level.max) ? "–" + level.max : "+"})... ${attempt}/${PUZZLE_MAX_ATTEMPTS}`;
+      puzzleStatusEl.textContent = `Finding a puzzle (${level.min}${Number.isFinite(level.max) ? "–" + level.max : "+"})... ${attempt}/${maxAttempts}`;
     }
 
     const res = await fetch(
@@ -5804,6 +5810,7 @@ async function fetchPuzzleInRange(level, loadId, angle = "mix") {
     else apiIndex = Math.max(apiIndex - 1, 0);
   }
 
+  puzzleLastInRange = false; // aralıkta puzzle bulunamadı, en yakını verilecek
   return best ? best.data : null;
 }
 
@@ -5913,8 +5920,9 @@ async function fetchNewPuzzle() {
     renderPuzzleMoves();
 
     if (puzzleStatusEl) {
-      puzzleStatusEl.textContent =
-        "Get ready! Opponent is making their move...";
+      puzzleStatusEl.textContent = puzzleLastInRange
+        ? "Get ready! Opponent is making their move..."
+        : `No ${levelKey} puzzle found for this opening, showing the closest one (${puzzleData.rating}). Opponent is making their move...`;
     }
 
     setTimeout(() => {

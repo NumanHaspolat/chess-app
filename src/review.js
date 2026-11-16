@@ -225,7 +225,7 @@ export function staticSacrifice(fenBefore, uci, color) {
 // net = what the opponent nets by the best capture, minus any threat that already
 // existed before the move.
 export function offeredSacrifice(fenBefore, uci) {
-  const out = { net: 0, victim: 0, square: null };
+  const out = { net: 0, victim: 0, square: null, threat: 0 };
   try {
     let threatBefore = 0;
     try {
@@ -236,6 +236,7 @@ export function offeredSacrifice(fenBefore, uci) {
     } catch {
       threatBefore = 0;
     }
+    out.threat = threatBefore;
     const chess = new Chess(fenBefore);
     const mv = chess.move(uciToMove(uci));
     if (!mv) return out;
@@ -288,11 +289,11 @@ export function offeredSacrifice(fenBefore, uci) {
 // All thresholds live here so they are easy to tune.
 // ---------------------------------------------------------------------------
 export const BRILLIANT_CFG = {
-  maxLoss: 4, // max win% lost versus the engine's best line
-  maxLossForced: 6, // same, when the opponent is practically forced
-  minWinAfter: 40, // must not be in a bad position afterwards (win%)
-  minWinAfterForced: 34,
-  maxWinAlt: 88, // best alternative must not already be completely winning (~ +540 cp)
+  maxLoss: 7, // max win% lost versus the engine's best line
+  maxLossForced: 10, // same, when the opponent is practically forced
+  minWinAfter: 35, // must not be in a bad position afterwards (win%)
+  minWinAfterForced: 28,
+  maxWinAlt: 96, // best alternative must not already be completely winning (~ +540 cp)
   minSacrifice: 2, // net material points given up (piece for pawn = 2)
   minPieceValue: 3, // the piece given away must be at least a minor piece
   minSustained: 2, // a sacrifice that is regained later must stay down for this many opponent replies (1 = a plain trade)
@@ -319,7 +320,7 @@ export function brilliantConfigFor(rating) {
       maxLossForced: base.maxLossForced + 2,
       minWinAfter: base.minWinAfter - 4,
       minWinAfterForced: base.minWinAfterForced - 4,
-      maxWinAlt: 95,
+      maxWinAlt: 98,
       allowExchangeSac: true, // rook for a minor piece may count
     };
   }
@@ -328,7 +329,7 @@ export function brilliantConfigFor(rating) {
       ...base,
       maxLoss: base.maxLoss + 1,
       maxLossForced: base.maxLossForced + 1,
-      maxWinAlt: 92,
+      maxWinAlt: 97,
     };
   }
   // 1600+: the base values. Higher rated players are NOT judged more strictly:
@@ -621,6 +622,13 @@ export function assessBrilliant({
     : null;
   const matingEval = sign * playedCp >= c.mateCp;
 
+  // The alternative line's material loss only counts when a piece was ALREADY
+  // under threat before the move (then it would have been lost anyway). Otherwise
+  // the alternative merely loses material differently (e.g. another sacrifice),
+  // which must not cancel this one.
+  const off = offeredSacrifice(fenBefore, mv.uci);
+  const useAlt = off.threat >= c.minPieceValue ? altProfile : null;
+
   const verdict = brilliantVerdict({
     loss,
     winAfter: winPlayed,
@@ -629,7 +637,7 @@ export function assessBrilliant({
     moverPiece: mv.piece,
     allowNullAlt: true,
     profile,
-    altProfile,
+    altProfile: useAlt,
     matingEval,
     cfg: c,
   });
@@ -640,11 +648,8 @@ export function assessBrilliant({
   // Second route: the piece is offered (opponent wins material by taking it) and
   // the engine line does not simply regain it by force. Covers a bishop given for
   // pawns + attack, which the persistence test above can miss.
-  const off = offeredSacrifice(fenBefore, mv.uci);
   const altCost =
-    altProfile && altProfile.valid && !altProfile.mate
-      ? Math.max(0, altProfile.final)
-      : 0;
+    useAlt && useAlt.valid && !useAlt.mate ? Math.max(0, useAlt.final) : 0;
   const takenInLine =
     pv.length > 1 && !!off.square && pv[1].slice(2, 4) === off.square;
   const offeredOk =

@@ -1736,8 +1736,8 @@ function runEvaluation(fen, depth = reviewDepth(), isCancelled = () => false) {
 // alternative was not already completely winning.
 // The thresholds live in BRILLIANT_CFG (src/review.js).
 // ---------------------------------------------------------------------------
-const BRILLIANT_EXTRA_DEPTH = 4; // verification depth = review depth + this
-const BRILLIANT_MAX_DEPTH = 18;
+const BRILLIANT_EXTRA_DEPTH = 5; // verification depth = review depth + this
+const BRILLIANT_MAX_DEPTH = 19;
 const BRILLIANT_BATCH = 4; // candidates verified in parallel (engine pool)
 
 // Decides whether a candidate move deserves "brilliant". Never throws.
@@ -2106,6 +2106,8 @@ async function reviewGame(
         sustained: x.sustained,
         final: x.final,
         mate: x.mate,
+        offered: x.offered,
+        viaOffer: x.viaOffer,
         rating: x.rating,
       })),
     );

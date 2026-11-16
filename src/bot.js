@@ -8,7 +8,7 @@ export const BOT_LEVELS = [
   { elo: 400, label: "400 · Beginner" },
   { elo: 700, label: "700 · Casual" },
   { elo: 1000, label: "1000 · Club newcomer" },
-  { elo: 1320, label: "1320 · Improving" },
+  { elo: 1300, label: "1300 · Improving" },
   { elo: 1500, label: "1500 · Intermediate" },
   { elo: 1800, label: "1800 · Strong club player" },
   { elo: 2000, label: "2000 · Expert" },
@@ -30,13 +30,13 @@ const MAX_UCI_ELO = 3190;
 // Tune these two tables if a level still feels too weak or too strong.
 const ELO_BOOST = [
   // [requested elo, extra elo sent to the engine]
-  [1320, 0],
+  [1300, 50],
   [1500, 120],
-  [1800, 280],
-  [2000, 350],
-  [2200, 420],
-  [2500, 380],
-  [2800, 250],
+  [1800, 240],
+  [2000, 250],
+  [2200, 260],
+  [2500, 260],
+  [2800, 270],
 ];
 
 // Linear interpolation over ELO_BOOST.

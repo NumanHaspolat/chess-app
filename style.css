@@ -4559,3 +4559,39 @@ main.app#play:has(#learn-panel:not([hidden])) .evaluation {
     max-width: none;
   }
 }
+
+/* ==========================================
+   6 SATIR ANALİZ: Analysis ve Moves kutuları aynı boyda.
+   Bu bloğu style.css'in EN SONUNA yapıştır.
+   ========================================== */
+
+/* Analyse: Moves ve Analysis yan yana olduğunda (701px ve üstü) */
+@media (min-width: 701px) {
+  #analyse .moves-section,
+  #analyse #analyse-analysis-panel {
+    min-height: 520px;
+  }
+  #analyse .moves {
+    height: 320px !important;
+    max-height: 320px !important;
+  }
+}
+
+/* Play: 3 sütunlu masaüstü düzeni (1051px ve üstü) */
+@media (min-width: 1051px) {
+  #play .moves-section,
+  #play .analysis-panel {
+    min-height: 520px;
+  }
+  #play .moves {
+    height: 320px !important;
+    max-height: 320px !important;
+  }
+}
+
+@media (min-width: 701px) and (max-width: 1050px) {
+  main#analyse.app > .moves-section,
+  main#analyse.app > #analyse-analysis-panel {
+    align-self: stretch;
+  }
+}

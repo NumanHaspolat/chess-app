@@ -973,10 +973,10 @@ function requestEngineEvaluation(fen, target = "play") {
   if (target === "analyse" && analyseAnalysisLinesEl) {
     analyseAnalysisLinesEl.classList.add("stale");
     if (analyseAnalysisStatusEl)
-      analyseAnalysisStatusEl.textContent = "Analyzing 5 lines...";
+      analyseAnalysisStatusEl.textContent = "Analyzing 7 lines...";
   } else if (analysisLinesEl) {
     analysisLinesEl.classList.add("stale");
-    if (analysisStatusEl) analysisStatusEl.textContent = "Analyzing 5 lines...";
+    if (analysisStatusEl) analysisStatusEl.textContent = "Analyzing 7 lines...";
   }
 
   pendingEngineFen = fen;
@@ -1000,7 +1000,7 @@ function startEngineAnalysis(fen) {
   engineStopping = false;
   analysisLinesByRank.clear();
 
-  stockfishWorker.postMessage("setoption name MultiPV value 5");
+  stockfishWorker.postMessage("setoption name MultiPV value 7");
   stockfishWorker.postMessage(`position fen ${fen}`);
   stockfishWorker.postMessage(
     `go depth ${settings.liveDepth || ENGINE_DEPTH_DEFAULT}`,
@@ -1017,7 +1017,7 @@ function parseEngineInfo(message) {
 
   const multipvMatch = message.match(/\bmultipv (\d+)/);
   const multipv = multipvMatch ? Number(multipvMatch[1]) : 1;
-  if (multipv < 1 || multipv > 5) return;
+  if (multipv < 1 || multipv > 7) return;
 
   const pvMatch = message.match(/\bpv (.+)$/);
   const cpMatch = message.match(/\bscore cp (-?\d+)/);
@@ -1051,7 +1051,7 @@ function parseEngineInfo(message) {
     scoreText,
   });
 
-  const lines = [1, 2, 3, 4, 5]
+  const lines = [1, 2, 3, 4, 5, 6, 7]
     .map((rank) => analysisLinesByRank.get(rank))
     .filter(Boolean);
 

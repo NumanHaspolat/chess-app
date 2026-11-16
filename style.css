@@ -3377,7 +3377,7 @@ body.hide-last-move #analyse-board .last-move {
 }
 
 /* ===== Learn/Train yerleşimi (650px ve üstü): tahta solda, sağda önce Learn/Train paneli, altında Moves ===== */
-@media (min-width: 650px) and (max-width: 1050px) {
+@media (min-width: 700px) and (max-width: 1050px) {
   main.app#play:has(#learn-panel:not([hidden])) {
     display: grid;
     grid-template-columns: minmax(0, 1.15fr) minmax(260px, 0.85fr);
@@ -4345,6 +4345,217 @@ main.app#play:has(#learn-panel:not([hidden])) .evaluation {
   color: red;
 }
 
-.mistake-h2{
+.mistake-h2 {
   color: var(--accent-strong);
+}
+
+@media (min-width: 701px) and (max-width: 1050px) {
+  main#analyse.app {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 16px;
+    align-items: start;
+    width: min(95%, 980px);
+  }
+
+  main#analyse.app > .board-section {
+    grid-column: 1 / -1;
+    order: 1;
+  }
+
+  main#analyse.app > .moves-section {
+    grid-column: 1;
+    order: 2;
+    width: 100%;
+    min-width: 0;
+  }
+
+  main#analyse.app > #analyse-analysis-panel {
+    grid-column: 2;
+    order: 2;
+    width: 100%;
+    min-width: 0;
+    margin: 0; /* eski kuraldaki margin-top: 12px yüzünden aşağıda kalıyordu */
+  }
+
+  /* yan yana olunca hamle listesi biraz daha uzun olabilir */
+  main#analyse.app #analyse-moves {
+    max-height: 340px;
+  }
+}
+
+/* ==========================================
+   PLAY (Vs Computer): tablet / orta ekran (650px - 1050px)
+   Sol: tahta. Sağ: "Play vs Stockfish" kutusu, hemen altında Moves.
+   Bu bloğu style.css'in EN SONUNA yapıştır.
+   ========================================== */
+/* ==========================================
+   PLAY (Vs Computer): tablet / orta ekran (650px - 1050px; 560-649px için en alttaki blok)
+   Sol: tahta. Sağ: "Play vs Stockfish" kutusu, hemen altında Moves.
+   Bu bloğu style.css'in EN SONUNA yapıştır.
+   ========================================== */
+/* ==========================================
+   PLAY (Vs Computer): tablet / orta ekran (700px - 1050px)
+   Sol: tahta. Sağ: "Play vs Stockfish" kutusu, hemen altında Moves.
+   Bu bloğu style.css'in EN SONUNA yapıştır.
+   ========================================== */
+@media (min-width: 750px) and (max-width: 1050px) {
+  main.app#play {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(260px, 0.85fr);
+    grid-auto-rows: min-content;
+    align-items: start;
+    gap: 14px 18px;
+    width: calc(100% - 24px);
+  }
+
+  main.app#play > .board-section {
+    grid-column: 1;
+    grid-row: 1 / span 4;
+    order: 0;
+    width: 100%;
+  }
+
+  main.app#play .board-wrap {
+    --size: max(
+      240px,
+      min(calc((100vw - 40px) * 0.575), calc(100svh - 150px), 720px)
+    );
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  /* Play vs Stockfish / Learn kutusu: sadece içinde aktif panel varsa görünür */
+  main.app#play > .learn-section {
+    grid-column: 2;
+    grid-row: 1;
+    order: 0;
+    width: 100%;
+    display: none;
+  }
+  main.app#play > .learn-section:has(#bot-panel:not([hidden])),
+  main.app#play > .learn-section:has(#learn-panel:not([hidden])) {
+    display: block !important;
+  }
+
+  main.app#play > .moves-section {
+    grid-column: 2;
+    grid-row: auto;
+    order: 0;
+    width: 100%;
+    display: block !important;
+    visibility: visible;
+    position: static;
+    pointer-events: auto;
+    height: auto;
+    overflow: visible;
+  }
+
+  main.app#play > .analysis-panel {
+    grid-column: 2;
+    grid-row: auto;
+    order: 0;
+    width: 100%;
+    margin: 0;
+  }
+
+  main.app#play .moves {
+    max-height: 40vh;
+  }
+}
+
+/* 699px ve altı: tek sütun (üstte tahta, sonra Play vs Stockfish, sonra Moves).
+   Dikey ekranda Play vs Stockfish kutusunu gizleyen eski kuralı da ezer. */
+@media (max-width: 749px) {
+  main.app#play:not(:has(#learn-panel:not([hidden]))) {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+  }
+
+  main.app#play:not(:has(#learn-panel:not([hidden]))) > .board-section {
+    order: 1;
+    width: 100%;
+  }
+
+  main.app#play:not(:has(#learn-panel:not([hidden])))
+    > .learn-section:has(#bot-panel:not([hidden])) {
+    display: block !important;
+    order: 2;
+    width: 100%;
+  }
+
+  main.app#play:not(:has(#learn-panel:not([hidden]))) > .moves-section {
+    order: 3;
+    width: 100%;
+  }
+
+  main.app#play:not(:has(#learn-panel:not([hidden]))) > .analysis-panel {
+    order: 4;
+    width: 100%;
+  }
+}
+
+/* ==========================================
+   KÜÇÜK EKRANLAR (749px ve altı): tahta ekranın iki yanına yapışsın.
+   Bu bloğu style.css'in EN SONUNA yapıştır.
+   Tahta genişliği = ekran - sayfa kenarları (16px) - eval bar (18px) - boşluk (6px) - pay (4px)
+   ========================================== */
+@media (max-width: 749px) {
+  /* Play (Learn/Train kapalı), Analyse, Repertoire */
+  main.app#play:not(:has(#learn-panel:not([hidden]))) .board-wrap,
+  main#analyse.app .board-wrap,
+  .repertoire-layout .repertoire-board-section .board-wrap {
+    --size: min(calc(100vw - 44px), 900px);
+    width: 100%;
+    margin: 0 auto;
+    transform: none;
+  }
+}
+
+/* Learn/Train açıkken 650px - 749px: yan yana değil, tek sütun
+   (tahta tam genişlik, altında Learn/Train paneli, onun altında Moves).
+   ≤649px telefon düzenine (altta sabit panel) dokunulmaz. */
+@media (min-width: 650px) and (max-width: 749px) {
+  main.app#play:has(#learn-panel:not([hidden])) {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 16px;
+    width: calc(100% - 16px);
+  }
+
+  main.app#play:has(#learn-panel:not([hidden])) > .board-section {
+    order: 1;
+    width: 100%;
+  }
+
+  main.app#play:has(#learn-panel:not([hidden])) .board-wrap {
+    --size: min(calc(100vw - 44px), 900px);
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  main.app#play:has(#learn-panel:not([hidden])) > .learn-section {
+    order: 2;
+    width: 100%;
+    display: block;
+  }
+
+  main.app#play:has(#learn-panel:not([hidden])) > .moves-section {
+    order: 3;
+    width: 100%;
+    display: block !important;
+    visibility: visible;
+    position: static;
+    pointer-events: auto;
+    height: auto;
+    overflow: visible;
+  }
+
+  main.app#play:has(#learn-panel:not([hidden])) #learn-panel {
+    height: auto;
+    max-width: none;
+  }
 }

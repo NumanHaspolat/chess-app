@@ -688,6 +688,7 @@ function repTryMove(from, to, animate = true) {
     played = currentGame.move({ from, to, promotion: "q" });
   } catch {}
   if (!played) return false;
+  if (editor && !drill) editorRecordMove(played);
   repSelectedSquare = null;
   repLegalMoves = [];
   playSound(played.captured ? "capture" : "move");
@@ -3437,14 +3438,18 @@ document.getElementById("rep-nav-prev")?.addEventListener("click", () => {
 document.getElementById("rep-nav-next")?.addEventListener("click", () => {
   const history = repertoireGame.history();
   const current = repViewPly ?? history.length;
-  if (current < history.length) goToRepPlyAnimated(current + 1);
+  if (editor || current < history.length) goToRepPlyAnimated(current + 1);
 });
 document.getElementById("rep-nav-last")?.addEventListener("click", () => {
   const history = repertoireGame.history();
-  goToRepPlyAnimated(history.length);
+  goToRepPlyAnimated(editor ? history.length + 200 : history.length);
 });
 
 function goToRepPlyAnimated(ply) {
+  if (editor && !drill) {
+    editorGoToPly(ply);
+    return;
+  }
   const history = repertoireGame.history();
   const total = history.length;
 
@@ -3525,8 +3530,8 @@ window.addEventListener("keydown", (e) => {
     current = viewPly ?? maxPly;
   } else if (isRepPage) {
     const history = repertoireGame.history();
-    maxPly = history.length;
-    current = repViewPly ?? maxPly;
+    maxPly = editor ? history.length + 200 : history.length;
+    current = repViewPly ?? history.length;
   } else if (isAnalysePage) {
     maxPly = analyseHistory.length;
     current = analyseCurrentPly;
@@ -5045,6 +5050,7 @@ importRepBtnEl?.addEventListener("click", () => {
 const library = Library.load();
 let repNotice = { text: "", isError: false };
 let drill = null;
+let editor = null; // { rep, isNew } while creating / editing a repertoire by hand
 let completedDrillLines = new Set();
 let drillLinePath = [];
 
@@ -5078,16 +5084,19 @@ function renderRepertoire() {
   }
   if (drillActionEl) drillActionEl.hidden = true;
 
+  renderEditorBar();
+
   if (!repertoire) {
     if (repInfoEl)
-      repInfoEl.textContent = "No repertoire yet. Import a PGN file to start.";
+      repInfoEl.textContent =
+        "No repertoire yet. Create one or import a PGN file to start.";
     return;
   }
 
   const last = repertoireGame.history({ verbose: true }).at(-1);
   if (last && last.before) {
     const edge = repertoire.getNode(last.before)?.edges.get(last.san);
-    if (edge && edge.comment && repCommentEl)
+    if (edge && edge.comment && repCommentEl && !editor)
       repCommentEl.textContent = edge.comment;
   }
 
@@ -5097,6 +5106,10 @@ function renderRepertoire() {
   }
 
   const node = repertoire.getNode(repertoireGame.fen());
+  if (!node && editor) {
+    if (repTurnEl) repTurnEl.textContent = "New position - play a move";
+    return;
+  }
   if (!node) {
     if (repTurnEl) {
       repTurnEl.textContent = "Out of repertoire";
@@ -5105,13 +5118,17 @@ function renderRepertoire() {
     return;
   }
   if (node.edges.size === 0) {
-    if (repTurnEl) repTurnEl.textContent = "End of line";
+    if (repTurnEl)
+      repTurnEl.textContent = editor
+        ? "No saved moves here yet - play one"
+        : "End of line";
     return;
   }
 
   if (repTurnEl) {
-    repTurnEl.textContent =
-      repertoireGame.turn() === repertoire.color
+    repTurnEl.textContent = editor
+      ? "Saved moves from here (click to follow)"
+      : repertoireGame.turn() === repertoire.color
         ? "Your move"
         : "Opponent's options";
   }
@@ -5179,6 +5196,7 @@ pgnFileEl?.addEventListener("change", async () => {
   rep.name = name.trim().slice(0, 60) || defaultName;
 
   endDrill();
+  endEditor();
   library.add(rep);
   orientation = rep.color;
 
@@ -5192,6 +5210,189 @@ pgnFileEl?.addEventListener("change", async () => {
   setNotice(text, result.errors.length > 0);
   persist();
   update();
+});
+
+
+// ---------------------------------------------------------------------------
+// Repertoire creator / editor: the player builds the tree by playing moves.
+// Every move played is stored in the graph right away (and saved). Going back
+// and playing another move from an earlier position adds a new variation.
+// ---------------------------------------------------------------------------
+const repCreateBtnEl = document.getElementById("btn-create-rep");
+const repCreateFormEl = document.getElementById("rep-create-form");
+const repCreateNameEl = document.getElementById("rep-create-name");
+const repCreateWhiteEl = document.getElementById("rep-create-white");
+const repCreateBlackEl = document.getElementById("rep-create-black");
+const repEditorBarEl = document.getElementById("rep-editor-bar");
+const repEditorNameEl = document.getElementById("rep-editor-name");
+const repEditorCommentEl = document.getElementById("rep-editor-comment");
+let repCreateColor = "w";
+
+function setCreateColor(color) {
+  repCreateColor = color;
+  repCreateWhiteEl?.classList.toggle("active", color === "w");
+  repCreateBlackEl?.classList.toggle("active", color === "b");
+}
+
+function resetRepBoardToStart() {
+  repertoireGame.reset();
+  drillGame.reset();
+  repViewPly = null;
+  repSelectedSquare = null;
+  repLegalMoves = [];
+  drillHintSquares = [];
+}
+
+function beginEditor(rep, isNew) {
+  editor = { rep, isNew };
+  resetRepBoardToStart();
+  repOrientation = rep.color;
+  orientation = rep.color;
+  if (repCreateFormEl) repCreateFormEl.hidden = true;
+  setNotice("");
+  updateRepertoirePage(false);
+}
+
+// Leaves edit mode without any extra UI work (callers re-render themselves).
+function endEditor() {
+  if (!editor) return;
+  const { rep, isNew } = editor;
+  editor = null;
+  if (isNew && rep.stats().moves === 0) {
+    library.remove(rep.id); // nothing was entered, do not keep an empty one
+    persist();
+  }
+}
+
+function finishEditor() {
+  if (!editor) return;
+  const { rep, isNew } = editor;
+  const { moves, positions } = rep.stats();
+  endEditor();
+  resetRepBoardToStart();
+  setNotice(
+    moves === 0 && isNew
+      ? "Nothing was entered, so no repertoire was created."
+      : `Saved "${rep.name}": ${moves} moves, ${positions} positions.`,
+  );
+  persist();
+  updateRepertoirePage(false);
+}
+
+function editorRecordMove(played) {
+  const uci = played.from + played.to + (played.promotion ?? "");
+  editor.rep.addMove(played.before, played.san, uci, played.after);
+  persist();
+}
+
+function editorGoToPly(ply) {
+  const total = repertoireGame.history().length;
+  if (ply < 0 || ply === total) return;
+
+  if (ply < total) {
+    while (repertoireGame.history().length > ply) repertoireGame.undo();
+  } else {
+    // Going forward follows the main line (first saved move) of the tree.
+    const seen = new Set();
+    while (repertoireGame.history().length < ply) {
+      const node = editor.rep.getNode(repertoireGame.fen());
+      const edge = node?.edges.values().next().value;
+      if (!edge || seen.has(node.key)) break;
+      seen.add(node.key);
+      const { from, to, promotion } = parseUci(edge.uci);
+      if (!repertoireGame.move({ from, to, promotion })) break;
+    }
+  }
+
+  repViewPly = null;
+  repSelectedSquare = null;
+  repLegalMoves = [];
+  updateRepertoirePage(false);
+}
+
+function currentEditorEdge() {
+  const last = repertoireGame.history({ verbose: true }).at(-1);
+  if (!editor || !last) return null;
+  return editor.rep.getNode(last.before)?.edges.get(last.san) ?? null;
+}
+
+function renderEditorBar() {
+  if (!repEditorBarEl) return;
+  repEditorBarEl.hidden = !editor;
+  if (!editor) return;
+
+  if (repEditorNameEl) repEditorNameEl.textContent = editor.rep.name;
+  const edge = currentEditorEdge();
+  if (repEditorCommentEl) {
+    repEditorCommentEl.disabled = !edge;
+    if (document.activeElement !== repEditorCommentEl)
+      repEditorCommentEl.value = edge?.comment ?? "";
+  }
+  const del = document.getElementById("rep-editor-delete");
+  if (del) del.disabled = !edge;
+}
+
+repCreateBtnEl?.addEventListener("click", () => {
+  if (!repCreateFormEl) return;
+  repCreateFormEl.hidden = !repCreateFormEl.hidden;
+  if (!repCreateFormEl.hidden) {
+    if (repCreateNameEl && !repCreateNameEl.value)
+      repCreateNameEl.value = `My repertoire ${library.items.length + 1}`;
+    repCreateNameEl?.focus();
+    repCreateNameEl?.select();
+  }
+});
+repCreateWhiteEl?.addEventListener("click", () => setCreateColor("w"));
+repCreateBlackEl?.addEventListener("click", () => setCreateColor("b"));
+document.getElementById("rep-create-cancel")?.addEventListener("click", () => {
+  if (repCreateFormEl) repCreateFormEl.hidden = true;
+});
+function startCreateRepertoire() {
+  const name = (repCreateNameEl?.value || "").trim().slice(0, 60);
+  const rep = new Repertoire({
+    color: repCreateColor,
+    name: name || "New repertoire",
+  });
+  endDrill();
+  endEditor();
+  library.add(rep);
+  library.setActive(rep.id);
+  persist();
+  if (repCreateNameEl) repCreateNameEl.value = "";
+  beginEditor(rep, true);
+}
+document
+  .getElementById("rep-create-start")
+  ?.addEventListener("click", startCreateRepertoire);
+repCreateNameEl?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") startCreateRepertoire();
+});
+
+document.getElementById("rep-editor-done")?.addEventListener("click", () => {
+  finishEditor();
+});
+document.getElementById("rep-editor-delete")?.addEventListener("click", () => {
+  const last = repertoireGame.history({ verbose: true }).at(-1);
+  if (!editor || !last) return;
+  if (
+    !confirm(
+      `Delete ${last.san} and the moves that only follow from it? This cannot be undone.`,
+    )
+  )
+    return;
+  editor.rep.removeMove(last.before, last.san);
+  repertoireGame.undo();
+  repViewPly = null;
+  repSelectedSquare = null;
+  repLegalMoves = [];
+  persist();
+  updateRepertoirePage(false);
+});
+repEditorCommentEl?.addEventListener("input", () => {
+  const edge = currentEditorEdge();
+  if (!edge) return;
+  edge.comment = repEditorCommentEl.value.slice(0, 200);
+  persist();
 });
 
 const OPPONENT_DELAY_MS = 500;
@@ -7202,6 +7403,7 @@ function renderRepLibrary() {
       if (library.active?.id === rep.id) return;
 
       endDrill();
+      endEditor();
       library.setActive(rep.id);
       persist();
 
@@ -7238,12 +7440,29 @@ function renderRepLibrary() {
       }
 
       endDrill();
+      endEditor();
       library.setActive(rep.id);
       persist();
       orientation = rep.color;
       setNotice("");
       startDrill();
     });
+
+    const editButton = document.createElement("button");
+    const isEditingThisRep = editor?.rep.id === rep.id;
+    editButton.textContent = isEditingThisRep ? "Done" : "Edit";
+    editButton.addEventListener("click", () => {
+      if (editor?.rep.id === rep.id) {
+        finishEditor();
+        return;
+      }
+      endDrill();
+      endEditor();
+      library.setActive(rep.id);
+      persist();
+      beginEditor(rep, false);
+    });
+    if (isEditingThisRep) card.classList.add("editing");
 
     const renameButton = document.createElement("button");
     renameButton.textContent = "Rename";
@@ -7264,6 +7483,7 @@ function renderRepLibrary() {
       if (!confirm(`Delete "${rep.name}"? This cannot be undone.`)) return;
 
       endDrill();
+      if (editor?.rep.id === rep.id) editor = null;
       library.remove(rep.id);
       persist();
       setNotice("");
@@ -7272,7 +7492,7 @@ function renderRepLibrary() {
 
     const actions = document.createElement("div");
     actions.className = "rep-card-actions";
-    actions.append(cardDrillButton, renameButton, deleteButton);
+    actions.append(cardDrillButton, editButton, renameButton, deleteButton);
     card.append(title, positionCount, actions);
     container.appendChild(card);
   });

@@ -673,7 +673,7 @@ button:disabled {
   flex: 1;
   min-width: 0;
   padding: 9px 6px;
-  font-size: 12px;
+  font-size: 10px;
 }
 
 .rep-card button:first-of-type {
@@ -4594,4 +4594,93 @@ main.app#play:has(#learn-panel:not([hidden])) .evaluation {
   main#analyse.app > #analyse-analysis-panel {
     align-self: stretch;
   }
+}
+
+/* ---------- Repertoire creator / editor ---------- */
+.import-rep-btn.secondary {
+  background: var(--control);
+  color: var(--accent);
+  border: 1px solid var(--panel-border);
+}
+
+.import-rep-btn.secondary:hover {
+  border-color: var(--accent);
+  background: var(--control);
+}
+
+.rep-create-form,
+.rep-editor-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: var(--control);
+}
+
+.rep-editor-bar {
+  margin: 0 0 12px;
+}
+
+.rep-create-form[hidden],
+.rep-editor-bar[hidden] {
+  display: none;
+}
+
+.rep-create-form input,
+.rep-editor-bar input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.16);
+  color: var(--text);
+  font-family: var(--font-pixel);
+  box-sizing: border-box;
+}
+
+.rep-color-toggle,
+.rep-create-actions {
+  display: flex;
+  gap: 7px;
+}
+
+.rep-color-toggle button,
+.rep-create-actions button {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 6px;
+  font-size: 12px;
+}
+
+.rep-color-toggle button.active,
+#rep-create-start {
+  background: var(--accent-strong);
+  color: #062b2b;
+}
+
+.rep-editor-title {
+  color: var(--accent);
+}
+
+.rep-editor-title span {
+  color: var(--text);
+}
+
+.rep-editor-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--text-muted);
+}
+
+.rep-editor-bar .buttons {
+  margin: 0;
+}
+
+.rep-card.editing {
+  border-color: var(--accent);
+  box-shadow: 0 0 12px rgba(63, 222, 243, 0.25);
 }

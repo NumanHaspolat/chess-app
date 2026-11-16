@@ -4,6 +4,8 @@
 // castling, en passant), NOT by move list. That way different move orders
 // that reach the same position (transpositions) merge into a single node.
 
+const START_KEY = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -";
+
 export function positionKey(fen) {
   return fen.split(" ").slice(0, 4).join(" ");
 }
@@ -49,6 +51,32 @@ export class Repertoire {
       isNew = true;
     }
     return { edge, isNew };
+  }
+
+  hasIncoming(key) {
+    for (const node of this.nodes.values())
+      for (const edge of node.edges.values()) if (edge.to === key) return true;
+    return false;
+  }
+
+  // Removes one move. Positions that are no longer reachable from any other
+  // move (and everything only reachable through them) are removed too, so
+  // transpositions that are still reachable another way stay intact.
+  removeMove(fenBefore, san) {
+    const node = this.getNode(fenBefore);
+    const edge = node?.edges.get(san);
+    if (!edge) return false;
+    node.edges.delete(san);
+
+    const queue = [edge.to];
+    while (queue.length) {
+      const key = queue.pop();
+      const target = this.nodes.get(key);
+      if (!target || key === START_KEY || this.hasIncoming(key)) continue;
+      this.nodes.delete(key);
+      for (const e of target.edges.values()) queue.push(e.to);
+    }
+    return true;
   }
 
   stats() {

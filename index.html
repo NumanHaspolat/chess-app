@@ -729,6 +729,28 @@
             <button id="rep-flip">Flip</button>
             <button id="rep-reset">Reset</button>
           </div>
+          <div id="rep-editor-bar" class="rep-editor-bar" hidden>
+            <div class="rep-editor-title">
+              Editing: <span id="rep-editor-name"></span>
+            </div>
+            <p class="rep-editor-hint">
+              Play moves for both sides. Go back and play a different move to
+              add a new variation.
+            </p>
+            <input
+              id="rep-editor-comment"
+              type="text"
+              maxlength="200"
+              placeholder="Comment on this move (optional)"
+              aria-label="Move comment"
+            />
+            <div class="buttons">
+              <button type="button" id="rep-editor-delete">Delete move</button>
+              <button type="button" id="rep-editor-done">
+                Save &amp; close
+              </button>
+            </div>
+          </div>
           <div id="rep-move-status" class="status"></div>
           <div id="rep-info" class="rep-info"></div>
           <div id="rep-turn" class="rep-turn"></div>
@@ -746,8 +768,30 @@
             <span id="rep-count">0 saved</span>
           </div>
           <div id="rep-library" class="rep-library"></div>
-          <button id="btn-import-rep" class="import-rep-btn">
-            + Import new PGN
+          <button id="btn-create-rep" class="import-rep-btn">
+            Create repertoire
+          </button>
+          <div id="rep-create-form" class="rep-create-form" hidden>
+            <input
+              id="rep-create-name"
+              type="text"
+              maxlength="60"
+              placeholder="Repertoire name"
+              aria-label="Repertoire name"
+            />
+            <div class="rep-color-toggle">
+              <button type="button" id="rep-create-white" class="active">
+                As White
+              </button>
+              <button type="button" id="rep-create-black">As Black</button>
+            </div>
+            <div class="rep-create-actions">
+              <button type="button" id="rep-create-start">Start</button>
+              <button type="button" id="rep-create-cancel">Cancel</button>
+            </div>
+          </div>
+          <button id="btn-import-rep" class="import-rep-btn secondary">
+            + Import PGN
           </button>
           <input id="pgn-file" type="file" accept=".pgn,.txt" hidden />
           <div id="rep-notice" class="rep-notice"></div>

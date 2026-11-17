@@ -736,7 +736,9 @@ repBoardEl?.addEventListener("pointerdown", (e) => {
     const wasSelected = repSelectedSquare === name;
 
     repSelectedSquare = name;
-    repLegalMoves = currentGame.moves({ square: name, verbose: true });
+    repLegalMoves = pc
+      ? pmMoves(currentGame, name)
+      : currentGame.moves({ square: name, verbose: true });
 
     renderRepertoireBoard();
 
@@ -821,7 +823,10 @@ repBoardEl?.addEventListener("click", (event) => {
 
   if (piece && piece.color === currentGame.turn()) {
     repSelectedSquare = name;
-    repLegalMoves = currentGame.moves({ square: name, verbose: true });
+    const pc = repPremoveCtx();
+    repLegalMoves = pc
+      ? pmMoves(currentGame, name)
+      : currentGame.moves({ square: name, verbose: true });
   } else {
     repSelectedSquare = null;
     repLegalMoves = [];
@@ -3166,10 +3171,14 @@ boardEl?.addEventListener("pointerdown", (e) => {
 
   if (selectedSquare && legalMoves.some((m) => m.to === name)) {
     const fromSq = selectedSquare;
-    pickPromotion(turnGame, fromSq, name).then((p) => {
-      if (p) playMove(fromSq, name, p);
-      else renderBoard();
-    });
+    if (pm && pmIsConditionalTarget(turnGame, name, pm.color)) {
+      playMove(fromSq, name, "q");
+    } else {
+      pickPromotion(turnGame, fromSq, name).then((p) => {
+        if (p) playMove(fromSq, name, p);
+        else renderBoard();
+      });
+    }
     return;
   }
 
@@ -3177,7 +3186,9 @@ boardEl?.addEventListener("pointerdown", (e) => {
   if (piece && piece.color === turnGame.turn()) {
     const wasSelected = selectedSquare === name;
     selectedSquare = name;
-    legalMoves = turnGame.moves({ square: name, verbose: true });
+    legalMoves = pm
+      ? pmMoves(turnGame, name)
+      : turnGame.moves({ square: name, verbose: true });
     renderBoard();
 
     drag = {
@@ -3352,10 +3363,14 @@ function endDrag(e, cancelled = false) {
   if (target && legalMoves.some((m) => m.to === target)) {
     const pc = playPremoveCtx();
     const pg = pc ? pmSim(game, pc.color, pc.list) : game;
-    pickPromotion(pg || game, from, target).then((p) => {
-      if (p) playMove(from, target, p, false, false);
-      else renderBoard();
-    });
+    if (pc && pmIsConditionalTarget(pg || game, target, pc.color)) {
+      playMove(from, target, "q", false, false);
+    } else {
+      pickPromotion(pg || game, from, target).then((p) => {
+        if (p) playMove(from, target, p, false, false);
+        else renderBoard();
+      });
+    }
     return;
   }
 
@@ -3921,6 +3936,46 @@ function premoveOpts() {
 function pmQueue(list, from, to, promotion) {
   if (!premoveOpts().multi) list.length = 0;
   list.push({ from, to, promotion });
+}
+
+// Normal yasal hamlelere ek olarak, hedefte kendi taşımız varsa da
+// o taşın rakip tarafından alınacağı varsayımıyla koşullu premove hedefi üret.
+// Hamle ancak rakibin hamlesinden sonra hedef kare boşalmışsa pmLegal ile oynatılır.
+function pmMoves(g, from) {
+  const moves = g.moves({ square: from, verbose: true });
+  const movingPiece = g.get(from);
+  if (!movingPiece) return moves;
+
+  for (const file of FILES) {
+    for (let rank = 1; rank <= 8; rank++) {
+      const to = `${file}${rank}`;
+      const target = g.get(to);
+      if (!target || target.color !== movingPiece.color || target.type === "k")
+        continue;
+
+      try {
+        const afterVacating = new Chess(g.fen());
+        afterVacating.remove(to);
+        const candidate = afterVacating
+          .moves({ square: from, verbose: true })
+          .find((move) => move.to === to);
+        if (candidate) {
+          moves.push({
+            ...candidate,
+            captured: target.type,
+            premoveConditional: true,
+          });
+        }
+      } catch {}
+    }
+  }
+
+  return moves;
+}
+
+function pmIsConditionalTarget(g, to, color) {
+  const target = g.get(to);
+  return !!target && target.color === color;
 }
 
 function pmFlipFen(fen, color) {
@@ -5212,7 +5267,6 @@ pgnFileEl?.addEventListener("change", async () => {
   update();
 });
 
-
 // ---------------------------------------------------------------------------
 // Repertoire creator / editor: the player builds the tree by playing moves.
 // Every move played is stored in the graph right away (and saved). Going back
@@ -5701,7 +5755,9 @@ if (puzzleBoardEl) {
     if (piece && piece.color === puzzlePlayerColor) {
       const wasSelected = puzzleSelectedSquare === name;
       puzzleSelectedSquare = name;
-      puzzleLegalMoves = activeGame.moves({ square: name, verbose: true });
+      puzzleLegalMoves = pc
+        ? pmMoves(activeGame, name)
+        : activeGame.moves({ square: name, verbose: true });
       renderPuzzleBoard(false);
 
       puzzleDrag = {

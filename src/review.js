@@ -189,78 +189,78 @@ export function maxCaptureGain(chess) {
 // Material given up right after a move (static exchange, independent of the engine line).
 // raw = what the opponent can win - what this move captured
 // net = raw - the threat that already existed BEFORE the move (a piece that was already hanging is not a sacrifice)
+
+function opponentTurnPosition(fen) {
+  const parts = fen.split(" ");
+  parts[1] = parts[1] === "w" ? "b" : "w";
+  parts[3] = "-";
+  return new Chess(parts.join(" "));
+}
+
+function captureThreatAt(chess, square) {
+  if (!chess.get(square)) return 0;
+  return quiesceGain(chess, square, 4);
+}
+
+// Yalnızca oynanan taşın hamle öncesi ve sonrası tehditlerini karşılaştırır.
 export function staticSacrifice(fenBefore, uci, color) {
   try {
-    // Threat before the move: give the turn to the opponent and see what they could win
-    let threatBefore = 0;
-    try {
-      const parts = fenBefore.split(" ");
-      parts[1] = parts[1] === "w" ? "b" : "w";
-      parts[3] = "-";
-      threatBefore = maxCaptureGain(new Chess(parts.join(" ")));
-    } catch {
-      threatBefore = 0;
+    const before = new Chess(fenBefore);
+    const from = uci.slice(0, 2);
+    const moving = before.get(from);
+
+    if (!moving || moving.color !== color || moving.type === "k") {
+      return { raw: 0, net: 0 };
     }
 
-    const chess = new Chess(fenBefore);
-    const mv = chess.move({
-      from: uci.slice(0, 2),
-      to: uci.slice(2, 4),
-      promotion: uci[4] || undefined,
-    });
+    const threatBefore = captureThreatAt(opponentTurnPosition(fenBefore), from);
+
+    const after = new Chess(fenBefore);
+    const mv = after.move(uciToMove(uci));
     if (!mv) return { raw: 0, net: 0 };
+
     const gained = mv.captured ? PIECE_VAL[mv.captured] : 0;
-    const maxGain = maxCaptureGain(chess);
-    const raw = Math.max(0, maxGain - gained);
-    const net = Math.max(0, maxGain - gained - threatBefore);
+    const threatAfter = captureThreatAt(after, mv.to);
+
+    const raw = Math.max(0, threatAfter - gained);
+    const net = Math.max(0, threatAfter - gained - threatBefore);
+
     return { raw, net };
   } catch {
     return { raw: 0, net: 0 };
   }
 }
 
-// A piece (value >= 3) left standing where the opponent wins material by taking
-// it, even if the engine line later recoups a pawn or two (e.g. a bishop taking a
-// pawn on h3 with the attack running). victim = value of the offered piece,
-// net = what the opponent nets by the best capture, minus any threat that already
-// existed before the move.
+// Rakibin, özellikle hamleyi yapan taşı alarak elde edeceği net kazanç.
 export function offeredSacrifice(fenBefore, uci) {
   const out = { net: 0, victim: 0, square: null, threat: 0 };
+
   try {
-    let threatBefore = 0;
-    try {
-      const parts = fenBefore.split(" ");
-      parts[1] = parts[1] === "w" ? "b" : "w";
-      parts[3] = "-";
-      threatBefore = maxCaptureGain(new Chess(parts.join(" ")));
-    } catch {
-      threatBefore = 0;
-    }
-    out.threat = threatBefore;
-    const chess = new Chess(fenBefore);
-    const mv = chess.move(uciToMove(uci));
+    const before = new Chess(fenBefore);
+    const from = uci.slice(0, 2);
+    const threatBefore = captureThreatAt(opponentTurnPosition(fenBefore), from);
+
+    const after = new Chess(fenBefore);
+    const mv = after.move(uciToMove(uci));
     if (!mv) return out;
+
+    const offeredPiece = after.get(mv.to);
+    if (!offeredPiece || offeredPiece.color !== mv.color) return out;
+
+    const victim = PIECE_VAL[offeredPiece.type];
+    if (victim < 3) return out;
+
     const gained = mv.captured ? PIECE_VAL[mv.captured] : 0;
-    const squares = new Set(
-      chess
-        .moves({ verbose: true })
-        .filter((m) => m.captured)
-        .map((m) => m.to),
-    );
-    for (const sq of squares) {
-      const victimPiece = chess.get(sq);
-      if (!victimPiece || victimPiece.type === "k") continue;
-      const victim = PIECE_VAL[victimPiece.type];
-      const net = quiesceGain(chess, sq, 4) - gained - threatBefore;
-      if (victim >= 3 && net > out.net) {
-        out.net = net;
-        out.victim = victim;
-        out.square = sq;
-      }
-    }
+    const threatAfter = captureThreatAt(after, mv.to);
+
+    out.threat = threatBefore;
+    out.net = Math.max(0, threatAfter - gained - threatBefore);
+    out.victim = victim;
+    out.square = mv.to;
   } catch {
-    /* ignore */
+    // Geçersiz pozisyon veya hamle: fedakârlık yok.
   }
+
   return out;
 }
 
@@ -643,27 +643,16 @@ export function assessBrilliant({
   });
 
   // Without a known alternative the "already winning" test falls back to the best eval
-  const okBest = winAlt !== null || winBest < 97;
 
-  // Second route: the piece is offered (opponent wins material by taking it) and
-  // the engine line does not simply regain it by force. Covers a bishop given for
-  // pawns + attack, which the persistence test above can miss.
-  const altCost =
-    useAlt && useAlt.valid && !useAlt.mate ? Math.max(0, useAlt.final) : 0;
-  const takenInLine =
-    pv.length > 1 && !!off.square && pv[1].slice(2, 4) === off.square;
-  const offeredOk =
-    off.victim >= c.minPieceValue &&
-    off.net >= c.minOfferedNet &&
-    altCost < off.net &&
-    (profile.peak >= 1 || takenInLine);
-  const viaOffer =
-    !verdict.okSac &&
-    offeredOk &&
-    verdict.okLoss &&
-    verdict.okAfter &&
-    verdict.okAlt;
-  const brilliant = (verdict.brilliant || viaOffer) && okBest;
+  // Alternatif hamle biliniyorsa onu, bilinmiyorsa mevcut pozisyonun
+  // değerlendirmesini kullan. Zaten tamamen kazanılmış pozisyonda
+  // Brilliant rozeti verme.
+  const okBest =
+    winAlt !== null ? winAlt <= c.maxWinAlt : winBest <= c.maxWinAlt;
+
+  // Brilliant için gerçek ve kalıcı taş fedası şart.
+  // Sadece bir taşın tehdit altında olması artık tek başına yeterli değil.
+  const brilliant = verdict.brilliant && okBest;
 
   const f = (n) => (n === null ? null : +n.toFixed(1));
   return {
@@ -671,12 +660,10 @@ export function assessBrilliant({
     info: {
       san: mv.san,
       brilliant,
-      viaOffer,
+      viaOffer: false,
       offered: off.net,
       reason: brilliant
-        ? viaOffer
-          ? "ok-offered"
-          : "ok"
+        ? "ok"
         : !verdict.okSac
           ? verdict.sac.reason
           : !verdict.okLoss
@@ -685,7 +672,9 @@ export function assessBrilliant({
               ? "bad-position"
               : !verdict.okAlt
                 ? "already-winning"
-                : "already-winning-no-alt",
+                : !okBest
+                  ? "already-winning"
+                  : "rejected",
       loss: f(loss),
       winPlayed: f(winPlayed),
       winAlt: f(winAlt),

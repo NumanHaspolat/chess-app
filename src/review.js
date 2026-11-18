@@ -376,6 +376,7 @@ export function sacrificeProfile(
     exchangeOnly: false,
     first: 0, // deficit at the FIRST settled moment = what the move itself gives up
     firstLost: 0, // most valuable mover piece lost by then
+    firstCapture: false, // the move itself is a capture
     lostAny: 0, // most valuable mover piece lost anywhere in the line
   };
   let firstDone = false;
@@ -410,6 +411,7 @@ export function sacrificeProfile(
     if (!mv) break;
     played++;
     last = mv;
+    if (k === 0) out.firstCapture = !!mv.captured;
 
     if (mv.captured) {
       const bag = mv.color === color ? gained : lost;
@@ -459,14 +461,14 @@ export function sacrificeProfile(
   );
   const lostKeys = Object.keys(firstLostBag);
   const gainedKeys = Object.keys(firstGainedBag);
+  // Rook given for a minor piece (plus maybe a pawn): just an exchange.
   out.exchangeOnly =
-    out.first === 2 &&
+    out.first <= 2 &&
     lostKeys.length === 1 &&
     lostKeys[0] === "r" &&
     firstLostBag.r === 1 &&
-    gainedKeys.length === 1 &&
-    (gainedKeys[0] === "n" || gainedKeys[0] === "b") &&
-    firstGainedBag[gainedKeys[0]] === 1;
+    ((firstGainedBag.n || 0) + (firstGainedBag.b || 0) >= 1 ||
+      (firstGainedBag.r || 0) >= 1);
 
   return out;
 }
@@ -535,9 +537,22 @@ export function brilliantVerdict({
   const okLoss = loss <= (forced ? c.maxLossForced : c.maxLoss);
   const okAfter = winAfter >= (forced ? c.minWinAfterForced : c.minWinAfter);
   const okAlt = winAlt === null ? allowNullAlt : winAlt <= c.maxWinAlt;
-  const sac = profile
+  let sac = profile
     ? judgeSacrifice(profile, altProfile, { matingEval, cfg: c })
     : { ok: sacrifice >= c.minSacrifice, size: sacrifice, reason: "legacy" };
+  // Rook for a minor piece is only a brilliant when it is a quiet, deliberate
+  // offer in a position that is not already clearly winning. A capture that
+  // simply swaps rook for bishop/knight (Rxf5 exf5) or any exchange when the
+  // game is already won is just a trade.
+  if (
+    sac.ok &&
+    profile &&
+    profile.exchangeOnly &&
+    !(sac.mate || matingEval) &&
+    (profile.firstCapture || (winAlt !== null && winAlt > 80))
+  ) {
+    sac = { ...sac, ok: false, reason: "exchange-sac" };
+  }
   const okPiece = moverPiece !== "k";
   return {
     brilliant: okLoss && okAfter && okAlt && sac.ok && okPiece,

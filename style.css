@@ -4684,3 +4684,34 @@ main.app#play:has(#learn-panel:not([hidden])) .evaluation {
   border-color: var(--accent);
   box-shadow: 0 0 12px rgba(63, 222, 243, 0.25);
 }
+
+/* ---- Repertoire editörü: en iyi hamleler seçici (1 / 3 / 5 / 7) ---- */
+.rep-best-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.rep-best-label {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.rep-best-toggle {
+  display: flex;
+  gap: 6px;
+}
+
+.rep-best-toggle button {
+  min-width: 36px;
+  padding: 6px 10px;
+  font-size: 0.9rem;
+}
+
+.rep-best-toggle button.active {
+  background: var(--accent-strong);
+  color: #062b2b;
+  border-color: var(--accent-strong);
+  font-weight: 700;
+}

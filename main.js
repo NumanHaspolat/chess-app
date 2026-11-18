@@ -650,6 +650,141 @@ function endAnalyseDrag(e, cancelled = false) {
   renderAnalyseBoard();
 }
 
+// ---- Repertoire editörü: motorun en iyi hamleleri (ok olarak) ----
+const REP_BEST_KEY = "azurite-rep-best";
+const REP_BEST_CHOICES = [1, 3, 5, 7];
+let repBestN = (() => {
+  const saved = readJson(REP_BEST_KEY, {});
+  if (saved.off) return 0;
+  return REP_BEST_CHOICES.includes(saved.n) ? saved.n : 3;
+})();
+let repBestSvg = null;
+
+function repBestSvgEl() {
+  if (!repBoardEl) return null;
+  if (!repBestSvg) {
+    repBestSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    repBestSvg.setAttribute("class", "board-arrows rep-best-arrows");
+    repBestSvg.setAttribute("viewBox", "0 0 8 8");
+    repBestSvg.setAttribute("aria-hidden", "true");
+    // Kullanıcının kendi okları (z-index 6) bunun üstünde kalsın
+    repBestSvg.style.zIndex = "5";
+  }
+  if (repBestSvg.parentNode !== repBoardEl) repBoardEl.appendChild(repBestSvg);
+  return repBestSvg;
+}
+
+function repBestCenter(square) {
+  const file = "abcdefgh".indexOf(square[0]);
+  const rank = Number(square[1]) - 1;
+  const white = repOrientation === "w";
+  return {
+    x: (white ? file : 7 - file) + 0.5,
+    y: (white ? 7 - rank : rank) + 0.5,
+  };
+}
+
+function repBestArrowEl(from, to, opacity) {
+  const NS = "http://www.w3.org/2000/svg";
+  const a = repBestCenter(from);
+  const b = repBestCenter(to);
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len;
+  const uy = dy / len;
+  const head = 0.42;
+  const halfBase = 0.26;
+  const tipX = b.x - ux * 0.08;
+  const tipY = b.y - uy * 0.08;
+  const baseX = tipX - ux * head;
+  const baseY = tipY - uy * head;
+  const color = "var(--arrow-color, var(--accent-strong))";
+
+  const g = document.createElementNS(NS, "g");
+  g.setAttribute("opacity", opacity.toFixed(2));
+  const line = document.createElementNS(NS, "line");
+  line.setAttribute("x1", a.x + ux * 0.2);
+  line.setAttribute("y1", a.y + uy * 0.2);
+  line.setAttribute("x2", baseX + ux * 0.02);
+  line.setAttribute("y2", baseY + uy * 0.02);
+  line.setAttribute("stroke", color);
+  line.setAttribute("stroke-width", "0.17");
+  const poly = document.createElementNS(NS, "polygon");
+  poly.setAttribute(
+    "points",
+    `${tipX},${tipY} ${baseX - uy * halfBase},${baseY + ux * halfBase} ${baseX + uy * halfBase},${baseY - ux * halfBase}`,
+  );
+  poly.setAttribute("fill", color);
+  g.append(line, poly);
+  return g;
+}
+
+// En iyi hamle tam opak; sıra düştükçe giderek daha saydam
+function repBestOpacity(index, count) {
+  if (count <= 1) return 1;
+  return 1 - (index / count) * 0.8;
+}
+
+function drawRepBestArrows() {
+  const svg = repBestSvgEl();
+  if (!svg) return;
+  svg.replaceChildren();
+  let active = false;
+  try {
+    active = !!editor && !drill && !!repBestN && repViewPly === null;
+  } catch {
+    active = false; // sayfa ilk kurulurken değişkenler henüz hazır değilse
+  }
+  if (!active) return;
+  if (requestedEvaluationTarget !== "repertoire") return;
+
+  const fen = repertoireGame.fen();
+  const lines = [...analysisLinesByRank.entries()]
+    .sort((x, y) => x[0] - y[0])
+    .map(([, line]) => line)
+    .filter((line) => line.fen === fen && line.pv?.[0])
+    .slice(0, repBestN);
+
+  // Düşük sıradakiler önce çizilsin, en iyi hamle en üstte kalsın
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const uci = lines[i].pv[0];
+    svg.appendChild(
+      repBestArrowEl(
+        uci.slice(0, 2),
+        uci.slice(2, 4),
+        repBestOpacity(i, lines.length),
+      ),
+    );
+  }
+}
+
+function renderRepBestControl() {
+  const wrap = document.getElementById("rep-best-toggle");
+  if (!wrap) return;
+  for (const btn of wrap.querySelectorAll("button[data-n]")) {
+    btn.classList.toggle("active", Number(btn.dataset.n) === repBestN);
+  }
+}
+
+document.getElementById("rep-best-toggle")?.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-n]");
+  if (!btn) return;
+  const n = Number(btn.dataset.n);
+  // Seçili olana tekrar basmak okları kapatır
+  repBestN = repBestN === n ? 0 : n;
+  writeJson(REP_BEST_KEY, { n: repBestN || n, off: repBestN === 0 });
+  renderRepBestControl();
+  drawRepBestArrows();
+});
+
+// Tahta yeniden çizilince ok katmanını geri ekle
+if (repBoardEl) {
+  new MutationObserver(() => {
+    if (repBestSvg && repBestSvg.parentNode !== repBoardEl) repBestSvgEl();
+  }).observe(repBoardEl, { childList: true });
+}
+
 function updateRepertoireBoard(animate = true) {
   renderRepertoireBoard(animate);
   renderRepertoireMoves();
@@ -664,6 +799,7 @@ function updateRepertoireBoard(animate = true) {
   renderRepertoireStrips(displayGame);
   renderRepertoireOpening(displayGame);
   requestEngineEvaluation(displayGame.fen(), "repertoire");
+  drawRepBestArrows();
 }
 
 function updateRepertoirePage(animate = true) {
@@ -1065,6 +1201,7 @@ function parseEngineInfo(message) {
     renderAnalyseAnalysisLines(lines);
   } else {
     renderAnalysisLines(lines);
+    if (requestedEvaluationTarget === "repertoire") drawRepBestArrows();
   }
 
   if (multipv === 1) {
@@ -2036,7 +2173,7 @@ async function reviewGame(
     ) {
       const prof = sacrificeProfile(mv.fenBefore, pv, mv.color);
       candidate = Math.max(
-        prof.lostMax >= BRILLIANT_CFG.minPieceValue ? prof.peak : 0,
+        prof.firstLost >= BRILLIANT_CFG.minPieceValue ? prof.first : 0,
         sacrifice,
       );
       if (!candidate && leavesPieceEnPrise(mv.fenBefore, mv.uci)) candidate = 1;
@@ -5384,6 +5521,8 @@ function renderEditorBar() {
   }
   const del = document.getElementById("rep-editor-delete");
   if (del) del.disabled = !edge;
+  renderRepBestControl();
+  drawRepBestArrows();
 }
 
 repCreateBtnEl?.addEventListener("click", () => {

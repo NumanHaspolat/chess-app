@@ -294,7 +294,7 @@ export const BRILLIANT_CFG = {
   minWinAfter: 35, // must not be in a bad position afterwards (win%)
   minWinAfterForced: 28,
   maxWinAlt: 96, // best alternative must not already be completely winning (~ +540 cp)
-  minSacrifice: 2, // net material points given up (piece for pawn = 2)
+  minSacrifice: 1, // net material points given up by the move itself (piece for 2 pawns = 1)
   minPieceValue: 3, // the piece given away must be at least a minor piece
   minSustained: 2, // a sacrifice that is regained later must stay down for this many opponent replies (1 = a plain trade)
   forcedGap: 15, // win% gap between the opponent's best and second best reply
@@ -374,7 +374,13 @@ export function sacrificeProfile(
     plies: 0,
     lostMax: 0,
     exchangeOnly: false,
+    first: 0, // deficit at the FIRST settled moment = what the move itself gives up
+    firstLost: 0, // most valuable mover piece lost by then
+    lostAny: 0, // most valuable mover piece lost anywhere in the line
   };
+  let firstDone = false;
+  let firstLostBag = {};
+  let firstGainedBag = {};
   if (!pv || !pv.length) return out;
 
   let g;
@@ -414,6 +420,14 @@ export function sacrificeProfile(
       const next = list[k + 1];
       if (!(next && isCaptureUci(g, next))) {
         const deficit = start - materialDiff(g, color);
+        if (!firstDone) {
+          // Only the first settled moment is attributed to THIS move. Deficits
+          // that appear later come from the mover's own following moves.
+          firstDone = true;
+          out.first = Math.max(0, deficit);
+          firstLostBag = { ...lost };
+          firstGainedBag = { ...gained };
+        }
         if (deficit >= min) out.sustained++;
         if (deficit > out.peak) {
           out.peak = deficit;
@@ -438,16 +452,21 @@ export function sacrificeProfile(
   out.final = start - finalDiff;
 
   out.lostMax = Math.max(0, ...Object.keys(peakLost).map((t) => PIECE_VAL[t]));
-  const lostKeys = Object.keys(peakLost);
-  const gainedKeys = Object.keys(peakGained);
+  out.lostAny = Math.max(0, ...Object.keys(lost).map((t) => PIECE_VAL[t]));
+  out.firstLost = Math.max(
+    0,
+    ...Object.keys(firstLostBag).map((t) => PIECE_VAL[t]),
+  );
+  const lostKeys = Object.keys(firstLostBag);
+  const gainedKeys = Object.keys(firstGainedBag);
   out.exchangeOnly =
-    out.peak === 2 &&
+    out.first === 2 &&
     lostKeys.length === 1 &&
     lostKeys[0] === "r" &&
-    peakLost.r === 1 &&
+    firstLostBag.r === 1 &&
     gainedKeys.length === 1 &&
     (gainedKeys[0] === "n" || gainedKeys[0] === "b") &&
-    peakGained[gainedKeys[0]] === 1;
+    firstGainedBag[gainedKeys[0]] === 1;
 
   return out;
 }
@@ -465,12 +484,14 @@ export function judgeSacrifice(
   }
   const mate = profile.mate || matingEval;
   const altCost = alt && alt.valid && !alt.mate ? Math.max(0, alt.final) : 0;
-  const size = profile.peak - altCost;
+  // What the move itself gives up (first settled moment), minus what would have
+  // been lost anyway.
+  const size = profile.first - altCost;
   const realPiece =
-    profile.lostMax >= c.minPieceValue &&
+    profile.firstLost >= c.minPieceValue &&
     (!profile.exchangeOnly || mate || !!c.allowExchangeSac);
   const persistent =
-    mate ||
+    (mate && profile.lostAny >= c.minPieceValue) ||
     profile.final - altCost >= c.minSacrifice ||
     profile.sustained >= c.minSustained;
   const longEnough = profile.plies >= 3;
@@ -682,6 +703,8 @@ export function assessBrilliant({
       forced: verdict.forced,
       sacrifice: verdict.sac.size,
       peak: profile.peak,
+      first: profile.first,
+      firstLost: profile.firstLost,
       final: profile.final,
       sustained: profile.sustained,
       mate: profile.mate || matingEval,

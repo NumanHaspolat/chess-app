@@ -673,7 +673,23 @@ export function assessBrilliant({
 
   // Brilliant için gerçek ve kalıcı taş fedası şart.
   // Sadece bir taşın tehdit altında olması artık tek başına yeterli değil.
-  const brilliant = verdict.brilliant && okBest;
+  // A piece (>= 3 points) put on a square where the opponent could win it with
+  // a net gain (knight lands on f2 next to the king, etc.) is a real offer even
+  // when the engine line declines it: the opponent's refusal is the point.
+  // It still has to be (nearly) the best move, leave a good position and not
+  // come from an already-winning one. A piece that was already attacked before
+  // the move does not count (it would have been lost anyway).
+  const viaOffer =
+    !verdict.okSac &&
+    off.victim >= c.minPieceValue &&
+    off.net >= c.minOfferedNet &&
+    off.threat < c.minPieceValue &&
+    verdict.okLoss &&
+    verdict.okAfter &&
+    verdict.okAlt &&
+    okBest &&
+    winPlayed >= c.minWinAfter + 10;
+  const brilliant = (verdict.brilliant && okBest) || viaOffer;
 
   const f = (n) => (n === null ? null : +n.toFixed(1));
   return {
@@ -681,10 +697,12 @@ export function assessBrilliant({
     info: {
       san: mv.san,
       brilliant,
-      viaOffer: false,
+      viaOffer,
       offered: off.net,
       reason: brilliant
-        ? "ok"
+        ? viaOffer
+          ? "offer"
+          : "ok"
         : !verdict.okSac
           ? verdict.sac.reason
           : !verdict.okLoss

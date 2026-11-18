@@ -6,8 +6,37 @@
   "difficulty": "medium",
   "variations": [
     {
+      "id": "classical-be3-main",
+      "name": "Classical Variation - Main Line",
+      "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Bc5 5. Be3 Qf6 6. c3 Nge7 7. Bc4 Ne5 8. Be2 Qg6 9. O-O O-O 10. Nd2 d5 11. exd5 Nxd5",
+      "notes": [
+        "White plays e4 to claim central space.",
+        "Black answers with e5.",
+        "White develops the knight to f3, attacking e5.",
+        "Black defends e5 with the knight.",
+        "White strikes with d4, the Scotch Game.",
+        "Black captures on d4.",
+        "White recaptures with the knight, centralizing it.",
+        "Black develops the bishop to c5, attacking the d4-knight.",
+        "White defends the knight and develops with 5.Be3, an alternative to the immediate exchange on c6.",
+        "Black attacks the d4-knight a second time with Qf6, also eyeing the b2-pawn.",
+        "White defends the d4-knight with c3, keeping the center solid.",
+        "Black develops the knight to e7, which supports the queen and keeps the f-pawn free.",
+        "White develops the bishop to c4, putting pressure on the f7-square and the diagonal toward the king.",
+        "Black attacks the bishop with Ne5, a strong central post.",
+        "White retreats the bishop to e2, keeping it safe and supporting kingside castling.",
+        "Black repositions the queen to g6, creating pressure on the e4-pawn and heading for the kingside.",
+        "White castles kingside, completing development and connecting the rooks.",
+        "Black castles kingside to complete development.",
+        "White brings the knight to d2, supporting the center and preparing f4 or Nf3.",
+        "Black strikes with d5 to challenge the center and activate the pieces.",
+        "White captures on d5 to open the e-file and eliminate the central pawn.",
+        "Black recaptures with the knight, which now sits on a strong central square."
+      ]
+    },
+    {
       "id": "classical-intermezzo-main",
-      "name": "Classical Variation – Intermezzo Main Line",
+      "name": "Intermezzo Main Line",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Bc5 5. Nxc6 Qf6 6. Qf3 dxc6 7. Qg3 Bd6 8. f4 Qg6 9. Qxg6 hxg6 10. Nc3 Bd7 11. Be3 O-O-O 12. O-O-O f6 13. h3 Nh6 14. Be2 Rhe8 15. Bf3 Nf7 16. Rhe1 b6",
       "notes": [
         "White steps forward with e4 to claim central territory and clear diagonal paths for the bishop and queen.",
@@ -46,7 +75,7 @@
     },
     {
       "id": "classical-intermezzo-alt1",
-      "name": "Classical Variation – Intermezzo Alternative Line 1",
+      "name": "Intermezzo Alternative Line 1",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Bc5 5. Nxc6 Qf6 6. Qf3 dxc6 7. Qg3 Ne7 8. Nc3 Qg6 9. Bf4 Qxg3 10. Bxg3 Bb6 11. O-O-O Be6 12. Na4 O-O 13. f3 f6 14. Nxb6 axb6 15. a3 Rfc8 16. Be2 Kf7",
       "notes": [
         "White opens with e4 to stake a claim in the center.",
@@ -85,7 +114,7 @@
     },
     {
       "id": "classical-intermezzo-alt2",
-      "name": "Classical Variation – Intermezzo Alternative Line 2",
+      "name": "Intermezzo Alternative Line 2",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Bc5 5. Nxc6 Qf6 6. Qf3 dxc6 7. Qg3 Ne7 8. Nc3 Bd6 9. f4 Qg6 10. Qf2 O-O 11. Bd3 f5 12. e5 Bb4 13. Bd2 Bxc3 14. Bxc3 Nd5 15. Bd2 Be6 16. O-O-O b5",
       "notes": [
         "White starts with e4 to control key central squares.",
@@ -123,37 +152,8 @@
       ]
     },
     {
-      "id": "classical-be3-main",
-      "name": "Classical Variation – 5.Be3 Qf6 6.c3 (Main Line)",
-      "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Bc5 5. Be3 Qf6 6. c3 Nge7 7. Bc4 Ne5 8. Be2 Qg6 9. O-O O-O 10. Nd2 d5 11. exd5 Nxd5",
-      "notes": [
-        "White plays e4 to claim central space.",
-        "Black answers with e5.",
-        "White develops the knight to f3, attacking e5.",
-        "Black defends e5 with the knight.",
-        "White strikes with d4, the Scotch Game.",
-        "Black captures on d4.",
-        "White recaptures with the knight, centralizing it.",
-        "Black develops the bishop to c5, attacking the d4-knight.",
-        "White defends the knight and develops with 5.Be3, an alternative to the immediate exchange on c6.",
-        "Black attacks the d4-knight a second time with Qf6, also eyeing the b2-pawn.",
-        "White defends the d4-knight with c3, keeping the center solid.",
-        "Black develops the knight to e7, which supports the queen and keeps the f-pawn free.",
-        "White develops the bishop to c4, putting pressure on the f7-square and the diagonal toward the king.",
-        "Black attacks the bishop with Ne5, a strong central post.",
-        "White retreats the bishop to e2, keeping it safe and supporting kingside castling.",
-        "Black repositions the queen to g6, creating pressure on the e4-pawn and heading for the kingside.",
-        "White castles kingside, completing development and connecting the rooks.",
-        "Black castles kingside to complete development.",
-        "White brings the knight to d2, supporting the center and preparing f4 or Nf3.",
-        "Black strikes with d5 to challenge the center and activate the pieces.",
-        "White captures on d5 to open the e-file and eliminate the central pawn.",
-        "Black recaptures with the knight, which now sits on a strong central square."
-      ]
-    },
-    {
       "id": "potter-main",
-      "name": "Potter Variation – Main Line (5.Nb3)",
+      "name": "Potter Variation – Main Line",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Bc5 5. Nb3 Bb6 6. Nc3 Nf6 7. Qe2 O-O 8. Bg5 h6 9. Bh4 Re8 10. O-O-O d6 11. f3 Be6 12. g4 a5 13. a4 Bxb3 14. cxb3 Nd4 15. Qd3 Nxb3+ 16. Kb1 Nc5",
       "notes": [
         "White plays e4 to command central space.",
@@ -192,7 +192,7 @@
     },
     {
       "id": "potter-alt1",
-      "name": "Potter Variation – Alternative Line 1 (6...d6)",
+      "name": "Potter Variation – (6...d6)",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Bc5 5. Nb3 Bb6 6. Nc3 d6 7. Qe2 Nge7 8. Be3 O-O 9. O-O-O Be6 10. f4 f5 11. Bxb6 axb6 12. e5 Qe8 13. exd6 Ng6 14. g3 cxd6 15. Rxd6 Bxb3 16. axb3 Ra1+",
       "notes": [
         "White opens with e4 to claim central territory.",
@@ -231,7 +231,7 @@
     },
     {
       "id": "potter-alt2",
-      "name": "Potter Variation – Alternative Line 2 (7...a5)",
+      "name": "Potter Variation – (7...a5)",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Bc5 5. Nb3 Bb6 6. Nc3 Nf6 7. Qe2 a5 8. a4 O-O 9. Bg5 h6 10. Bh4 Re8 11. O-O-O g5 12. Bg3 d6 13. f3 Be6 14. h4 Bxb3 15. cxb3 Nh5 16. Bf2 Bxf2",
       "notes": [
         "White opens with e4 to control the center.",
@@ -299,7 +299,7 @@
     },
     {
       "id": "schmidt-mieses-main",
-      "name": "Schmidt-Mieses Variation – Main Line (6.e5)",
+      "name": "Schmidt-Mieses Variation – Main Line",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Nf6 5. Nxc6 bxc6 6. e5 Qe7 7. Qe2 Nd5 8. c4 Ba6 9. b3 g6 10. f4 Bg7 11. Qf2 Nb6 12. Be2 O-O 13. O-O d6 14. Ba3 c5 15. Nc3 dxe5 16. Bxc5 Qe6 17. Bxf8 Rxf8 18. f5 gxf5 19. Qxf5 Qxf5 20. Rxf5",
       "notes": [
         "White opens with e4 to command central territory.",
@@ -345,7 +345,7 @@
     },
     {
       "id": "schmidt-mieses-alt1",
-      "name": "Schmidt-Mieses Variation – Alternative Line 1 (7.f4)",
+      "name": "Schmidt-Mieses Variation – (7.f4)",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Nf6 5. Nxc6 bxc6 6. e5 Qe7 7. f4 Nd5 8. c4 Nb6 9. Nc3 Ba6 10. b3 f6 11. Qe2 fxe5 12. fxe5 O-O-O 13. g3 g6 14. Bg2 Bg7 15. Bf4 Rde8 16. O-O-O Bxe5",
       "notes": [
         "White opens with e4 to seize central space.",
@@ -384,7 +384,7 @@
     },
     {
       "id": "schmidt-mieses-alt2",
-      "name": "Schmidt-Mieses Variation – Alternative Line 2 (8.Qh5)",
+      "name": "Schmidt-Mieses Variation – (8.Qh5)",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Nf6 5. Nxc6 bxc6 6. e5 Qe7 7. Qe2 Nd5 8. Qh5 Ba6 9. Bxa6 Qb4+ 10. c3 Qe4+ 11. Qe2 Qxg2 12. Rf1 Bc5 13. Nd2 O-O 14. Ne4 Bb6 15. Bd2 Rae8 16. O-O-O Rxe5",
       "notes": [
         "White opens with e4 to control the center.",
@@ -456,7 +456,7 @@
     },
     {
       "id": "schmidt-nc3-main",
-      "name": "Schmidt Variation – 5.Nc3 Bb4 (Scotch Four Knights Structure)",
+      "name": "Schmidt Variation – Scotch Four Knights Structure",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Nf6 5. Nc3 Bb4 6. Nxc6 bxc6 7. Bd3 d5 8. exd5 cxd5 9. O-O O-O 10. Bg5 c6 11. Qf3 Be7 12. Rae1 Be6 13. Bxf6 Bxf6",
       "notes": [
         "White plays e4 to take the center and open the bishop and queen.",
@@ -489,7 +489,7 @@
     },
     {
       "id": "schmidt-nc3-alt1",
-      "name": "Schmidt Variation – 5.Nc3 Bb4 Alternative Line (7...O-O)",
+      "name": "Schmidt Variation – (5.Nc3 Bb4)",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Nf6 5. Nc3 Bb4 6. Nxc6 bxc6 7. Bd3 O-O 8. O-O Re8 9. Re1 Bxc3 10. bxc3 d5 11. exd5 cxd5 12. Bg5 Be6",
       "notes": [
         "White opens with e4, claiming the center.",
@@ -520,7 +520,7 @@
     },
     {
       "id": "scotch-gambit-main",
-      "name": "Scotch Gambit – Main Line (4.Bc4)",
+      "name": "Scotch Gambit – Main Line",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Bc4 Bc5 5. c3 Nf6 6. cxd4 Bb4+ 7. Bd2 Bxd2+ 8. Nbxd2 d5 9. exd5 Nxd5 10. Qb3 Na5 11. Qa4+ Nc6 12. O-O O-O 13. Rfe1 Nb6 14. Qc2 Nxd4 15. Nxd4 Qxd4 16. Bd3 h6",
       "notes": [
         "White opens with e4 to command central space.",
@@ -559,7 +559,7 @@
     },
     {
       "id": "scotch-gambit-alt1",
-      "name": "Scotch Gambit – Alternative Line 1 (5...dxc3)",
+      "name": "Scotch Gambit – (5...dxc3)",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Bc4 Bc5 5. c3 dxc3 6. Bxf7+ Kxf7 7. Qd5+ Kf8 8. Qxc5+ d6 9. Qxc3 Nf6 10. O-O Nxe4 11. Qc2 Nf6 12. Nc3 Bg4 13. Qd3 Qd7 14. Bg5 Qf5 15. Qxf5 Bxf5 16. Bxf6 gxf6",
       "notes": [
         "White opens with e4 to seize central space.",
@@ -598,7 +598,7 @@
     },
     {
       "id": "scotch-gambit-alt2",
-      "name": "Scotch Gambit – Alternative Line 2 (5...Qe7)",
+      "name": "Scotch Gambit – (5...Qe7)",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Bc4 Bc5 5. c3 Qe7 6. O-O dxc3 7. Nxc3 Nf6 8. e5 Ng4 9. Nd5 Qd8 10. Bg5 f6 11. exf6 gxf6 12. Bh4 d6 13. Re1+ Kf8 14. h3 Nge5 15. Nxe5 Nxe5 16. Bxf6",
       "notes": [
         "White opens with e4 to control the center.",
@@ -636,7 +636,7 @@
     },
     {
       "id": "gambit-nf6-e5",
-      "name": "Scotch Gambit – 4...Nf6 5.e5 (Main Line)",
+      "name": "Scotch Gambit – (4...Nf6 5.e5)",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Bc4 Nf6 5. e5 d5 6. Bb5 Ne4 7. Nxd4 Bd7 8. Nxc6 Bxc6 9. Bxc6+ bxc6 10. O-O Be7 11. f3 Ng5 12. f4 Ne4 13. Nd2 Nxd2 14. Bxd2 O-O",
       "notes": [
         "White opens with e4, taking central space.",
@@ -671,7 +671,7 @@
     },
     {
       "id": "gambit-bc5-nf6-e5",
-      "name": "Scotch Gambit – 4...Bc5 5.c3 Nf6 6.e5 (Main Line)",
+      "name": "Scotch Gambit – (4...Bc5 5.c3 Nf6 6.e5)",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Bc4 Bc5 5. c3 Nf6 6. e5 d5 7. Bb5 Ne4 8. cxd4 Bb6 9. Nc3 O-O 10. Bxc6 bxc6 11. O-O Bg4",
       "notes": [
         "White plays e4, claiming central space.",
@@ -700,7 +700,7 @@
     },
     {
       "id": "steinitz-main",
-      "name": "Steinitz Variation – Main Line (4...Qh4)",
+      "name": "Steinitz Variation – Main Line",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Qh4 5. Nc3 Bb4 6. Be2 Qxe4 7. Nb5 Bxc3+ 8. bxc3 Kd8 9. O-O a6 10. Bf3 Qg6 11. Nd4 Ne5 12. Re1 d6 13. Be4 Qf6 14. f4 Ng6 15. Qd3 N8e7 16. Rb1",
       "notes": [
         "White opens with e4 to claim central territory.",
@@ -738,7 +738,7 @@
     },
     {
       "id": "steinitz-alt1",
-      "name": "Steinitz Variation – Alternative Line 1 (6.Nxc6)",
+      "name": "Steinitz Variation – (6.Nxc6)",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Qh4 5. Nc3 Bb4 6. Nxc6 Bxc3+ 7. bxc3 Qxe4+ 8. Be2 dxc6 9. O-O Ne7 10. Bd3 Qe6 11. Re1 Qf6 12. Ba3 Be6 13. Re3 O-O-O 14. Qe1 Nd5 15. Rf3 Qh6 16. c4",
       "notes": [
         "White opens with e4 to control the center.",
@@ -776,7 +776,7 @@
     },
     {
       "id": "steinitz-alt2",
-      "name": "Steinitz Variation – Alternative Line 2 (5.Nb5)",
+      "name": "Steinitz Variation – (5.Nb5)",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Qh4 5. Nb5 Bb4+ 6. Bd2 Qxe4+ 7. Be2 Kd8 8. O-O Bxd2 9. Nxd2 Qg6 10. Nc4 Nge7 11. Bh5 Qf6 12. Nc3 g6 13. Bf3 d6 14. Re1 Re8 15. Ne4 Qf5 16. Nexd6",
       "notes": [
         "White opens with e4 to claim central territory.",
@@ -814,7 +814,7 @@
     },
     {
       "id": "goring-main",
-      "name": "Göring Gambit – Main Line (4.c3)",
+      "name": "Göring Gambit – Main Line",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. c3 dxc3 5. Nxc3 Bb4 6. Bc4 d6 7. O-O Bxc3 8. bxc3 Nf6 9. e5 dxe5 10. Qb3 O-O 11. Ba3 Na5 12. Qb4 Nxc4 13. Qxc4 Re8 14. Rad1 Bd7 15. Rfe1 Qc8 16. Nxe5 Be6",
       "notes": [
         "White opens with e4 to seize central space.",
@@ -853,7 +853,7 @@
     },
     {
       "id": "goring-alt1",
-      "name": "Göring Gambit – Alternative Line 1 (5...d6)",
+      "name": "Göring Gambit – (5...d6)",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. c3 dxc3 5. Nxc3 d6 6. Bc4 Be6 7. Bxe6 fxe6 8. Qb3 Qc8 9. O-O Be7 10. Bg5 Nf6 11. Rad1 O-O 12. Nd4 Nxd4 13. Rxd4 Kh8 14. f4 c5 15. Rd2 Qc6 16. Qxe6",
       "notes": [
         "White opens with e4 to control the center.",
@@ -891,7 +891,7 @@
     },
     {
       "id": "goring-alt2",
-      "name": "Göring Gambit – Alternative Line 2 (5...Nf6)",
+      "name": "Göring Gambit – (5...Nf6)",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. c3 dxc3 5. Nxc3 Nf6 6. e5 Ng8 7. Bc4 d6 8. O-O Be6 9. Bxe6 fxe6 10. Qb3 Qc8 11. exd6 Bxd6 12. Re1 Nd8 13. Bg5 Ne7 14. Bxe7 Bxe7 15. Nd5 Bd6 16. Ng5",
       "notes": [
         "White opens with e4 to seize central space.",
@@ -929,7 +929,7 @@
     },
     {
       "id": "nxd4-queen-trade",
-      "name": "Scotch Game – 4...Nxd4 5.Qxd4 Qf6 (Queen Trade Line)",
+      "name": "Scotch Game – Queen Trade Line",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Nxd4 5. Qxd4 Qf6 6. Qxf6 Nxf6 7. Nc3 Bb4 8. Bd2 O-O 9. O-O-O Bxc3 10. Bxc3 d6",
       "notes": [
         "White plays e4 to claim the center.",
@@ -956,7 +956,7 @@
     },
     {
       "id": "trap-ng5-f7",
-      "name": "Trap: 4.Ng5!? – Knight Sacrifice on f7 Leading to Mate",
+      "name": "Trap: 4.Ng5!? – Knight Sacrifice",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Ng5 h6 5. Nxf7 Kxf7 6. Bc4+ Ke8 7. Qh5+ Ke7 8. Qf7+ Kd6 9. Bf4+ Ne5 10. Qd5+ Ke7 11. Qxe5#",
       "notes": [
         "White opens with e4, taking central space.",
@@ -984,7 +984,7 @@
     },
     {
       "id": "trap-schmidt-re8",
-      "name": "Trap: Schmidt 5.Nc3 – 10...Re8? 11.Bxf6 gxf6 12.Nxd5 Wins the Queen",
+      "name": "Trap: Schmidt Wins the Queen",
       "moves": "1. e4 e5 2. Nf3 Nc6 3. d4 exd4 4. Nxd4 Nf6 5. Nc3 Bb4 6. Nxc6 bxc6 7. Bd3 d5 8. exd5 cxd5 9. O-O O-O 10. Bg5 Re8 11. Bxf6 gxf6 12. Nxd5 Qxd5 13. Bxh7+ Kxh7 14. Qxd5",
       "notes": [
         "White plays e4, taking central space.",

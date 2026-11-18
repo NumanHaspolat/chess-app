@@ -549,7 +549,8 @@ export function brilliantVerdict({
     profile &&
     profile.exchangeOnly &&
     !(sac.mate || matingEval) &&
-    (profile.firstCapture || (winAlt !== null && winAlt > 80))
+    ((winAlt !== null && winAlt > 80) ||
+      (profile.firstCapture && (winAlt === null || winAfter - winAlt < 8)))
   ) {
     sac = { ...sac, ok: false, reason: "exchange-sac" };
   }
@@ -694,6 +695,13 @@ export function assessBrilliant({
   // It still has to be (nearly) the best move, leave a good position and not
   // come from an already-winning one. A piece that was already attacked before
   // the move does not count (it would have been lost anyway).
+  // The bigger and the more real the offer, the more lenient the other tests:
+  // a piece hung for nothing (nothing recaptures, net >= 3) on a quiet move is
+  // brilliant even when the game is already good; a small offer (a capture
+  // that is recaptured, net 1-2) must really change the evaluation.
+  const hanging = off.net >= 3 && !(mv.san || "").includes("x");
+  const winAltCap = hanging ? 92 : 80;
+  const minGain = hanging ? 0 : 8;
   const viaOffer =
     !verdict.okSac &&
     off.victim >= c.minPieceValue &&
@@ -703,7 +711,11 @@ export function assessBrilliant({
     verdict.okAfter &&
     verdict.okAlt &&
     okBest &&
-    winPlayed >= c.minWinAfter + 10;
+    winPlayed >= c.minWinAfter + 10 &&
+    // the position must not be won anyway, and the move has to be the reason
+    // it is good (Rxf5 at 89% -> 93% is just a forced trade in a won game)
+    (winAlt === null || winAlt <= winAltCap) &&
+    (winAlt === null || winPlayed - winAlt >= minGain);
   const brilliant = (verdict.brilliant && okBest) || viaOffer;
 
   const f = (n) => (n === null ? null : +n.toFixed(1));

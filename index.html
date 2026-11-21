@@ -41,6 +41,46 @@
       </nav>
     </header>
 
+    <div id="account-modal" class="account-modal" hidden>
+      <div class="account-card" role="dialog" aria-label="Sign in">
+        <button
+          type="button"
+          id="account-close"
+          class="account-close"
+          aria-label="Close"
+        >
+          ×
+        </button>
+        <h2>Sign in</h2>
+        <p class="account-note">
+          Keep your repertoires, puzzle progress and settings safe and the same
+          on every device.
+        </p>
+        <button type="button" id="account-google">Continue with Google</button>
+        <div class="account-or"><span>or</span></div>
+        <input
+          type="email"
+          id="account-email"
+          placeholder="E-mail"
+          autocomplete="email"
+        />
+        <input
+          type="password"
+          id="account-password"
+          placeholder="Password"
+          autocomplete="current-password"
+        />
+        <div class="account-row">
+          <button type="button" id="account-signin">Sign in</button>
+          <button type="button" id="account-signup">Create account</button>
+        </div>
+        <button type="button" id="account-reset" class="account-link">
+          Forgot password?
+        </button>
+        <p id="account-message" class="account-message"></p>
+      </div>
+    </div>
+
     <main class="app" id="play">
       <section class="board-section">
         <div class="board-wrap">
@@ -872,6 +912,35 @@
       <div class="page-heading">
         <h1>Profile</h1>
       </div>
+
+      <section id="account-panel" class="account-panel">
+        <div id="account-signed-out" class="account-out">
+          <span class="account-note"
+            >Sign in to keep your progress on every device.</span
+          >
+          <button type="button" id="account-open">
+            Sign in / Create account
+          </button>
+        </div>
+
+        <div id="account-signed-in" class="account-in" hidden>
+          <div id="account-avatar" class="account-avatar"></div>
+          <div class="account-who">
+            <strong id="account-name"></strong>
+            <span id="account-email-label"></span>
+          </div>
+          <div class="account-level">
+            <div class="account-level-head">
+              <span id="account-level">Level 1</span>
+              <span id="account-xp">0 XP</span>
+            </div>
+            <div class="account-level-track">
+              <div id="account-level-fill" class="account-level-fill"></div>
+            </div>
+          </div>
+          <button type="button" id="account-signout">Sign out</button>
+        </div>
+      </section>
 
       <div class="profile-tabs" role="tablist">
         <button class="profile-tab active" data-tab="openings" role="tab">

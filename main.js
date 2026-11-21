@@ -10,6 +10,7 @@ import { loadOpening } from "./src/opening-trainer.js";
 import { EnginePool } from "./src/engine-pool.js";
 import { srsRecord, pickReplySRS, srsSummary, resetSrs } from "./src/srs.js";
 import { initArrows } from "./src/arrows.js";
+import { initAccountUi } from "./src/account-ui.js";
 import {
   openingFamily,
   phaseOf,
@@ -122,6 +123,12 @@ const openingEl = document.getElementById("opening");
 const pgnFileEl = document.getElementById("pgn-file");
 const importRepBtnEl = document.getElementById("btn-import-rep");
 const analysePgnFileEl = document.getElementById("pgn-upload");
+try {
+  initAccountUi();
+} catch (e) {
+  console.warn("[account] init failed", e);
+}
+
 const analyseGamesListEl = document.getElementById("analyse-games-list");
 const analyseGamesStatusEl = document.getElementById("analyse-games-status");
 const drillBtnEl = document.getElementById("btn-drill");

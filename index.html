@@ -283,6 +283,22 @@
               <button id="fetch-chesscom-games">Fetch games</button>
             </div>
 
+            <div class="profile-controls">
+              <button id="profile-report-btn" type="button" disabled>
+                Profile report
+              </button>
+              <select
+                id="profile-count"
+                aria-label="Games to analyse with the engine"
+              >
+                <option value="0">Stats only</option>
+                <option value="10" selected>Engine: 10 games</option>
+                <option value="20">Engine: 20 games</option>
+                <option value="30">Engine: 30 games</option>
+              </select>
+              <span id="profile-report-status"></span>
+            </div>
+
             <div class="analyse-upload">
               <label>Or upload PGN</label>
 
@@ -305,6 +321,7 @@
             </div>
           </div>
 
+          <div id="profile-report" class="profile-report" hidden></div>
           <div id="analyse-games-status"></div>
           <div id="analyse-games-list"></div>
         </section>

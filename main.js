@@ -10,6 +10,13 @@ import { loadOpening } from "./src/opening-trainer.js";
 import { EnginePool } from "./src/engine-pool.js";
 import { srsRecord, pickReplySRS, srsSummary, resetSrs } from "./src/srs.js";
 import { initArrows } from "./src/arrows.js";
+import {
+  openingFamily,
+  phaseOf,
+  summarizeResults,
+  summarizeMoves,
+  buildAdvice,
+} from "./src/profile.js";
 import { BotEngine, BOT_LEVELS } from "./src/bot.js";
 import { BOT_BOOK } from "./src/bot-book.js";
 import { PUZZLE_OPENINGS } from "./src/puzzle-openings.js";
@@ -2540,6 +2547,8 @@ async function fetchChesscomGames(username) {
         title: `${g.white.username} vs ${g.black.username}`,
         subtitle: `${g.time_class} · ${new Date(g.end_time * 1000).toLocaleDateString()}`,
         result,
+        speed: g.time_class,
+        reason: result === "Loss" ? me.result : opp.result,
         pgn: g.pgn,
         orientation: isWhite ? "w" : "b",
         white: g.white.username,
@@ -2552,7 +2561,7 @@ async function fetchChesscomGames(username) {
 async function fetchLichessGames(username) {
   const user = username.trim();
   const res = await fetch(
-    `https://lichess.org/api/games/user/${encodeURIComponent(user)}?max=30&pgnInJson=true&moves=true&opening=false&clocks=false`,
+    `https://lichess.org/api/games/user/${encodeURIComponent(user)}?max=30&pgnInJson=true&moves=true&opening=true&clocks=false`,
     { headers: { Accept: "application/x-ndjson" } },
   );
   if (!res.ok) {
@@ -2592,6 +2601,8 @@ async function fetchLichessGames(username) {
         title: `${wName} vs ${bName}`,
         subtitle: `${g.speed ?? "game"} · ${new Date(g.lastMoveAt ?? g.createdAt).toLocaleDateString()}`,
         result,
+        speed: g.speed,
+        reason: g.status,
         pgn: g.pgn,
         orientation: isWhite ? "w" : "b",
         white: wName,
@@ -2634,6 +2645,249 @@ document
     }
   });
 
+// ---------------------------------------------------------------------------
+// Profile report: results by colour / opening / time control from the fetched
+// games, plus an engine pass (low depth) that measures where the player loses
+// the most (opening / middlegame / endgame). Advice at the end (src/profile.js).
+// ---------------------------------------------------------------------------
+let profileItems = [];
+let profileUser = "";
+let profileRunId = 0;
+let profileRunning = false;
+let profileKey = "";
+
+function setProfileItems(items, username) {
+  profileItems = items.filter((i) => i.orientation);
+  profileUser = username;
+  const box = document.getElementById("profile-report");
+  if (box) box.hidden = true;
+  syncProfileButton();
+}
+
+// The report button works as soon as a username is typed (games are fetched
+// automatically when needed).
+function syncProfileButton() {
+  const btn = document.getElementById("profile-report-btn");
+  const name = document.getElementById("chesscom-username")?.value.trim();
+  if (btn) btn.disabled = !name || profileRunning;
+}
+document
+  .getElementById("chesscom-username")
+  ?.addEventListener("input", syncProfileButton);
+
+function profileNonPawnMaterial(fen) {
+  const board = fen.split(" ")[0];
+  let sum = 0;
+  for (const ch of board) {
+    const v = { n: 3, b: 3, r: 5, q: 9 }[ch.toLowerCase()];
+    if (v) sum += v;
+  }
+  return sum;
+}
+
+// Engine pass over one game; returns the player's own moves with their losses.
+async function profileAnalyseGame(item, depth, isCancelled) {
+  const chess = new Chess();
+  try {
+    chess.loadPgn(item.pgn);
+  } catch {
+    return null;
+  }
+  const san = chess.history();
+  if (san.length < 8) return null;
+  const replay = new Chess();
+  const fens = [replay.fen()];
+  const infos = [];
+  for (const m of san) {
+    const fenBefore = replay.fen();
+    const mv = replay.move(m);
+    infos.push({
+      color: mv.color,
+      fullmove: Number(fenBefore.split(" ")[5]) || 1,
+      npm: profileNonPawnMaterial(fenBefore),
+    });
+    fens.push(replay.fen());
+  }
+  const evals = await Promise.all(
+    fens.map((fen) => {
+      const pos = new Chess(fen);
+      if (pos.isCheckmate())
+        return Promise.resolve({ cp: pos.turn() === "w" ? -3000 : 3000 });
+      if (pos.isDraw()) return Promise.resolve({ cp: 0 });
+      return runEvaluation(fen, depth, isCancelled);
+    }),
+  );
+  if (isCancelled() || evals.some((e) => !e)) return null;
+  const mine = item.orientation === "b" ? "b" : "w";
+  const plies = [];
+  infos.forEach((inf, i) => {
+    if (inf.color !== mine) return;
+    const sign = mine === "w" ? 1 : -1;
+    const loss = Math.max(
+      0,
+      winPercent(sign * evals[i].cp) - winPercent(sign * evals[i + 1].cp),
+    );
+    const cls =
+      loss > 20
+        ? "blunder"
+        : loss > 10
+          ? "mistake"
+          : loss > 5
+            ? "inaccuracy"
+            : "ok";
+    plies.push({ phase: phaseOf(inf.fullmove, inf.npm), loss, cls });
+  });
+  return { plies };
+}
+
+function profileEsc(t) {
+  return String(t).replace(
+    /[&<>"]/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c],
+  );
+}
+
+function renderProfileReport(res, mv, advice) {
+  const box = document.getElementById("profile-report");
+  if (!box) return;
+  const sc = (t) => {
+    const n = t.w + t.d + t.l;
+    return n ? Math.round(((t.w + t.d * 0.5) / n) * 100) : 0;
+  };
+  const wdl = (t) => `${t.w}W ${t.d}D ${t.l}L`;
+  const phaseNames = {
+    opening: "Opening",
+    middlegame: "Middlegame",
+    endgame: "Endgame",
+  };
+  const scoreCls = (p) => (p >= 60 ? "good" : p >= 45 ? "mid" : "bad");
+  const stat = (big, label, sub, p) =>
+    `<div class="pr-card ${p === undefined ? "" : scoreCls(p)}"><b>${big}</b><span class="pr-label">${label}</span><span class="pr-sub">${sub}</span></div>`;
+  const openingTable = (title, list) => `
+    <section class="pr-section">
+      <h4>${title}</h4>
+      <table>
+        <thead><tr><th>Opening</th><th>Games</th><th>W / D / L</th><th>Score</th></tr></thead>
+        <tbody>${
+          list
+            .slice(0, 5)
+            .map(
+              (o) =>
+                `<tr><td>${profileEsc(o.name)}</td><td>${o.games}</td><td>${o.w} / ${o.d} / ${o.l}</td><td class="pr-score ${scoreCls(o.score * 100)}">${Math.round(o.score * 100)}%</td></tr>`,
+            )
+            .join("") || `<tr><td colspan="4">No games</td></tr>`
+        }</tbody>
+      </table>
+    </section>`;
+  const phaseTable = mv
+    ? `<section class="pr-section">
+        <h4>Game phases <small>engine · ${mv.games} games</small></h4>
+        <table>
+          <thead><tr><th>Phase</th><th>Moves</th><th>Accuracy</th><th>Mistakes / game</th></tr></thead>
+          <tbody>${Object.entries(mv.phases)
+            .map(([k, p]) => {
+              const acc = p.moves ? Math.round(moveAccuracy(p.avgLoss)) : null;
+              return `<tr><td>${phaseNames[k]}</td><td>${p.moves}</td><td class="pr-score ${acc === null ? "" : scoreCls(acc - 30)}">${acc === null ? "–" : acc + "%"}</td><td>${p.moves ? p.bigPerGame.toFixed(1) : "–"}</td></tr>`;
+            })
+            .join("")}</tbody>
+        </table>
+      </section>`
+    : "";
+  box.innerHTML = `
+    <h3>Profile report <small>${profileEsc(profileUser)}</small></h3>
+    <div class="pr-cards">
+      ${stat(res.games, "Games", `${res.all.w}W · ${res.all.d}D · ${res.all.l}L`)}
+      ${stat(sc(res.all) + "%", "Score", "overall", sc(res.all))}
+      ${stat(sc(res.byColor.w) + "%", "As White", wdl(res.byColor.w), sc(res.byColor.w))}
+      ${stat(sc(res.byColor.b) + "%", "As Black", wdl(res.byColor.b), sc(res.byColor.b))}
+    </div>
+    ${
+      res.bySpeed.length
+        ? `<section class="pr-section"><h4>Time controls</h4><div class="pr-chips">${res.bySpeed.map((x) => `<span class="pr-chip">${profileEsc(x.name)} <b class="${scoreCls(x.score * 100)}">${Math.round(x.score * 100)}%</b> <i>${x.games} games</i></span>`).join("")}</div></section>`
+        : ""
+    }
+    <div class="pr-grid">
+      ${openingTable("White openings", res.openings.w)}
+      ${openingTable("Black openings", res.openings.b)}
+    </div>
+    ${phaseTable}
+    <section class="pr-section">
+      <h4>What to work on</h4>
+      <ol class="pr-advice">${advice.map((a) => `<li>${profileEsc(a.text)}</li>`).join("")}</ol>
+    </section>`;
+  box.hidden = false;
+}
+
+async function runProfileReport() {
+  const btn = document.getElementById("profile-report-btn");
+  const status = document.getElementById("profile-report-status");
+  const count = Number(document.getElementById("profile-count")?.value) || 0;
+  const username =
+    document.getElementById("chesscom-username")?.value.trim() || "";
+  if (!username) return;
+
+  const runId = ++profileRunId;
+  const isCancelled = () => runId !== profileRunId;
+  profileRunning = true;
+  syncProfileButton();
+
+  try {
+    const source = document.getElementById("analyse-source")?.value;
+    const key = `${source}:${username.toLowerCase()}`;
+    if (!profileItems.length || profileKey !== key) {
+      if (status) status.textContent = "Fetching games…";
+      const items =
+        source === "lichess"
+          ? await fetchLichessGames(username)
+          : await fetchChesscomGames(username);
+      renderAnalyseGamesList(items);
+      analyseGamesStatusEl.textContent = items.length
+        ? `${items.length} games found. Click one to analyse.`
+        : "No games found.";
+      setProfileItems(items, username);
+      profileKey = key;
+    }
+  } catch (e) {
+    if (status) status.textContent = e.message;
+    profileRunning = false;
+    syncProfileButton();
+    return;
+  }
+  if (!profileItems.length) {
+    if (status) status.textContent = "No games found.";
+    profileRunning = false;
+    syncProfileButton();
+    return;
+  }
+
+  const res = summarizeResults(profileItems);
+  let mv = null;
+  const depth = Math.min(reviewDepth(), 10);
+  const pool = profileItems.slice(0, count);
+  const done = [];
+  try {
+    for (let i = 0; i < pool.length; i++) {
+      if (isCancelled()) return;
+      if (status)
+        status.textContent = `Analysing games… ${i + 1}/${pool.length}`;
+      const g = await profileAnalyseGame(pool[i], depth, isCancelled);
+      if (g) done.push(g);
+    }
+    if (done.length) mv = summarizeMoves(done);
+    renderProfileReport(res, mv, buildAdvice(res, mv));
+    if (status) status.textContent = "";
+  } catch (e) {
+    if (status) status.textContent = `Report failed: ${e.message}`;
+  } finally {
+    profileRunning = false;
+    syncProfileButton();
+  }
+}
+
+document
+  .getElementById("profile-report-btn")
+  ?.addEventListener("click", runProfileReport);
+
 async function executeFetchGames() {
   const usernameInput = document.getElementById("chesscom-username");
   const fetchButton = document.getElementById("fetch-chesscom-games");
@@ -2657,6 +2911,8 @@ async function executeFetchGames() {
       : "No games found.";
 
     renderAnalyseGamesList(items);
+    setProfileItems(items, username);
+    profileKey = `${source}:${username.trim().toLowerCase()}`;
   } catch (error) {
     analyseGamesStatusEl.textContent = error.message;
   } finally {

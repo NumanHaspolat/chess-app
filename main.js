@@ -11,6 +11,7 @@ import { EnginePool } from "./src/engine-pool.js";
 import { srsRecord, pickReplySRS, srsSummary, resetSrs } from "./src/srs.js";
 import { initArrows } from "./src/arrows.js";
 import { initAccountUi } from "./src/account-ui.js";
+import { track, initProgress } from "./src/progress.js";
 import {
   openingFamily,
   phaseOf,
@@ -124,6 +125,7 @@ const pgnFileEl = document.getElementById("pgn-file");
 const importRepBtnEl = document.getElementById("btn-import-rep");
 const analysePgnFileEl = document.getElementById("pgn-upload");
 try {
+  initProgress();
   initAccountUi();
 } catch (e) {
   console.warn("[account] init failed", e);
@@ -376,6 +378,11 @@ function renderDrillCompleteOverlay() {
 
   const completed = !!drill && drill.phase === "complete";
   drillCompleteOverlay.hidden = !completed;
+
+  if (completed && !drill.xpAwarded) {
+    drill.xpAwarded = true;
+    track("drill", { mistakes: drill.mistakes ?? 0 });
+  }
 
   if (completed) {
     const correct = drill.correctMoves ?? 0;
@@ -2299,6 +2306,11 @@ async function reviewGame(
     analyseMoveClasses = classes;
   }
 
+  track("review", {
+    id: cacheKey,
+    brilliant: summary[analyseOrientation]?.brilliant || 0,
+  });
+
   renderAnalyseReport({
     totalMoves: total,
     summary,
@@ -2773,14 +2785,14 @@ function renderProfileReport(res, mv, advice) {
   const openingTable = (title, list) => `
     <section class="pr-section">
       <h4>${title}</h4>
-      <table>
-        <thead><tr><th>Opening</th><th>Games</th><th>W / D / L</th><th>Score</th></tr></thead>
+      <table class="pr-open">
+        <thead><tr><th>Opening</th><th><span class="lg">Games</span><span class="sm">G</span></th><th>W/D/L</th><th><span class="lg">Score</span><span class="sm">%</span></th></tr></thead>
         <tbody>${
           list
             .slice(0, 5)
             .map(
               (o) =>
-                `<tr><td>${profileEsc(o.name)}</td><td>${o.games}</td><td>${o.w} / ${o.d} / ${o.l}</td><td class="pr-score ${scoreCls(o.score * 100)}">${Math.round(o.score * 100)}%</td></tr>`,
+                `<tr><td>${profileEsc(o.name)}</td><td>${o.games}</td><td>${o.w}/${o.d}/${o.l}</td><td class="pr-score ${scoreCls(o.score * 100)}">${Math.round(o.score * 100)}%</td></tr>`,
             )
             .join("") || `<tr><td colspan="4">No games</td></tr>`
         }</tbody>
@@ -2789,8 +2801,8 @@ function renderProfileReport(res, mv, advice) {
   const phaseTable = mv
     ? `<section class="pr-section">
         <h4>Game phases <small>engine · ${mv.games} games</small></h4>
-        <table>
-          <thead><tr><th>Phase</th><th>Moves</th><th>Accuracy</th><th>Mistakes / game</th></tr></thead>
+        <table class="pr-phase">
+          <thead><tr><th>Phase</th><th>Moves</th><th><span class="lg">Accuracy</span><span class="sm">Acc.</span></th><th><span class="lg">Mistakes / game</span><span class="sm">Mis/game</span></th></tr></thead>
           <tbody>${Object.entries(mv.phases)
             .map(([k, p]) => {
               const acc = p.moves ? Math.round(moveAccuracy(p.avgLoss)) : null;
@@ -2801,6 +2813,7 @@ function renderProfileReport(res, mv, advice) {
       </section>`
     : "";
   box.innerHTML = `
+    <button type="button" class="pr-close" aria-label="Close report">×</button>
     <h3>Profile report <small>${profileEsc(profileUser)}</small></h3>
     <div class="pr-cards">
       ${stat(res.games, "Games", `${res.all.w}W · ${res.all.d}D · ${res.all.l}L`)}
@@ -2823,6 +2836,9 @@ function renderProfileReport(res, mv, advice) {
       <ol class="pr-advice">${advice.map((a) => `<li>${profileEsc(a.text)}</li>`).join("")}</ol>
     </section>`;
   box.hidden = false;
+  box.querySelector(".pr-close")?.addEventListener("click", () => {
+    box.hidden = true;
+  });
 }
 
 async function runProfileReport() {
@@ -2882,6 +2898,7 @@ async function runProfileReport() {
     }
     if (done.length) mv = summarizeMoves(done);
     renderProfileReport(res, mv, buildAdvice(res, mv));
+    track("profile");
     if (status) status.textContent = "";
   } catch (e) {
     if (status) status.textContent = `Report failed: ${e.message}`;
@@ -3375,6 +3392,7 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
     if (!trainMode && !lesson.learnSessionRecorded) {
       recordLearn(lesson.opening, lesson.variation);
       lesson.learnSessionRecorded = true;
+      track("learn");
       renderProfileProgress();
     }
     const message = document.getElementById("learn-complete-message");
@@ -3499,6 +3517,10 @@ function continueTrain() {
 
     const overlay = document.getElementById("learn-complete-overlay");
     overlay.hidden = true;
+    if (!lesson.trainXpAwarded) {
+      lesson.trainXpAwarded = true;
+      track("train");
+    }
 
     clearTimeout(learnCompleteTimer);
     learnCompleteTimer = setTimeout(() => {
@@ -7064,6 +7086,12 @@ function recordPuzzleResult(won, ratingChange, usedHint = false) {
   localStorage.setItem("azurite-puzzle-history", JSON.stringify(puzzleHistory));
   renderPuzzleHistory();
   recordPuzzleStats(won, usedHint, puzzleRating - ratingBefore);
+  track("puzzle", {
+    won,
+    hint: usedHint,
+    level: currentPuzzle?.levelKey,
+    rating: puzzleRating,
+  });
 }
 
 // ==========================================
@@ -8407,6 +8435,7 @@ function renderDaily() {
   const s = dailySummary();
   const percent = Math.min(100, Math.round((s.today / s.goal) * 100));
   const done = s.today >= s.goal;
+  if (done) track("daily", { streak: s.streak });
 
   const setT = (id, v) => {
     const el = document.getElementById(id);

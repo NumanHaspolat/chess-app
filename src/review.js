@@ -412,6 +412,14 @@ export function sacrificeProfile(
     played++;
     last = mv;
     if (k === 0) out.firstCapture = !!mv.captured;
+    // FIX: For non-capturing moves, first should be 0.
+    // The move itself does not lose material, so no sacrifice can come from it.
+    if (!out.firstCapture) {
+      firstDone = true;
+      out.first = 0;
+      firstLostBag = {};
+      firstGainedBag = {};
+    }
 
     if (mv.captured) {
       const bag = mv.color === color ? gained : lost;

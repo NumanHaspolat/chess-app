@@ -5595,3 +5595,117 @@ main.app#play:has(#learn-panel:not([hidden])) .evaluation {
     height: 20px;
   }
 }
+
+/* ===== Modern navbar (no borders) ===== */
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 500;
+  width: 100%;
+  min-height: 64px;
+  margin: 0 0 12px;
+  padding: 0 max(20px, calc((100% - 1380px) / 2));
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+}
+
+.nav-brand {
+  display: inline-flex;
+  align-items: center;
+  font-size: 1.7rem;
+  letter-spacing: 2px;
+  color: var(--accent-strong);
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+.nav-brand:hover {
+  opacity: 0.85;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.nav-link {
+  position: relative;
+  padding: 9px 14px;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1rem;
+  text-decoration: none;
+  transform: none;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+.nav-link:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.06);
+  transform: none;
+}
+.nav-link.active {
+  color: var(--accent-strong);
+  background: transparent;
+  border: none;
+}
+/* small underline bar under the active page */
+.nav-link.active::after {
+  content: "";
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: 2px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--accent-strong);
+}
+
+@media (max-width: 920px) {
+  .navbar {
+    min-height: 58px;
+    padding: 0 16px;
+    margin-bottom: 8px;
+  }
+  .nav-brand {
+    font-size: 1.5rem;
+    margin-right: 0;
+  }
+  /* dropdown opened by the hamburger */
+  .nav-links {
+    padding: 8px 12px 12px;
+    gap: 2px;
+    border: none;
+    border-radius: 0 0 14px 14px;
+    background: color-mix(in srgb, var(--panel) 98%, transparent);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    box-shadow: 0 18px 32px rgba(0, 0, 0, 0.45);
+  }
+  .nav-link {
+    padding: 12px 14px;
+    font-size: 1rem;
+    text-align: left;
+    white-space: nowrap;
+  }
+  /* active page: accent bar on the left instead of an underline */
+  .nav-link.active::after {
+    left: 0;
+    right: auto;
+    top: 22%;
+    bottom: 22%;
+    width: 3px;
+    height: auto;
+  }
+}

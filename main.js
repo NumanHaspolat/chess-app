@@ -3622,7 +3622,7 @@ boardEl?.addEventListener("pointerdown", (e) => {
 
   if (selectedSquare && legalMoves.some((m) => m.to === name)) {
     const fromSq = selectedSquare;
-    if (pm && pmIsConditionalTarget(turnGame, name, pm.color)) {
+    if (pm && pmIsConditionalTarget(turnGame, name, pm.color, fromSq)) {
       playMove(fromSq, name, "q");
     } else {
       pickPromotion(turnGame, fromSq, name).then((p) => {
@@ -3814,7 +3814,7 @@ function endDrag(e, cancelled = false) {
   if (target && legalMoves.some((m) => m.to === target)) {
     const pc = playPremoveCtx();
     const pg = pc ? pmSim(game, pc.color, pc.list) : game;
-    if (pc && pmIsConditionalTarget(pg || game, target, pc.color)) {
+    if (pc && pmIsConditionalTarget(pg || game, target, pc.color, from)) {
       playMove(from, target, "q", false, false);
     } else {
       pickPromotion(pg || game, from, target).then((p) => {
@@ -4389,44 +4389,85 @@ function pmQueue(list, from, to, promotion) {
   list.push({ from, to, promotion });
 }
 
-// Normal yasal hamlelere ek olarak, hedefte kendi taşımız varsa da
-// o taşın rakip tarafından alınacağı varsayımıyla koşullu premove hedefi üret.
-// Hamle ancak rakibin hamlesinden sonra hedef kare boşalmışsa pmLegal ile oynatılır.
+// Premove hedefleri: taşın GEOMETRİSİNE göre tüm olası kareler (engeller, şah
+// tehdidi ve rakip/kendi taş ayrımı yok). Sıra sana gelince hamle yasal
+// değilse pmLegal ile iptal edilir. Vezir uzak bir kareye, rakip taşı yemek
+// için bile premove yapabilir.
 function pmMoves(g, from) {
-  const moves = g.moves({ square: from, verbose: true });
-  const movingPiece = g.get(from);
-  if (!movingPiece) return moves;
-
-  for (const file of FILES) {
-    for (let rank = 1; rank <= 8; rank++) {
-      const to = `${file}${rank}`;
-      const target = g.get(to);
-      if (!target || target.color !== movingPiece.color || target.type === "k")
-        continue;
-
-      try {
-        const afterVacating = new Chess(g.fen());
-        afterVacating.remove(to);
-        const candidate = afterVacating
-          .moves({ square: from, verbose: true })
-          .find((move) => move.to === to);
-        if (candidate) {
-          moves.push({
-            ...candidate,
-            captured: target.type,
-            premoveConditional: true,
-          });
-        }
-      } catch {}
+  const piece = g.get(from);
+  if (!piece) return [];
+  const fx = FILES.indexOf(from[0]);
+  const fy = Number(from[1]);
+  const out = [];
+  const push = (x, y) => {
+    if (x < 0 || x > 7 || y < 1 || y > 8) return;
+    const to = FILES[x] + y;
+    if (to === from) return;
+    const target = g.get(to);
+    if (target && target.type === "k") return;
+    const m = { color: piece.color, from, to, piece: piece.type };
+    if (target) m.captured = target.type;
+    if (piece.type === "p" && (y === 8 || y === 1)) m.promotion = "q";
+    out.push(m);
+  };
+  const R = [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+  ];
+  const B = [
+    [1, 1],
+    [1, -1],
+    [-1, 1],
+    [-1, -1],
+  ];
+  switch (piece.type) {
+    case "n":
+      for (const [dx, dy] of [
+        [1, 2],
+        [2, 1],
+        [-1, 2],
+        [-2, 1],
+        [1, -2],
+        [2, -1],
+        [-1, -2],
+        [-2, -1],
+      ])
+        push(fx + dx, fy + dy);
+      break;
+    case "k":
+      for (const [dx, dy] of [...R, ...B]) push(fx + dx, fy + dy);
+      if (from === (piece.color === "w" ? "e1" : "e8")) {
+        push(fx + 2, fy);
+        push(fx - 2, fy);
+      }
+      break;
+    case "p": {
+      const dir = piece.color === "w" ? 1 : -1;
+      push(fx, fy + dir);
+      if (fy === (piece.color === "w" ? 2 : 7)) push(fx, fy + 2 * dir);
+      push(fx + 1, fy + dir);
+      push(fx - 1, fy + dir);
+      break;
+    }
+    default: {
+      const dirs =
+        piece.type === "r" ? R : piece.type === "b" ? B : [...R, ...B];
+      for (const [dx, dy] of dirs)
+        for (let k = 1; k < 8; k++) push(fx + dx * k, fy + dy * k);
     }
   }
-
-  return moves;
+  return out;
 }
 
-function pmIsConditionalTarget(g, to, color) {
+// Hedefte kendi taşımız varsa ya da hamle şu an yasal değilse terfi sorusu
+// sorulmaz (vezir varsayılır); hamle premove olarak sıraya girer.
+function pmIsConditionalTarget(g, to, color, from = null) {
   const target = g.get(to);
-  return !!target && target.color === color;
+  if (target && target.color === color) return true;
+  if (!from) return false;
+  return !g.moves({ square: from, verbose: true }).some((m) => m.to === to);
 }
 
 function pmFlipFen(fen, color) {

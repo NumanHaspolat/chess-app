@@ -652,7 +652,7 @@ button:disabled {
   padding: 16px;
   border: 1px solid var(--panel-border);
   border-radius: 10px;
-  background: var(--control);
+  background: var(--panel);
   cursor: pointer;
 }
 
@@ -692,18 +692,37 @@ button:disabled {
 
 .rep-card button:first-of-type {
   background: var(--accent-strong);
-  color: #062b2b;
+  color: var(--panel);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--accent-strong) 60%, transparent);
+  font-weight: 800;
 }
 
 .rep-card.drilling {
-  background: #203b32;
-  box-shadow: 0 0 12px rgba(74, 222, 128, 0.2);
+  background: var(--panel);
+  box-shadow: 0 0 18px rgba(0, 0, 0, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+.rep-card.drilling::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(600px 120px at 50% -20%, color-mix(in srgb, var(--accent-strong) 35%, transparent), transparent 60%);
+  mix-blend-mode: screen;
+  opacity: 0.9;
+  animation: drillGlow 1.8s ease-in-out infinite alternate;
+}
+
+@keyframes drillGlow {
+  from { opacity: 0.6; }
+  to { opacity: 1; }
 }
 
 .rep-card.drilling .rep-card-drill {
-  background: #c1f6ff;
-  color: #14251b;
-  border-color: #008fa8;
+  background: var(--accent-strong);
+  color: var(--panel);
+  border-color: var(--accent);
 }
 
 .import-rep-btn {
@@ -740,14 +759,17 @@ button:disabled {
 }
 
 .drill-action {
-  border-color: var(--accent-strong);
+  border-color: var(--panel-border);
+  background: var(--panel);
+  color: var(--text);
 }
 
 .drill-alternatives {
   margin: 16px 0 12px;
   padding: 12px;
-  border: 1px solid #35e6c2;
+  border: 1px solid var(--panel-border);
   border-radius: 8px;
+  background: var(--panel);
 }
 
 .drill-alternatives h3 {
@@ -798,9 +820,9 @@ button:disabled {
   max-width: 340px;
   padding: 28px 22px;
   text-align: center;
-  background: #202a35;
-  color: #fff;
-  border: 1px solid #607080;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--panel-border);
   border-radius: 12px;
   box-shadow: 0 12px 35px rgba(0, 0, 0, 0.4);
   animation: cardPopIn 300ms cubic-bezier(0.2, 0.8, 0.2, 1);
@@ -825,10 +847,10 @@ button:disabled {
 }
 
 .drill-accuracy {
-  color: #00f7ff;
+  color: var(--accent-strong);
 }
 .drill-mistakes {
-  color: #f87171;
+  color: var(--text-muted);
   font-weight: 700;
 }
 
@@ -4299,7 +4321,7 @@ main.app#play:has(#learn-panel:not([hidden])) .evaluation {
   color: var(--accent-strong);
 }
 .bot-result-card.loss h2 {
-  color: #ff8f8f;
+  color: var(--text-muted);
 }
 .bot-result-card.draw h2 {
   color: var(--text-muted);

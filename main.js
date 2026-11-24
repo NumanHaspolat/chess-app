@@ -1737,6 +1737,7 @@ function renderAnalyseOpening() {
   const sanMoves = analyseGame.history();
   if (sanMoves.length === 0) {
     el.textContent = analyseHistory.length ? "Starting position" : "";
+    el.classList.add("dim");
     return;
   }
   const hit = openingBook.find(sanMoves, Chess);
@@ -1745,7 +1746,7 @@ function renderAnalyseOpening() {
     el.classList.add("dim");
     return;
   }
-  el.textContent = `${hit.eco} · ${hit.name}`;
+  el.innerHTML = `<span class="eco">${hit.eco}</span> <span class="name">${hit.name}</span>`;
 }
 
 function renderAnalyseMoves() {
@@ -5501,6 +5502,7 @@ function renderRepertoireOpening(position) {
   const sanMoves = position.history();
   if (sanMoves.length === 0) {
     repOpeningEl.textContent = "Starting position";
+    repOpeningEl.classList.add("dim");
     return;
   }
 
@@ -5511,7 +5513,7 @@ function renderRepertoireOpening(position) {
     return;
   }
 
-  repOpeningEl.textContent = `${hit.eco} · ${hit.name}`;
+  repOpeningEl.innerHTML = `<span class="eco">${hit.eco}</span> <span class="name">${hit.name}</span>`;
 }
 
 function renderOpening() {
@@ -5526,6 +5528,7 @@ function renderOpening() {
   const sanMoves = view.history();
   if (sanMoves.length === 0) {
     openingEl.textContent = "Starting position";
+    openingEl.classList.add("dim");
     return;
   }
 
@@ -5536,7 +5539,7 @@ function renderOpening() {
     return;
   }
 
-  openingEl.textContent = `${hit.eco} · ${hit.name}`;
+  openingEl.innerHTML = `<span class="eco">${hit.eco}</span> <span class="name">${hit.name}</span>`;
 }
 
 fetch("./assets/openings.json")

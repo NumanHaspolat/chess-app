@@ -63,13 +63,13 @@ function centerOf(el) {
 function particle(
   cx,
   cy,
-  { size, dist, dur, gravity = 0, plus = false, spin = 0 },
+  { size, dist, dur, gravity = 0, plus = false, spin = 0, colors = COLORS },
 ) {
   const a = rnd(0, Math.PI * 2);
   const d = rnd(dist * 0.45, dist);
   const dx = Math.cos(a) * d;
   const dy = Math.sin(a) * d;
-  const color = pick(COLORS);
+  const color = pick(colors);
   spawn(
     {
       left: `${cx - size / 2}px`,
@@ -101,6 +101,12 @@ function particle(
 export function captureBurst(squareEl) {
   if (!squareEl || REDUCED) return;
   const { x, y, w } = centerOf(squareEl);
+  // Tema rengini CSS değişkenlerinden oku (yesil temada yesil, mavi temada mavi, vb.)
+  const root = getComputedStyle(document.documentElement);
+  const accent = root.getPropertyValue("--accent").trim() || "#3fdef3";
+  const accentStrong = root.getPropertyValue("--accent-strong").trim() || "#b8f7ff";
+  // Partikul paleti: tema acik-koyu renkleri + beyaz parlamalar
+  const burstColors = [accent, accentStrong, "#ffffff", root.getPropertyValue("--text-muted").trim() || "#7fa9ae"];
   // flash on the square
   spawn(
     {
@@ -108,7 +114,7 @@ export function captureBurst(squareEl) {
       top: `${y - w / 2}px`,
       width: `${w}px`,
       height: `${w}px`,
-      background: "rgba(63,222,243,.55)",
+      background: `${accent}88`, // %55 opaklik
     },
     [{ opacity: 1 }, { opacity: 0 }],
     { duration: 260, easing: "ease-out" },
@@ -120,7 +126,7 @@ export function captureBurst(squareEl) {
       top: `${y - w * 0.3}px`,
       width: `${w * 0.6}px`,
       height: `${w * 0.6}px`,
-      border: "3px solid #b8f7ff",
+      border: `3px solid ${accentStrong}`,
     },
     [
       { transform: "scale(.6)", opacity: 0.95 },
@@ -136,6 +142,7 @@ export function captureBurst(squareEl) {
       dur: rnd(450, 700),
       gravity: rnd(8, 26),
       spin: rnd(-90, 90),
+      colors: burstColors,
     });
   }
 }

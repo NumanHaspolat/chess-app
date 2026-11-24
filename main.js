@@ -50,7 +50,7 @@ import {
   animTransition,
   pickPromotion,
   isPromotionMove,
-  playSound,
+  playSound as rawPlaySound,
   effectiveVolume,
   ENGINE_DEPTH_DEFAULT,
   reviewDepth,
@@ -124,6 +124,32 @@ const openingEl = document.getElementById("opening");
 const pgnFileEl = document.getElementById("pgn-file");
 const importRepBtnEl = document.getElementById("btn-import-rep");
 const analysePgnFileEl = document.getElementById("pgn-upload");
+import {
+  captureBurst,
+  brilliantFx,
+  lastMoveTarget,
+  visibleBoard,
+} from "./src/fx.js";
+
+// Sound + matching visual effect (capture burst / brilliant celebration).
+let fxMuted = false;
+function playSound(name, volume) {
+  rawPlaySound(name, volume);
+  if (fxMuted) return;
+  if (name === "capture") {
+    setTimeout(() => {
+      const board = visibleBoard();
+      const square = lastMoveTarget(board);
+      if (square) captureBurst(square);
+    }, 70);
+  } else if (name === "brilliant") {
+    setTimeout(() => {
+      const board = document.getElementById("analyse-board");
+      brilliantFx(board, lastMoveTarget(board));
+    }, 180);
+  }
+}
+
 try {
   initProgress();
   initAccountUi();
@@ -1787,7 +1813,9 @@ function goToAnalysePly(ply, animate = true) {
     const undone = analyseGame.move(analyseHistory[ply]);
     analyseGame.undo();
     animation = { from: undone.to, to: undone.from };
+    fxMuted = true;
     playSoundForMove(undone);
+    fxMuted = false;
   }
 
   // Hamle listesinden/grafikten atlayınca da brilliant hamleye gelince özel ses
@@ -2802,7 +2830,7 @@ function renderProfileReport(res, mv, advice) {
     ? `<section class="pr-section">
         <h4>Game phases <small>engine · ${mv.games} games</small></h4>
         <table class="pr-phase">
-          <thead><tr><th>Phase</th><th>Moves</th><th><span class="lg">Accuracy</span><span class="sm">Acc.</span></th><th><span class="lg">Mistakes / game</span><span class="sm">Mis/game</span></th></tr></thead>
+          <thead><tr><th>Phase</th><th>Moves</th><th><span class="lg">Accuracy</span><span class="sm">Acc.</span></th><th><span class="lg">Mistakes / game</span><span class="sm">Err/game</span></th></tr></thead>
           <tbody>${Object.entries(mv.phases)
             .map(([k, p]) => {
               const acc = p.moves ? Math.round(moveAccuracy(p.avgLoss)) : null;
@@ -7992,6 +8020,7 @@ const navLinks = document.querySelectorAll(".nav-link");
 const brandLink = document.querySelector(".nav-brand");
 
 const pages = {
+  home: document.querySelector("#home"),
   play: document.querySelector("#play"),
   analyse: document.querySelector("#analyse"),
   puzzles: document.querySelector("#puzzles"),
@@ -8031,7 +8060,46 @@ function showPage(pageName) {
   if (pageName === "repertoire") updateRepertoirePage();
   if (pageName === "profile") renderProfileProgress();
   if (pageName === "puzzles") initPuzzle();
+  if (pageName === "home") renderHome();
+  window.scrollTo(0, 0);
 }
+
+// ---------- Home page ----------
+function renderHome() {
+  const set = (id, v) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = v;
+  };
+  let xp = 0;
+  try {
+    xp = Math.max(
+      0,
+      Number(JSON.parse(localStorage.getItem("azurite-xp"))) || 0,
+    );
+  } catch {}
+  const level = Math.floor(Math.sqrt(xp / 100)) + 1;
+  const base = 100 * (level - 1) ** 2;
+  const next = 100 * level ** 2;
+  set("home-level", level);
+  set("home-xp-text", `${xp} / ${next} XP`);
+  const fill = document.getElementById("home-xp-fill");
+  if (fill)
+    fill.style.width = `${Math.min(100, ((xp - base) / (next - base)) * 100)}%`;
+
+  const s = dailySummary();
+  set("home-streak", s.streak);
+  set("home-goal", `Daily goal ${Math.min(s.today, 999)} / ${s.goal}`);
+  set("home-rating", puzzleRating);
+  set("home-rating-sub", s.today >= s.goal ? "Goal complete today" : "");
+}
+
+document.querySelectorAll("[data-go]").forEach((el) =>
+  el.addEventListener("click", () => {
+    const page = el.dataset.go;
+    showPage(page);
+    history.replaceState(null, "", `#${page}`);
+  }),
+);
 
 navLinks.forEach((link) => {
   link.addEventListener("click", (event) => {
@@ -8044,9 +8112,15 @@ navLinks.forEach((link) => {
 
 brandLink?.addEventListener("click", (event) => {
   event.preventDefault();
-  showPage("play");
-  history.replaceState(null, "", "#play");
+  showPage("home");
+  history.replaceState(null, "", "#home");
 });
+
+// Landing page: open the page from the address (#play, #analyse ...) or Home.
+{
+  const start = location.hash.slice(1);
+  showPage(pages[start] || start === "bot" ? start : "home");
+}
 
 document
   .getElementById("learn-variation-select")

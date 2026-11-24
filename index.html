@@ -81,7 +81,84 @@
       </div>
     </div>
 
-    <main class="app" id="play">
+    <section id="home" class="page-section home" hidden>
+      <div class="home-hero">
+        <div class="home-hero-text">
+          <h1 class="home-title">CXESS</h1>
+          <p class="home-tagline">Train. Analyse. Get better.</p>
+          <p class="home-sub">
+            Puzzles, openings, your own games and a Stockfish coach, all in one
+            place.
+          </p>
+          <div class="home-actions">
+            <button type="button" class="home-primary" data-go="puzzles">
+              Solve a puzzle
+            </button>
+            <button type="button" data-go="play">Play</button>
+            <button type="button" data-go="analyse">Analyse my games</button>
+          </div>
+        </div>
+        <div class="home-art" aria-hidden="true">
+          <div class="home-board">
+            <img class="home-piece p1" src="./assets/pieces/wN.png" alt="" />
+            <img class="home-piece p2" src="./assets/pieces/bQ.png" alt="" />
+            <img class="home-piece p3" src="./assets/pieces/wK.png" alt="" />
+            <img class="home-piece p4" src="./assets/pieces/bR.png" alt="" />
+          </div>
+        </div>
+      </div>
+
+      <div class="home-stats">
+        <div class="home-stat">
+          <span>Level</span><strong id="home-level">1</strong>
+          <div class="home-xp"><div id="home-xp-fill"></div></div>
+          <small id="home-xp-text">0 XP</small>
+        </div>
+        <div class="home-stat">
+          <span>Day streak</span><strong id="home-streak">0</strong>
+          <small id="home-goal">Daily goal 0 / 5</small>
+        </div>
+        <div class="home-stat">
+          <span>Puzzle rating</span><strong id="home-rating">1500</strong>
+          <small id="home-rating-sub"></small>
+        </div>
+      </div>
+
+      <div class="home-cards">
+        <button type="button" class="home-card" data-go="bot">
+          <img src="./assets/pieces/wP.png" alt="" />
+          <strong>Vs Computer</strong>
+          <span>Play Stockfish at any strength.</span>
+        </button>
+        <button type="button" class="home-card" data-go="analyse">
+          <img src="./assets/pieces/wB.png" alt="" />
+          <strong>Analyse</strong>
+          <span>Review your games from Chess.com or Lichess.</span>
+        </button>
+        <button type="button" class="home-card" data-go="puzzles">
+          <img src="./assets/pieces/wN.png" alt="" />
+          <strong>Puzzles</strong>
+          <span>Train tactics and build a streak.</span>
+        </button>
+        <button type="button" class="home-card" data-go="openings">
+          <img src="./assets/pieces/wR.png" alt="" />
+          <strong>Openings</strong>
+          <span>Learn and train the main lines.</span>
+        </button>
+        <button type="button" class="home-card" data-go="repertoire">
+          <img src="./assets/pieces/wQ.png" alt="" />
+          <strong>My Repertoire</strong>
+          <span>Build your own lines and drill them.</span>
+        </button>
+        <button type="button" class="home-card" data-go="profile">
+          <img src="./assets/pieces/wK.png" alt="" />
+          <strong>Profile</strong>
+          <span>Level, achievements and settings.</span>
+        </button>
+      </div>
+    </section>
+
+    <main class="app" id="play" hidden>
       <section class="board-section">
         <div class="board-wrap">
           <div id="strip-top" class="strip"></div>

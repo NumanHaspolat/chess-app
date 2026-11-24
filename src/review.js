@@ -455,9 +455,13 @@ export function sacrificeProfile(
 
   out.lostMax = Math.max(0, ...Object.keys(peakLost).map((t) => PIECE_VAL[t]));
   out.lostAny = Math.max(0, ...Object.keys(lost).map((t) => PIECE_VAL[t]));
+  // Only pieces lost WITHOUT a same-type piece taken back count: a rook traded
+  // for a rook plus a lost pawn is a pawn sacrifice, not a piece sacrifice.
   out.firstLost = Math.max(
     0,
-    ...Object.keys(firstLostBag).map((t) => PIECE_VAL[t]),
+    ...Object.keys(firstLostBag)
+      .filter((t) => (firstLostBag[t] || 0) > (firstGainedBag[t] || 0))
+      .map((t) => PIECE_VAL[t]),
   );
   const lostKeys = Object.keys(firstLostBag);
   const gainedKeys = Object.keys(firstGainedBag);

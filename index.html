@@ -260,7 +260,25 @@
       </section>
 
       <section id="analysis-panel" class="analysis-panel" hidden>
-        <h2>Analysis</h2>
+        <div class="analysis-header">
+          <h2>Analysis</h2>
+          <div class="analysis-arrow-controls" id="play-arrow-controls">
+            <button
+              type="button"
+              class="analysis-arrow-toggle active"
+              data-role="arrow-toggle"
+              aria-pressed="true"
+            >
+              Arrows: On
+            </button>
+            <div class="analysis-arrow-counts" data-role="arrow-counts">
+              <button type="button" data-count="1">1</button>
+              <button type="button" data-count="3">3</button>
+              <button type="button" data-count="5">5</button>
+              <button type="button" data-count="7" class="active">7</button>
+            </div>
+          </div>
+        </div>
         <div id="analysis-status">Waiting for analysis...</div>
         <div id="analysis-lines"></div>
       </section>
@@ -479,7 +497,25 @@
 
       <!-- SAĞ SÜTUN: STOCKFISH ANALYSIS -->
       <section id="analyse-analysis-panel" class="analysis-panel">
-        <h2>Analysis</h2>
+        <div class="analysis-header">
+          <h2>Analysis</h2>
+          <div class="analysis-arrow-controls" id="analyse-arrow-controls">
+            <button
+              type="button"
+              class="analysis-arrow-toggle active"
+              data-role="arrow-toggle"
+              aria-pressed="true"
+            >
+              Arrows: On
+            </button>
+            <div class="analysis-arrow-counts" data-role="arrow-counts">
+              <button type="button" data-count="1">1</button>
+              <button type="button" data-count="3">3</button>
+              <button type="button" data-count="5">5</button>
+              <button type="button" data-count="7" class="active">7</button>
+            </div>
+          </div>
+        </div>
 
         <div id="analyse-analysis-status">Waiting for analysis...</div>
 

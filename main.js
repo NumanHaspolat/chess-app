@@ -341,6 +341,7 @@ function renderAnalysisLines(lines) {
 
     analysisLinesEl.appendChild(row);
   });
+  syncAnalysisArrows();
 }
 
 function renderAnalyseAnalysisLines(lines) {
@@ -398,6 +399,7 @@ function renderAnalyseAnalysisLines(lines) {
 
     analyseAnalysisLinesEl.appendChild(row);
   });
+  syncAnalysisArrows();
 }
 
 let favoriteOpenings = new Set(
@@ -8769,3 +8771,272 @@ initArrows(repBoardEl, {
   getOrientation: () => repOrientation,
   getKey: () => `${(drill ? drillGame : repertoireGame).fen()}|${repViewPly}`,
 });
+
+// ---------- Sağ üstte sabit 4 kutu (1, 3, 5, 7) - Play & Analyse ----------
+document
+  .querySelectorAll(".analysis-arrow-controls, .top-right-arrow-widget")
+  .forEach((el) => el.remove());
+
+const ANALYSIS_ARROWS_KEY = "azurite-analysis-arrows";
+const ANALYSIS_ARROW_COUNTS = [1, 3, 5, 7];
+
+const analysisArrowState = (() => {
+  const saved = readJson(ANALYSIS_ARROWS_KEY, {});
+  return {
+    active: saved.active !== false,
+    count: ANALYSIS_ARROW_COUNTS.includes(Number(saved.count))
+      ? Number(saved.count)
+      : 7,
+  };
+})();
+
+let playArrowsSvg = null;
+let analyseArrowsSvg = null;
+
+function ensureAnalysisArrowSvg(targetBoardEl, currentSvg) {
+  if (!targetBoardEl) return null;
+  if (!currentSvg) {
+    currentSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    currentSvg.setAttribute("class", "board-arrows engine-best-arrows");
+    currentSvg.setAttribute("viewBox", "0 0 8 8");
+    currentSvg.setAttribute("aria-hidden", "true");
+    currentSvg.style.zIndex = "5";
+  }
+  if (currentSvg.parentNode !== targetBoardEl) {
+    targetBoardEl.appendChild(currentSvg);
+  }
+  return currentSvg;
+}
+
+function squareToArrowCenter(sq, boardOrientation) {
+  const fileIdx = "abcdefgh".indexOf(sq[0]);
+  const rankIdx = Number(sq[1]) - 1;
+  const whiteBottom = boardOrientation === "w";
+  return {
+    x: (whiteBottom ? fileIdx : 7 - fileIdx) + 0.5,
+    y: (whiteBottom ? 7 - rankIdx : rankIdx) + 0.5,
+  };
+}
+
+function createEngineArrowEl(fromSq, toSq, boardOrientation, opacity) {
+  const ns = "http://www.w3.org/2000/svg";
+  const p1 = squareToArrowCenter(fromSq, boardOrientation);
+  const p2 = squareToArrowCenter(toSq, boardOrientation);
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+  const len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len;
+  const uy = dy / len;
+  const headLen = 0.42;
+  const headHalfWidth = 0.26;
+  const tipX = p2.x - ux * 0.08;
+  const tipY = p2.y - uy * 0.08;
+  const baseX = tipX - ux * headLen;
+  const baseY = tipY - uy * headLen;
+  const stroke = "var(--arrow-color, var(--accent-strong))";
+
+  const g = document.createElementNS(ns, "g");
+  g.setAttribute("opacity", opacity.toFixed(2));
+
+  const line = document.createElementNS(ns, "line");
+  line.setAttribute("x1", p1.x + ux * 0.2);
+  line.setAttribute("y1", p1.y + uy * 0.2);
+  line.setAttribute("x2", baseX + ux * 0.02);
+  line.setAttribute("y2", baseY + uy * 0.02);
+  line.setAttribute("stroke", stroke);
+  line.setAttribute("stroke-width", "0.17");
+
+  const head = document.createElementNS(ns, "polygon");
+  head.setAttribute(
+    "points",
+    `${tipX},${tipY} ${baseX - uy * headHalfWidth},${baseY + ux * headHalfWidth} ${baseX + uy * headHalfWidth},${baseY - ux * headHalfWidth}`,
+  );
+  head.setAttribute("fill", stroke);
+
+  g.append(line, head);
+  return g;
+}
+
+function getEngineArrowOpacity(rankIndex, total) {
+  return total <= 1 ? 1 : 1 - (rankIndex / total) * 0.8;
+}
+
+function renderPanelArrowsForBoard({
+  boardElement,
+  svgRefSetter,
+  getSvg,
+  boardOrientation,
+  targetFen,
+  enabledContext,
+}) {
+  const svg = ensureAnalysisArrowSvg(boardElement, getSvg());
+  svgRefSetter(svg);
+  if (!svg) return;
+  svg.replaceChildren();
+
+  if (!analysisArrowState.active || !enabledContext || !targetFen) return;
+
+  const lines = [1, 2, 3, 4, 5, 6, 7]
+    .map((rank) => analysisLinesByRank.get(rank))
+    .filter((entry) => entry && entry.fen === targetFen && entry.pv?.[0])
+    .slice(0, analysisArrowState.count);
+
+  for (let i = lines.length - 1; i >= 0; i--) {
+    const uci = lines[i].pv[0];
+    if (uci.length < 4) continue;
+    svg.appendChild(
+      createEngineArrowEl(
+        uci.slice(0, 2),
+        uci.slice(2, 4),
+        boardOrientation,
+        getEngineArrowOpacity(i, lines.length),
+      ),
+    );
+  }
+}
+
+function syncAnalysisArrows() {
+  const playActive =
+    !document.querySelector("#play")?.hidden &&
+    !lesson &&
+    !trainMode &&
+    !botPageOpen;
+  renderPanelArrowsForBoard({
+    boardElement: boardEl,
+    svgRefSetter: (s) => (playArrowsSvg = s),
+    getSvg: () => playArrowsSvg,
+    boardOrientation: orientation,
+    targetFen: view?.fen?.(),
+    enabledContext: playActive && requestedEvaluationTarget === "play",
+  });
+
+  const analyseActive = !document.querySelector("#analyse")?.hidden;
+  renderPanelArrowsForBoard({
+    boardElement: analyseBoardEl,
+    svgRefSetter: (s) => (analyseArrowsSvg = s),
+    getSvg: () => analyseArrowsSvg,
+    boardOrientation: analyseOrientation,
+    targetFen: analyseGame?.fen?.(),
+    enabledContext: analyseActive && requestedEvaluationTarget === "analyse",
+  });
+}
+
+function getAnalyseSectionContainer() {
+  if (!analyseAnalysisLinesEl) return null;
+  let cur = analyseAnalysisLinesEl.parentElement;
+  while (cur && cur !== document.body) {
+    if (cur.querySelector("h2, h3, h4, .analysis-title")) {
+      return cur;
+    }
+    cur = cur.parentElement;
+  }
+  return analyseAnalysisLinesEl.parentElement;
+}
+
+function findAnalysisHeadingRow(panelEl) {
+  if (!panelEl) return null;
+  const existing = panelEl.querySelector(".analysis-header-row");
+  if (existing) return existing;
+
+  const heading = panelEl.querySelector("h2, h3, h4, .analysis-title");
+  const row = document.createElement("div");
+  row.className = "analysis-header-row";
+
+  if (heading && heading.parentNode) {
+    heading.parentNode.insertBefore(row, heading);
+    row.appendChild(heading);
+  } else {
+    panelEl.prepend(row);
+  }
+  return row;
+}
+
+function ensureArrowBoxesInPanel(panelEl) {
+  const row = findAnalysisHeadingRow(panelEl);
+  if (!row) return null;
+
+  let strip = row.querySelector(".analysis-arrow-strip");
+  if (strip) return strip;
+
+  strip = document.createElement("div");
+  strip.className = "analysis-arrow-strip";
+
+  for (const n of ANALYSIS_ARROW_COUNTS) {
+    const box = document.createElement("button");
+    box.type = "button";
+    box.className = "analysis-arrow-box";
+    box.dataset.count = String(n);
+    box.textContent = String(n);
+
+    box.addEventListener("click", () => {
+      if (analysisArrowState.active && analysisArrowState.count === n) {
+        analysisArrowState.active = false;
+      } else {
+        analysisArrowState.count = n;
+        analysisArrowState.active = true;
+      }
+      writeJson(ANALYSIS_ARROWS_KEY, analysisArrowState);
+      syncArrowBoxesUI();
+      syncAnalysisArrows();
+    });
+
+    strip.appendChild(box);
+  }
+
+  row.appendChild(strip);
+  return strip;
+}
+
+function syncArrowBoxesUI() {
+  document
+    .querySelectorAll(".analysis-arrow-controls, .top-right-arrow-widget")
+    .forEach((el) => el.remove());
+
+  const playPanel = document.getElementById("analysis-panel");
+  const analysePanel = getAnalyseSectionContainer();
+
+  [playPanel, analysePanel].filter(Boolean).forEach((panel) => {
+    const strip = ensureArrowBoxesInPanel(panel);
+    if (!strip) return;
+    strip.querySelectorAll(".analysis-arrow-box").forEach((box) => {
+      const boxCount = Number(box.dataset.count);
+      const isSelected =
+        analysisArrowState.active && boxCount === analysisArrowState.count;
+      box.classList.toggle("is-active", isSelected);
+      box.setAttribute("aria-pressed", String(isSelected));
+    });
+  });
+}
+
+if (boardEl) {
+  new MutationObserver(() => {
+    if (playArrowsSvg && playArrowsSvg.parentNode !== boardEl) {
+      ensureAnalysisArrowSvg(boardEl, playArrowsSvg);
+      syncAnalysisArrows();
+    }
+  }).observe(boardEl, { childList: true });
+}
+
+if (analyseBoardEl) {
+  new MutationObserver(() => {
+    if (analyseArrowsSvg && analyseArrowsSvg.parentNode !== analyseBoardEl) {
+      ensureAnalysisArrowSvg(analyseBoardEl, analyseArrowsSvg);
+      syncAnalysisArrows();
+    }
+  }).observe(analyseBoardEl, { childList: true });
+}
+
+// Analyse bölümüne geçildiğinde veya rapor açıldığında kutuların hazır olmasını sağla
+document
+  .querySelectorAll('a[href="#analyse"], [data-go="analyse"]')
+  .forEach((el) => {
+    el.addEventListener("click", () => {
+      requestAnimationFrame(() => {
+        syncArrowBoxesUI();
+        syncAnalysisArrows();
+      });
+    });
+  });
+
+syncArrowBoxesUI();
+syncAnalysisArrows();

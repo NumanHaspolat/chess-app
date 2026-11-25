@@ -507,6 +507,7 @@ egg(
 egg("cloud", "☁", "Cloud Nine", "Sign in to sync your progress", false);
 egg("safe", "⛨", "Better Safe", "Export a backup of your data", false);
 // secrets
+egg("heart", "♥", "Spread the Love", "Click the heart in the footer", false);
 egg("konami", "↑", "Old School", "Enter a famous cheat code");
 egg("brand", "♔", "Knock Knock", "Be really, really fond of the logo");
 egg(
@@ -734,6 +735,19 @@ function handle(event, d) {
   renderLevel();
   renderAchievements();
   window.dispatchEvent(new Event("cxess:progress"));
+  window.dispatchEvent(
+    new CustomEvent("cxess:event", {
+      detail: {
+        event,
+        d,
+        run: s.c.run,
+        levelUp:
+          after > before && !quiet
+            ? { level: after, title: titleFor(after) }
+            : null,
+      },
+    }),
+  );
 
   if (quiet && !gains.length) return;
   const total = gains.reduce((a, g) => a + g[0], 0);

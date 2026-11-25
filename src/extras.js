@@ -4,6 +4,7 @@
 // any progress change ("cxess:progress" event).
 import { snapshot, track } from "./progress.js";
 import { sparkleAt, confetti } from "./fx.js";
+import { initDelight } from "./delight.js";
 
 let provider = {
   daily: () => ({ streak: 0, today: 0, goal: 5 }),
@@ -299,6 +300,7 @@ export function initExtras(p = {}) {
     renderHomeExtras();
     renderProfileHero();
   });
+  initDelight({ daily: () => provider.daily() });
   track("visit");
   renderHomeExtras();
   renderProfileHero();

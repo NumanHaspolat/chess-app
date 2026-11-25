@@ -6504,3 +6504,260 @@ main.app#play:has(#learn-panel:not([hidden])) .evaluation {
     padding-top: 22px;
   }
 }
+
+/* ===== Delight: small touches everywhere ===== */
+::selection {
+  background: color-mix(in srgb, var(--accent-strong) 45%, transparent);
+  color: #fff;
+}
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--control-hover) transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--control-hover);
+  border-radius: 99px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent-strong);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* pixel "press" feel on every button */
+button:not(:disabled):active {
+  transform: translateY(2px);
+}
+button {
+  transition:
+    background 0.15s,
+    border-color 0.15s,
+    transform 0.08s,
+    box-shadow 0.15s;
+}
+
+/* pages fade in (opacity only, so fixed children and drag stay correct) */
+.app:not([hidden]),
+.page-section:not([hidden]) {
+  animation: pageIn 0.3s ease-out;
+}
+@keyframes pageIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* squares react to the cursor */
+@media (hover: hover) {
+  .square:hover {
+    filter: brightness(1.1);
+  }
+}
+
+/* friendly empty states */
+.moves:empty::before {
+  content: "Your moves will appear here.";
+  display: block;
+  padding: 8px 4px;
+  color: var(--text-muted);
+  opacity: 0.6;
+  font-size: 0.95rem;
+}
+#analyse-games-list:empty::before {
+  content: "Fetch your games or upload a PGN. Your best moves are waiting.";
+  color: var(--text-muted);
+  opacity: 0.7;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+#rep-library:empty::before {
+  content: "No repertoire yet. Create one and make it yours.";
+  color: var(--text-muted);
+  opacity: 0.7;
+  font-size: 0.9rem;
+}
+#puzzle-history-grid:empty::before {
+  content: "Your last puzzles show up here.";
+  grid-column: 1 / -1;
+  color: var(--text-muted);
+  opacity: 0.7;
+  font-size: 0.85rem;
+}
+
+/* floating cheers */
+.cheer {
+  position: fixed;
+  z-index: 9997;
+  pointer-events: none;
+  white-space: nowrap;
+  font-family: var(--font-pixel);
+  font-size: 1.9rem;
+  transform: translate(-50%, 0);
+  color: var(--accent-strong);
+  text-shadow:
+    0 3px 0 rgba(0, 0, 0, 0.45),
+    0 0 18px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+.cheer-soft {
+  font-size: 1.15rem;
+  color: var(--text);
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.5);
+}
+@media (max-width: 520px) {
+  .cheer {
+    font-size: 1.4rem;
+  }
+}
+
+/* LEVEL UP banner */
+.lvl-banner {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 12, 16, 0.55);
+  cursor: pointer;
+  animation: lvlFade 0.25s ease-out;
+}
+.lvl-banner.leaving {
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+.lvl-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 26px 46px;
+  text-align: center;
+  border-radius: 16px;
+  background: var(--panel);
+  border: 2px solid var(--accent-strong);
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--accent) 25%, transparent),
+    0 0 60px color-mix(in srgb, var(--accent) 45%, transparent);
+  animation: lvlPop 0.5s cubic-bezier(0.2, 1.3, 0.4, 1);
+}
+.lvl-glyph {
+  font-size: 3.4rem;
+  line-height: 1;
+  color: var(--accent-strong);
+  text-shadow: 0 0 22px var(--accent);
+}
+.lvl-box small {
+  color: var(--accent);
+  letter-spacing: 4px;
+}
+.lvl-box strong {
+  font-size: 2.4rem;
+  font-weight: 400;
+  color: var(--text);
+}
+.lvl-box span {
+  color: var(--accent-strong);
+  font-size: 1.1rem;
+}
+@keyframes lvlFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes lvlPop {
+  from {
+    transform: scale(0.5) translateY(30px);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lvl-box,
+  .lvl-banner,
+  .app:not([hidden]),
+  .page-section:not([hidden]) {
+    animation: none;
+  }
+  .heart.beat {
+    animation: none;
+  }
+}
+
+/* footer */
+.site-footer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  margin: 28px auto 24px;
+  padding: 14px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  border-top: 1px solid color-mix(in srgb, var(--panel-border) 60%, transparent);
+  width: min(1100px, calc(100% - 40px));
+}
+.site-footer .dot {
+  opacity: 0.5;
+}
+.heart {
+  padding: 0 2px;
+  border: none;
+  background: none;
+  color: #ff6b8a;
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+  animation: heartIdle 2.4s ease-in-out infinite;
+}
+.heart:hover {
+  background: none;
+  border: none;
+  transform: scale(1.25);
+}
+.heart.beat {
+  animation: heartBeat 0.45s ease-out;
+}
+@keyframes heartIdle {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+}
+@keyframes heartBeat {
+  0% {
+    transform: scale(1);
+  }
+  40% {
+    transform: scale(1.7);
+  }
+  100% {
+    transform: scale(1);
+  }
+}

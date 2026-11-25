@@ -389,7 +389,7 @@ ladder(
   "visitDays",
   [3, 7, 30, 100],
   ["Familiar Face", "Regular Visitor", "Part of the Furniture", "Resident"],
-  (n) => `Visit Chexel on ${n} different days`,
+  (n) => `Visit Chexx on ${n} different days`,
   "Days Visited",
 );
 ladder(
@@ -523,14 +523,14 @@ egg(
   "Type the name of the World Champion who retired the crown",
 );
 egg("mate", "✓", "Say It Out Loud", "Announce the end of the game");
-egg("blackcat", "☾", "Black Cat", "Open Chexel on Friday the 13th");
+egg("blackcat", "☾", "Black Cat", "Open Chexx on Friday the 13th");
 egg(
   "chessday",
   "♞",
   "Happy Chess Day!",
   "Visit on International Chess Day (July 20)",
 );
-egg("holiday", "❄", "Holiday Gambit", "Visit Chexel during the holidays");
+egg("holiday", "❄", "Holiday Gambit", "Visit Chexx during the holidays");
 egg("witch", "☽", "Witching Hour", "Be here at 3 am");
 egg(
   "perfect",

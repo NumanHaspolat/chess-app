@@ -4861,7 +4861,7 @@ function botAnalyse() {
   const sf = `Stockfish ${bot.elo >= 3190 ? "Max" : bot.elo}`;
   const white = bot.humanColor === "w" ? you : sf;
   const black = bot.humanColor === "w" ? sf : you;
-  copy.setHeader("Event", "Chexel vs Stockfish");
+  copy.setHeader("Event", "Chexx vs Stockfish");
   copy.setHeader("White", white);
   copy.setHeader("Black", black);
   const pgn = copy.pgn();
@@ -8526,8 +8526,8 @@ function buildAnalysePgn() {
   }
   const d = new Date();
   const pad = (v) => String(v).padStart(2, "0");
-  chess.setHeader("Event", "Chexel Analysis");
-  chess.setHeader("Site", "Chexel");
+  chess.setHeader("Event", "Chexx Analysis");
+  chess.setHeader("Site", "Chexx");
   chess.setHeader(
     "Date",
     `${d.getFullYear()}.${pad(d.getMonth() + 1)}.${pad(d.getDate())}`,
@@ -8567,7 +8567,7 @@ document
     });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `chexel-${new Date().toISOString().slice(0, 10)}.pgn`;
+    a.download = `chexx-${new Date().toISOString().slice(0, 10)}.pgn`;
     document.body.appendChild(a);
     a.click();
     a.remove();

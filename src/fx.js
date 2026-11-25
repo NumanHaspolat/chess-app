@@ -63,13 +63,13 @@ function centerOf(el) {
 function particle(
   cx,
   cy,
-  { size, dist, dur, gravity = 0, plus = false, spin = 0, colors = COLORS },
+  { size, dist, dur, gravity = 0, plus = false, spin = 0 },
 ) {
   const a = rnd(0, Math.PI * 2);
   const d = rnd(dist * 0.45, dist);
   const dx = Math.cos(a) * d;
   const dy = Math.sin(a) * d;
-  const color = pick(colors);
+  const color = pick(COLORS);
   spawn(
     {
       left: `${cx - size / 2}px`,
@@ -101,12 +101,6 @@ function particle(
 export function captureBurst(squareEl) {
   if (!squareEl || REDUCED) return;
   const { x, y, w } = centerOf(squareEl);
-  // Tema rengini CSS değişkenlerinden oku (yesil temada yesil, mavi temada mavi, vb.)
-  const root = getComputedStyle(document.documentElement);
-  const accent = root.getPropertyValue("--accent").trim() || "#3fdef3";
-  const accentStrong = root.getPropertyValue("--accent-strong").trim() || "#b8f7ff";
-  // Partikul paleti: tema acik-koyu renkleri + beyaz parlamalar
-  const burstColors = [accent, accentStrong, "#ffffff", root.getPropertyValue("--text-muted").trim() || "#7fa9ae"];
   // flash on the square
   spawn(
     {
@@ -114,7 +108,7 @@ export function captureBurst(squareEl) {
       top: `${y - w / 2}px`,
       width: `${w}px`,
       height: `${w}px`,
-      background: `${accent}88`, // %55 opaklik
+      background: "rgba(63,222,243,.55)",
     },
     [{ opacity: 1 }, { opacity: 0 }],
     { duration: 260, easing: "ease-out" },
@@ -126,7 +120,7 @@ export function captureBurst(squareEl) {
       top: `${y - w * 0.3}px`,
       width: `${w * 0.6}px`,
       height: `${w * 0.6}px`,
-      border: `3px solid ${accentStrong}`,
+      border: "3px solid #b8f7ff",
     },
     [
       { transform: "scale(.6)", opacity: 0.95 },
@@ -142,7 +136,6 @@ export function captureBurst(squareEl) {
       dur: rnd(450, 700),
       gravity: rnd(8, 26),
       spin: rnd(-90, 90),
-      colors: burstColors,
     });
   }
 }
@@ -310,4 +303,86 @@ export function visibleBoard() {
       (b) => b.offsetParent !== null && b.getBoundingClientRect().width > 0,
     ) || null
   );
+}
+
+// ---------------------------------------------------------------- celebrations
+const PARTY = [
+  "#3fdef3",
+  "#7ef0ff",
+  "#ffffff",
+  "#b8f7ff",
+  "#ffd166",
+  "#9ef28a",
+];
+const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// Pixel confetti falling from the top of the screen (turquoise + a few warm accents).
+export function confetti({ count = 60 } = {}) {
+  if (reduced()) return;
+  const layer = document.createElement("div");
+  layer.style.cssText =
+    "position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:9998";
+  document.body.appendChild(layer);
+  const w = innerWidth;
+  const h = innerHeight;
+  for (let i = 0; i < count; i++) {
+    const p = document.createElement("i");
+    const size = 5 + Math.random() * 6;
+    p.style.cssText = `position:absolute;left:${Math.random() * w}px;top:-12px;width:${size}px;height:${size}px;background:${PARTY[i % PARTY.length]}`;
+    layer.appendChild(p);
+    const drift = (Math.random() - 0.5) * 220;
+    p.animate(
+      [
+        { transform: "translate(0,0) rotate(0deg)", opacity: 1 },
+        {
+          transform: `translate(${drift}px,${h * (0.55 + Math.random() * 0.5)}px) rotate(${Math.random() * 720}deg)`,
+          opacity: 0.9,
+          offset: 0.85,
+        },
+        {
+          transform: `translate(${drift * 1.1}px,${h * 1.1}px) rotate(900deg)`,
+          opacity: 0,
+        },
+      ],
+      {
+        duration: 1500 + Math.random() * 1400,
+        delay: Math.random() * 350,
+        easing: "cubic-bezier(.3,.6,.4,1)",
+        fill: "forwards",
+      },
+    );
+  }
+  setTimeout(() => layer.remove(), 3600);
+}
+
+// A small pixel puff at a point on the screen.
+export function sparkleAt(x, y, n = 10) {
+  if (reduced()) return;
+  const layer = document.createElement("div");
+  layer.style.cssText =
+    "position:fixed;inset:0;pointer-events:none;z-index:9998";
+  document.body.appendChild(layer);
+  for (let i = 0; i < n; i++) {
+    const p = document.createElement("i");
+    const size = 4 + Math.random() * 5;
+    p.style.cssText = `position:absolute;left:${x}px;top:${y}px;width:${size}px;height:${size}px;background:${PARTY[i % PARTY.length]}`;
+    layer.appendChild(p);
+    const a = Math.random() * Math.PI * 2;
+    const d = 30 + Math.random() * 50;
+    p.animate(
+      [
+        { transform: "translate(0,0) scale(1)", opacity: 1 },
+        {
+          transform: `translate(${Math.cos(a) * d}px,${Math.sin(a) * d - 18}px) scale(0.2)`,
+          opacity: 0,
+        },
+      ],
+      {
+        duration: 550 + Math.random() * 250,
+        easing: "ease-out",
+        fill: "forwards",
+      },
+    );
+  }
+  setTimeout(() => layer.remove(), 1000);
 }

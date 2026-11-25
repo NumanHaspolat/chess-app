@@ -13,6 +13,11 @@ import { initArrows } from "./src/arrows.js";
 import { initAccountUi } from "./src/account-ui.js";
 import { track, initProgress } from "./src/progress.js";
 import {
+  initExtras,
+  renderHomeExtras,
+  renderProfileHero,
+} from "./src/extras.js";
+import {
   openingFamily,
   phaseOf,
   summarizeResults,
@@ -2335,9 +2340,13 @@ async function reviewGame(
     analyseMoveClasses = classes;
   }
 
+  const mine = summary[analyseOrientation] || {};
   track("review", {
     id: cacheKey,
-    brilliant: summary[analyseOrientation]?.brilliant || 0,
+    brilliant: mine.brilliant || 0,
+    accuracy: mine.accuracy || 0,
+    mistakes: mine.mistake || 0,
+    blunders: mine.blunder || 0,
   });
 
   renderAnalyseReport({
@@ -4729,6 +4738,13 @@ function botFinish(resigned = false) {
     const st = readJson(BOT_STATS_KEY, { w: 0, d: 0, l: 0 });
     st[outcome] = (st[outcome] || 0) + 1;
     writeJson(BOT_STATS_KEY, st);
+    track("bot", {
+      outcome,
+      elo: bot.elo,
+      mate: outcome === "w" && game.isCheckmate(),
+      color: bot.humanColor,
+      plies: game.history().length,
+    });
   }
   botPersist();
   botRenderPanel();
@@ -8102,7 +8118,10 @@ function showPage(pageName) {
     requestEngineEvaluation(analyseGame.fen(), "analyse");
   }
   if (pageName === "repertoire") updateRepertoirePage();
-  if (pageName === "profile") renderProfileProgress();
+  if (pageName === "profile") {
+    renderProfileProgress();
+    renderProfileHero();
+  }
   if (pageName === "puzzles") initPuzzle();
   if (pageName === "home") renderHome();
   window.scrollTo(0, 0);
@@ -8135,6 +8154,7 @@ function renderHome() {
   set("home-goal", `Daily goal ${Math.min(s.today, 999)} / ${s.goal}`);
   set("home-rating", puzzleRating);
   set("home-rating-sub", s.today >= s.goal ? "Goal complete today" : "");
+  renderHomeExtras();
 }
 
 document.querySelectorAll("[data-go]").forEach((el) =>
@@ -8159,6 +8179,12 @@ brandLink?.addEventListener("click", (event) => {
   showPage("home");
   history.replaceState(null, "", "#home");
 });
+
+try {
+  initExtras({ daily: () => dailySummary(), rating: () => puzzleRating });
+} catch (e) {
+  console.warn("[extras] init failed", e);
+}
 
 // Landing page: open the page from the address (#play, #analyse ...) or Home.
 {

@@ -117,7 +117,7 @@ function onEvent(e) {
 export function initDelight({ daily } = {}) {
   window.addEventListener("cxess:event", onEvent);
 
-  const base = document.title.split(" · ")[0] || "CXess";
+  const base = document.title.split(" · ")[0] || "Chexel";
   const title = () => {
     try {
       const s = daily?.().streak || 0;

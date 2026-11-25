@@ -8078,6 +8078,20 @@ document.getElementById("custom-upload-btn")?.addEventListener("click", () => {
 
 const navLinks = document.querySelectorAll(".nav-link");
 const brandLink = document.querySelector(".nav-brand");
+const navIndicator = document.querySelector(".nav-indicator");
+
+function updateNavIndicator() {
+  if (!navIndicator) return;
+  const active = document.querySelector(".nav-link.active");
+  if (!active) {
+    navIndicator.style.width = "0";
+    navIndicator.style.opacity = "0";
+    return;
+  }
+  navIndicator.style.opacity = "1";
+  navIndicator.style.left = `${active.offsetLeft}px`;
+  navIndicator.style.width = `${active.offsetWidth}px`;
+}
 
 const pages = {
   home: document.querySelector("#home"),
@@ -8104,6 +8118,8 @@ function showPage(pageName) {
       link.getAttribute("href") === `#${pageName}`,
     );
   });
+
+  updateNavIndicator();
 
   const isNormalPlay = pageName === "play" && !lesson && !trainMode;
   if (analysisPanel) analysisPanel.hidden = !isNormalPlay;

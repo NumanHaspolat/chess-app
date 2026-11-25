@@ -3,6 +3,69 @@
 // of the page (so particles can fly outside the board) with the Web Animations
 // API; no CSS needed.
 const REDUCED = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+
+// Helper to get theme color objects and strings
+function getThemeColorVariants() {
+  const root = getComputedStyle(document.documentElement);
+  const mainHex = root.getPropertyValue("--accent-strong").trim() || "#3fdef3";
+  const lightHex = root.getPropertyValue("--accent").trim() || "#7ef0ff";
+
+  function hexToRgb(hex) {
+    const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+    if (!m) return { r: 63, g: 222, b: 243 };
+    const n = parseInt(m[1], 16);
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+  }
+
+  function rgbToRgba({ r, g, b }, alpha = 1) {
+    return `rgba(${r},${g},${b},${alpha})`;
+  }
+
+  const mainRgb = hexToRgb(mainHex);
+  const lightRgb = hexToRgb(lightHex);
+
+  return {
+    main: mainHex,
+    mainRgb: mainRgb,
+    light: lightHex,
+    lightRgb: lightRgb,
+    rgba: {
+      full: rgbToRgba(mainRgb, 1.0),
+      high: rgbToRgba(mainRgb, 0.95),
+      medium: rgbToRgba(mainRgb, 0.8),
+      soft: rgbToRgba(mainRgb, 0.55),
+      low: rgbToRgba(mainRgb, 0.4),
+      veryLow: rgbToRgba(mainRgb, 0.25),
+      zero: rgbToRgba(mainRgb, 0),
+    },
+    rgbaLight: {
+      full: rgbToRgba(lightRgb, 1.0),
+      medium: rgbToRgba(lightRgb, 0.7),
+    },
+  };
+}
+
+// Particle colors derived from theme (for use in particle effects)
+function getThemeColorsForParticles() {
+  const theme = getThemeColorVariants();
+  const rgb = theme.mainRgb;
+  const lightRgb = theme.lightRgb;
+
+  function mix(c, target, amount) {
+    return Math.round(c + (target - c) * amount);
+  }
+
+  return [
+    theme.main, // primary (strong accent)
+    `#${((1 << 24) | (mix(rgb.r, 255, 0.6) << 16) | (mix(rgb.g, 255, 0.6) << 8) | mix(rgb.b, 255, 0.6)).toString(16).slice(1)}`, // very light
+    `#${((1 << 24) | (mix(rgb.r, 255, 0.3) << 16) | (mix(rgb.g, 255, 0.3) << 8) | mix(rgb.b, 255, 0.3)).toString(16).slice(1)}`, // light
+    `#${((1 << 24) | (mix(rgb.r, 0, 0.3) << 16) | (mix(rgb.g, 0, 0.3) << 8) | mix(rgb.b, 0, 0.3)).toString(16).slice(1)}`, // dark
+    `#${((1 << 24) | (mix(rgb.r, 0, 0.45) << 16) | (mix(rgb.g, 0, 0.45) << 8) | mix(rgb.b, 0, 0.45)).toString(16).slice(1)}`, // darker
+    `#${((1 << 24) | (mix(lightRgb.r, 255, 0.8) << 16) | (mix(lightRgb.g, 255, 0.8) << 8) | mix(lightRgb.b, 255, 0.8)).toString(16).slice(1)}`, // very light
+  ];
+}
+
+// Legacy hardcoded colors (fallback)
 const COLORS = [
   "#3fdef3",
   "#7ef0ff",
@@ -63,13 +126,14 @@ function centerOf(el) {
 function particle(
   cx,
   cy,
-  { size, dist, dur, gravity = 0, plus = false, spin = 0 },
+  { size, dist, dur, gravity = 0, plus = false, spin = 0, themeColor = true },
 ) {
   const a = rnd(0, Math.PI * 2);
   const d = rnd(dist * 0.45, dist);
   const dx = Math.cos(a) * d;
   const dy = Math.sin(a) * d;
-  const color = pick(COLORS);
+  const colors = themeColor ? getThemeColorsForParticles() : COLORS;
+  const color = pick(colors);
   spawn(
     {
       left: `${cx - size / 2}px`,
@@ -101,6 +165,8 @@ function particle(
 export function captureBurst(squareEl) {
   if (!squareEl || REDUCED) return;
   const { x, y, w } = centerOf(squareEl);
+  const theme = getThemeColorVariants();
+
   // flash on the square
   spawn(
     {
@@ -108,7 +174,7 @@ export function captureBurst(squareEl) {
       top: `${y - w / 2}px`,
       width: `${w}px`,
       height: `${w}px`,
-      background: "rgba(63,222,243,.55)",
+      background: theme.rgba.soft,
     },
     [{ opacity: 1 }, { opacity: 0 }],
     { duration: 260, easing: "ease-out" },
@@ -120,7 +186,7 @@ export function captureBurst(squareEl) {
       top: `${y - w * 0.3}px`,
       width: `${w * 0.6}px`,
       height: `${w * 0.6}px`,
-      border: "3px solid #b8f7ff",
+      border: `3px solid ${theme.rgbaLight.medium}`,
     },
     [
       { transform: "scale(.6)", opacity: 0.95 },
@@ -143,22 +209,25 @@ export function captureBurst(squareEl) {
 // ---------------------------------------------------------------- brilliant
 export function brilliantFx(boardEl, squareEl) {
   if (!boardEl) return;
-  const board = boardEl.getBoundingClientRect();
-  const target = squareEl
+  const theme = getThemeColorVariants();
+  const colors = getThemeColorsForParticles();
+  const { x, y, w } = squareEl
     ? centerOf(squareEl)
-    : {
-        x: board.left + board.width / 2,
-        y: board.top + board.height / 2,
-        w: board.width / 8,
-      };
-  const { x, y, w } = target;
+    : (() => {
+        const board = boardEl.getBoundingClientRect();
+        return {
+          x: board.left + board.width / 2,
+          y: board.top + board.height / 2,
+          w: board.width / 8,
+        };
+      })();
 
   if (REDUCED) {
     boardEl.animate(
       [
-        { boxShadow: "0 0 0 0 rgba(63,222,243,0)" },
-        { boxShadow: "0 0 0 4px rgba(63,222,243,.9)" },
-        { boxShadow: "0 0 0 0 rgba(63,222,243,0)" },
+        { boxShadow: `0 0 0 0 ${theme.rgba.zero}` },
+        { boxShadow: `0 0 0 4px ${theme.rgba.high}` },
+        { boxShadow: `0 0 0 0 ${theme.rgba.zero}` },
       ],
       { duration: 700 },
     );
@@ -168,13 +237,13 @@ export function brilliantFx(boardEl, squareEl) {
   // 1) board glow
   boardEl.animate(
     [
-      { boxShadow: "0 0 0 0 rgba(63,222,243,0), 0 0 0 rgba(63,222,243,0)" },
+      { boxShadow: `0 0 0 0 ${theme.rgba.zero}, 0 0 0 ${theme.rgba.zero}` },
       {
         boxShadow:
-          "0 0 0 3px rgba(63,222,243,.95), 0 0 46px 6px rgba(63,222,243,.65)",
+          `0 0 0 3px ${theme.rgba.high}, 0 0 46px 6px ${theme.rgba.medium}`,
         offset: 0.25,
       },
-      { boxShadow: "0 0 0 0 rgba(63,222,243,0), 0 0 0 rgba(63,222,243,0)" },
+      { boxShadow: `0 0 0 0 ${theme.rgba.zero}, 0 0 0 ${theme.rgba.zero}` },
     ],
     { duration: 1100, easing: "ease-out" },
   );
@@ -183,10 +252,10 @@ export function brilliantFx(boardEl, squareEl) {
   const clip = document.createElement("div");
   Object.assign(clip.style, {
     position: "absolute",
-    left: `${board.left}px`,
-    top: `${board.top}px`,
-    width: `${board.width}px`,
-    height: `${board.height}px`,
+    left: `${boardEl.getBoundingClientRect().left}px`,
+    top: `${boardEl.getBoundingClientRect().top}px`,
+    width: `${boardEl.getBoundingClientRect().width}px`,
+    height: `${boardEl.getBoundingClientRect().height}px`,
     overflow: "hidden",
     borderRadius: "6px",
   });
@@ -198,7 +267,7 @@ export function brilliantFx(boardEl, squareEl) {
     left: "0",
     width: "38%",
     background:
-      "linear-gradient(100deg, transparent, rgba(184,247,255,.0) 10%, rgba(184,247,255,.55) 50%, rgba(184,247,255,0) 90%, transparent)",
+      `linear-gradient(100deg, transparent, ${theme.rgba.zero} 10%, ${theme.rgba.high} 50%, ${theme.rgba.zero} 90%, transparent)`,
     transform: "translateX(-130%) skewX(-18deg)",
   });
   clip.appendChild(band);
@@ -220,8 +289,8 @@ export function brilliantFx(boardEl, squareEl) {
         top: `${y - w * 0.5}px`,
         width: `${w}px`,
         height: `${w}px`,
-        border: `${4 - i}px solid ${i === 1 ? "#b8f7ff" : "#3fdef3"}`,
-        boxShadow: "0 0 18px rgba(63,222,243,.8)",
+        border: `${4 - i}px solid ${i === 1 ? colors[2] : colors[0]}`,
+        boxShadow: `0 0 18px ${theme.rgba.medium}`,
         opacity: 0,
       },
       [
@@ -254,9 +323,9 @@ export function brilliantFx(boardEl, squareEl) {
       fontSize: `${Math.max(16, Math.round(w * 0.42))}px`,
       letterSpacing: "2px",
       whiteSpace: "nowrap",
-      color: "#b8f7ff",
+      color: colors[2],
       textShadow:
-        "0 0 12px #3fdef3, 0 0 26px #3fdef3, 2px 2px 0 #04323b, -2px 2px 0 #04323b, 2px -2px 0 #04323b, -2px -2px 0 #04323b",
+        `0 0 12px ${theme.main}, 0 0 26px ${theme.main}, 2px 2px 0 #04323b, -2px 2px 0 #04323b, 2px -2px 0 #04323b, -2px -2px 0 #04323b`,
     },
     [
       { transform: "translate(-50%, -20%) scale(.4)", opacity: 0 },
@@ -279,7 +348,7 @@ export function brilliantFx(boardEl, squareEl) {
       { transform: "scale(.3)", filter: "brightness(2)" },
       {
         transform: "scale(1.9)",
-        filter: "brightness(1.6) drop-shadow(0 0 8px #3fdef3)",
+        filter: `brightness(1.6) drop-shadow(0 0 8px ${theme.main})`,
         offset: 0.4,
       },
       { transform: "scale(1)", filter: "none" },

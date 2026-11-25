@@ -11,8 +11,8 @@
   --accent-strong: #3fdef3;
   --light: #bfdee3;
   --dark: #348aa0;
-  --selected: rgba(149, 225, 255, 0.65);
   --last-move: color-mix(in srgb, var(--accent) 40%, transparent);
+  --selected: color-mix(in srgb, var(--accent) 65%, transparent);
   --legal-dot: rgba(6, 38, 48, 0.42);
   --check: rgba(255, 70, 70, 0.6);
   --font-pixel: "Tiny5 Duo", system-ui, sans-serif;
@@ -255,7 +255,7 @@ button:disabled {
   background-image: radial-gradient(var(--check), transparent 75%);
 }
 .square.drag-over {
-  box-shadow: inset 0 0 0 4px rgba(255, 255, 255, 0.75);
+  box-shadow: inset 0 0 0 4px var(--accent);
 }
 
 .square.legal::after {

@@ -6761,3 +6761,6 @@ button {
     transform: scale(1);
   }
 }
+.eco {
+  color: var(--light);
+}

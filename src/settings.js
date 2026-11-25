@@ -133,7 +133,7 @@ export function loadSettings() {
     };
   } catch {
     return {
-      volume: 0.8,
+      volume: 0.4,
       musicVolume: 0.4,
       muted: false,
       theme: "azurite",

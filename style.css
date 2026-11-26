@@ -7790,6 +7790,28 @@ body::before {
   background-color: var(--accent-strong);
 }
 
+/* The hamburger is a <button>, so it inherits the global `button:hover`
+   rule (control-hover background + accent border), which has a higher
+   specificity than `.menu-toggle { background: none; border: none }`.
+   That drew a colored box behind the icon on hover and, on touch screens,
+   after a tap (sticky hover). Pin the box to "no background, no border"
+   in every state; only the three bars change color. */
+button.menu-toggle,
+button.menu-toggle:hover,
+button.menu-toggle:focus,
+button.menu-toggle:active {
+  background: none;
+  border: none;
+  box-shadow: none;
+  transform: none; /* no "pixel press" shift on the whole button */
+  -webkit-tap-highlight-color: transparent;
+}
+/* Mouse / touch focus never shows a ring; keyboard focus keeps a plain
+   outline so the menu stays usable without a mouse. */
+button.menu-toggle:focus:not(:focus-visible) {
+  outline: none;
+}
+
 @media (max-width: 920px) {
   .navbar:has(.nav-links.open) .menu-toggle span:nth-child(1) {
     transform: translateY(7.5px) rotate(45deg);
@@ -7808,7 +7830,6 @@ body::before {
     /* always rendered so it can animate both ways */
     display: flex !important;
     user-select: none !important;
-
     flex-direction: column;
     flex-wrap: nowrap;
     align-items: stretch;

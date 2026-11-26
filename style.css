@@ -7950,3 +7950,22 @@ button.menu-toggle:focus:not(:focus-visible) {
     transition-delay: 0s !important;
   }
 }
+
+/* ===== Telefon Learn: tahta Train'dekiyle aynı büyüklükte =====
+   Learn paneli Train panelinden ~55px uzun olduğu için tahta küçülüyordu.
+   Learn'de "Your moves will appear here" şeridini gizleyip o payı tahtaya
+   veriyoruz (Train'de şerit aynen kalır). */
+@media (max-width: 649px) {
+  main.app#play:has(#learn-panel:not([hidden])):not(
+      :has(#train-hint:not([hidden]))
+    )
+    > .moves-section {
+    display: none !important;
+  }
+  main.app#play:has(#learn-panel:not([hidden])):not(
+      :has(#train-hint:not([hidden]))
+    )
+    .board-wrap {
+    --learn-reserved: 160px;
+  }
+}

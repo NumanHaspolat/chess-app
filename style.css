@@ -7779,6 +7779,8 @@ body::before {
 .menu-toggle span {
   background-color: var(--text);
   transform-origin: center;
+  user-select: none !important;
+
   transition:
     transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1),
     opacity 0.18s,
@@ -7805,6 +7807,8 @@ body::before {
   .navbar .nav-links {
     /* always rendered so it can animate both ways */
     display: flex !important;
+    user-select: none !important;
+
     flex-direction: column;
     flex-wrap: nowrap;
     align-items: stretch;
@@ -7850,6 +7854,7 @@ body::before {
 
   .navbar .nav-links .nav-link {
     display: block;
+    user-select: none !important;
     padding: 11px 14px;
     text-align: right;
     white-space: nowrap;

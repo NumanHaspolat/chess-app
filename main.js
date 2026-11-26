@@ -3446,6 +3446,7 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
     learnCompleteTimer = setTimeout(() => {
       if (lesson && lesson.index >= lesson.variation.moves.length) {
         if (trainMode) renderLearnTrainCompleteStats();
+        updateLineCompleteButtons();
         overlay.hidden = false;
       }
     }, 400);
@@ -3566,6 +3567,7 @@ function continueTrain() {
     learnCompleteTimer = setTimeout(() => {
       if (trainMode && trainPhase === "complete") {
         renderLearnTrainCompleteStats();
+        updateLineCompleteButtons();
         overlay.hidden = false;
       }
     }, 400);
@@ -8246,28 +8248,68 @@ document.getElementById("filter-favorites")?.addEventListener("click", () => {
   renderOpenings();
 });
 
+// ---- "Learn next" / "Train next" in the line-complete popup
+function nextVariationOf(current) {
+  const list = lesson?.opening?.variations || [];
+  const i = list.findIndex((v) => v.id === current?.id);
+  return i >= 0 && i + 1 < list.length ? list[i + 1] : null;
+}
+
+function updateLineCompleteButtons() {
+  const hasNext = !!nextVariationOf(lesson?.variation);
+  const learnBtn = document.getElementById("learn-complete-close");
+  const trainBtn = document.getElementById("learn-complete-train");
+  if (learnBtn) learnBtn.textContent = hasNext ? "Learn next" : "Learn again";
+  if (trainBtn) trainBtn.textContent = "Train";
+}
+
+function leaveTrainState() {
+  document.getElementById("learn-complete-overlay").hidden = true;
+  hideTrainFixIntro();
+  clearTimeout(learnCompleteTimer);
+  clearTimeout(trainMistakeTimer);
+  clearTimeout(trainOpponentTimer);
+  trainMode = false;
+  trainHintShown = false;
+  trainHintSquares = [];
+  trainMistakeCount = 0;
+  trainCorrectMoves = 0;
+  trainTotalMistakes = 0;
+  trainPhase = "your-move";
+}
+
+function goToNextVariation(next, asTrain) {
+  const select = document.getElementById("learn-variation-select");
+  if (!select) return;
+  select.value = next.id;
+  // fresh variation: allow its learn/train progress and XP to be recorded again
+  lesson.learnSessionRecorded = false;
+  lesson.trainXpAwarded = false;
+  lesson.sessionRecorded = false;
+  lesson.trainSessionRecorded = false;
+  // selectLearnVariation() starts a train run when trainMode is on, a plain
+  // learn session when it is off.
+  if (asTrain) {
+    trainMode = true;
+    lesson.mode = "train";
+  } else {
+    leaveTrainState();
+    lesson.mode = "learn";
+  }
+  selectLearnVariation();
+}
+
 document
   .getElementById("learn-complete-close")
   ?.addEventListener("click", () => {
-    document.getElementById("learn-complete-overlay").hidden = true;
-    hideTrainFixIntro();
+    const next = nextVariationOf(lesson?.variation);
+    if (next) return goToNextVariation(next, false);
 
-    clearTimeout(learnCompleteTimer);
-    clearTimeout(trainMistakeTimer);
-    clearTimeout(trainOpponentTimer);
-
-    trainMode = false;
-    trainHintShown = false;
-    trainHintSquares = [];
-    trainMistakeCount = 0;
-    trainCorrectMoves = 0;
-    trainTotalMistakes = 0;
-    trainPhase = "your-move";
-
+    // last variation: start it again in learn mode
+    leaveTrainState();
     game.reset();
     viewPly = null;
     if (lesson) lesson.index = 0;
-
     clearSelection();
     update();
   });

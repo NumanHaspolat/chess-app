@@ -89,13 +89,15 @@
           <h1 class="home-title">CHEXEL</h1>
           <p class="home-tagline">Train. Analyse. Get better.</p>
           <p class="home-sub">
-            Puzzles, openings, your own games and a Stockfish coach, all in one
-            place.
+            Solve puzzles, analyse your own games with a Stockfish coach, and
+            build your own opening repertoire, then drill it until it is
+            automatic. All in one place.
           </p>
           <div class="home-actions">
-            <button type="button" class="home-primary" data-go="puzzles">
-              Solve a puzzle
+            <button type="button" class="home-primary" data-go="repertoire">
+              Build a repertoire
             </button>
+            <button type="button" data-go="puzzles">Solve a puzzle</button>
             <button type="button" data-go="play">Play</button>
             <button type="button" data-go="analyse">Analyse my games</button>
           </div>
@@ -152,7 +154,7 @@
         <button type="button" class="home-card" data-go="repertoire">
           <img src="./assets/pieces/wQ.png" alt="" />
           <strong>My Repertoire</strong>
-          <span>Build your own lines and drill them.</span>
+          <span>Create your own lines and drill them until they stick.</span>
         </button>
         <button type="button" class="home-card" data-go="profile">
           <img src="./assets/pieces/wK.png" alt="" />
@@ -215,7 +217,7 @@
               <p id="learn-complete-message"></p>
               <div id="learn-complete-stats" class="drill-complete-stats"></div>
               <div class="drill-complete-buttons">
-                <button id="learn-complete-close">Learn</button>
+                <button id="learn-complete-close">Learn next</button>
                 <button id="learn-complete-train">Train</button>
               </div>
             </div>

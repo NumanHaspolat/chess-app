@@ -6950,3 +6950,190 @@ button {
   color: #141414;
   opacity: 1;
 }
+
+/* Home hero: highlighted repertoire line */
+.home-sub-key {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--accent-strong);
+  font-weight: 400;
+}
+
+/* ===== Home page entrance animation =====
+   Runs every time the home page is shown (display:none -> block restarts CSS
+   animations). "backwards" fill keeps hover transforms working afterwards. */
+@keyframes hUp {
+  from {
+    opacity: 0;
+    transform: translateY(22px);
+  }
+}
+@keyframes hPop {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.8);
+  }
+}
+@keyframes hTitle {
+  from {
+    opacity: 0;
+    letter-spacing: 0.32em;
+    filter: blur(8px);
+    transform: translateY(10px);
+  }
+}
+@keyframes hBoard {
+  from {
+    opacity: 0;
+    transform: translateX(40px) scale(0.9) rotate(-6deg);
+  }
+}
+@keyframes hGrow {
+  from {
+    transform: scaleX(0);
+  }
+}
+@keyframes hShine {
+  from {
+    background-position: 160% 0;
+  }
+  to {
+    background-position: -60% 0;
+  }
+}
+
+.home:not([hidden]) .home-greeting {
+  animation: hUp 0.6s 0.05s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+.home:not([hidden]) .home-title {
+  animation: hTitle 0.9s 0.12s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+.home:not([hidden]) .home-tagline {
+  animation: hUp 0.6s 0.32s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+.home:not([hidden]) .home-sub {
+  animation: hUp 0.6s 0.44s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+.home:not([hidden]) .home-actions button {
+  animation: hPop 0.5s cubic-bezier(0.2, 1.2, 0.4, 1) backwards;
+}
+.home:not([hidden]) .home-actions button:nth-child(1) {
+  animation-delay: 0.58s;
+}
+.home:not([hidden]) .home-actions button:nth-child(2) {
+  animation-delay: 0.66s;
+}
+.home:not([hidden]) .home-actions button:nth-child(3) {
+  animation-delay: 0.74s;
+}
+.home:not([hidden]) .home-actions button:nth-child(4) {
+  animation-delay: 0.82s;
+}
+
+.home:not([hidden]) .home-board {
+  animation: hBoard 0.9s 0.2s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+.home:not([hidden]) .home-piece {
+  animation-name: hPop, homeBob;
+  animation-duration: 0.55s, var(--bob, 3.2s);
+  animation-delay: var(--d, 0.9s), calc(var(--d, 0.9s) + 0.55s);
+  animation-fill-mode: backwards, none;
+  animation-timing-function: cubic-bezier(0.2, 1.3, 0.4, 1), ease-in-out;
+  animation-iteration-count: 1, infinite;
+}
+.home:not([hidden]) .home-piece.p1 {
+  --d: 0.8s;
+}
+.home:not([hidden]) .home-piece.p2 {
+  --d: 0.95s;
+}
+.home:not([hidden]) .home-piece.p3 {
+  --d: 1.1s;
+}
+.home:not([hidden]) .home-piece.p4 {
+  --d: 1.25s;
+}
+
+.home:not([hidden]) .home-stat {
+  animation: hUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+.home:not([hidden]) .home-stat:nth-child(1) {
+  animation-delay: 0.9s;
+}
+.home:not([hidden]) .home-stat:nth-child(2) {
+  animation-delay: 1s;
+}
+.home:not([hidden]) .home-stat:nth-child(3) {
+  animation-delay: 1.1s;
+}
+.home:not([hidden]) #home-xp-fill {
+  transform-origin: left center;
+  animation: hGrow 1s 1.3s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+
+.home:not([hidden]) .hx-card {
+  animation: hUp 0.6s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+.home:not([hidden]) .hx-card:nth-child(1) {
+  animation-delay: 1.2s;
+}
+.home:not([hidden]) .hx-card:nth-child(2) {
+  animation-delay: 1.3s;
+}
+.home:not([hidden]) .hx-card:nth-child(3) {
+  animation-delay: 1.4s;
+}
+.home:not([hidden]) .ring-fg {
+  animation: ringDraw 1.1s 1.5s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+@keyframes ringDraw {
+  from {
+    stroke-dashoffset: 214;
+  }
+}
+
+.home:not([hidden]) .home-card {
+  animation: hUp 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+.home:not([hidden]) .home-card:nth-child(1) {
+  animation-delay: 1.5s;
+}
+.home:not([hidden]) .home-card:nth-child(2) {
+  animation-delay: 1.57s;
+}
+.home:not([hidden]) .home-card:nth-child(3) {
+  animation-delay: 1.64s;
+}
+.home:not([hidden]) .home-card:nth-child(4) {
+  animation-delay: 1.71s;
+}
+.home:not([hidden]) .home-card:nth-child(5) {
+  animation-delay: 1.78s;
+}
+.home:not([hidden]) .home-card:nth-child(6) {
+  animation-delay: 1.85s;
+}
+
+/* soft shine across the main button once it appears */
+.home-primary {
+  background-image: linear-gradient(
+    110deg,
+    transparent 35%,
+    rgba(255, 255, 255, 0.35) 50%,
+    transparent 65%
+  );
+  background-size: 250% 100%;
+  background-repeat: no-repeat;
+  background-position: 160% 0;
+}
+.home:not([hidden]) .home-primary {
+  animation:
+    hPop 0.5s 0.58s cubic-bezier(0.2, 1.2, 0.4, 1) backwards,
+    hShine 1.1s 1.2s ease-out 1 both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home:not([hidden]) * {
+    animation: none !important;
+  }
+}

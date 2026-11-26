@@ -1,5 +1,9 @@
 // Varied celebrations: gold rain, rising embers, fireworks, crown drop, star burst.
 const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+const accent = () =>
+  getComputedStyle(document.documentElement)
+    .getPropertyValue("--accent-strong")
+    .trim() || "#3fdef3";
 const rnd = (a, b) => a + Math.random() * (b - a);
 
 function layer(ms) {
@@ -91,7 +95,7 @@ export function fireworks(shots = 4) {
   if (reduced()) return;
   const L = layer(4000);
   const pals = [
-    ["#3fdef3", "#b8f7ff", "#fff"],
+    [accent(), `color-mix(in srgb, ${accent()} 55%, white)`, "#fff"],
     ["#ffd166", "#fff3c4", "#fff"],
     ["#9ef28a", "#d8ffcf", "#fff"],
     ["#ff8fab", "#ffd0dc", "#fff"],
@@ -140,7 +144,7 @@ export function starBurst(n = 16) {
   for (let i = 0; i < n; i++) {
     const a = (i / n) * Math.PI * 2;
     const d = rnd(Math.max(60, r.width * 0.18), Math.max(110, r.width * 0.4));
-    const p = bit(L, i % 2 ? "#ffd166" : "#7ef0ff", rnd(5, 9), cx, cy);
+    const p = bit(L, i % 2 ? "#ffd166" : accent(), rnd(5, 9), cx, cy);
     p.style.clipPath =
       "polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%)";
     p.animate(

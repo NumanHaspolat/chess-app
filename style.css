@@ -7542,3 +7542,235 @@ button.rm-node:focus-visible {
     transform 0.15s,
     box-shadow 0.15s;
 }
+
+/* Learn: part progress bar */
+#learn-parts-bar {
+  display: flex;
+  gap: 5px;
+  margin: 6px 0 10px;
+}
+#learn-parts-bar[hidden] {
+  display: none;
+}
+#learn-parts-bar .lp {
+  flex: 1;
+  height: 7px;
+  border-radius: 4px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--text-muted) 28%, transparent);
+}
+#learn-parts-bar .lp i {
+  display: block;
+  height: 100%;
+  background: var(--accent-strong);
+  border-radius: 4px;
+  transition: width 0.35s ease;
+}
+#learn-parts-bar .lp.cur {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent-strong) 60%, transparent),
+    0 0 8px color-mix(in srgb, var(--accent-strong) 35%, transparent);
+}
+#learn-parts-bar .lp.done i {
+  background: var(--accent-strong);
+}
+
+/* ===== Theme fixes: replace hard-coded turquoise/dark colours with theme variables =====
+   Put this at the very END of style.css so it overrides the old rules. */
+:root {
+  --accent-soft: color-mix(in srgb, var(--accent) 12%, transparent);
+  --accent-tint: color-mix(in srgb, var(--accent-strong) 65%, white);
+}
+
+/* Text that was a fixed light cyan */
+.opening {
+  color: var(--accent-tint);
+}
+.completed-variation {
+  color: var(--accent-tint);
+}
+
+/* Accent-tinted backgrounds */
+.nav-link.active {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.learn-explanation {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.analyse-variation-bar {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.report-you-badge {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.rep-turn.your-turn-glow {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.home-actions button {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.home-actions button:hover {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.learn-opening-bar {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.drill-alternative {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.drill-alternative.main {
+  border-left-color: var(--accent-strong);
+}
+.drill-alternative.other {
+  border-left-color: color-mix(in srgb, var(--accent) 60%, var(--bg));
+}
+
+.analysis-line:hover {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.profile-variation-row {
+  background: color-mix(in srgb, var(--control) 55%, transparent);
+}
+.rep-card.editing {
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent-strong) 25%, transparent);
+}
+.cat-puzzle {
+  --c: var(--accent-strong);
+}
+
+@keyframes pulseGlow {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 40%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 8px color-mix(in srgb, var(--accent) 0%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 0%, transparent);
+  }
+}
+
+/* Hard-coded dark blues that ignored the theme */
+.custom-file-trigger-btn {
+  color: var(--text);
+}
+::-webkit-scrollbar-track {
+  background: color-mix(in srgb, var(--panel) 50%, transparent);
+}
+
+@media (max-width: 920px) {
+  .nav-links {
+    background-color: var(--panel);
+    border-bottom-color: var(--panel-border);
+  }
+}
+@media (max-width: 649px) {
+  #learn-panel {
+    background-color: var(--panel);
+    border-color: var(--panel-border);
+  }
+  .learn-explanation {
+    background: color-mix(in srgb, var(--bg) 70%, var(--panel));
+  }
+}
+
+/* ===== Glass panels + cursor spotlight ===== */
+
+/* Soft theme-coloured glow behind everything, so the glass has something to blur */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      520px 380px at 12% 8%,
+      color-mix(in srgb, var(--accent) 16%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      560px 420px at 92% 30%,
+      color-mix(in srgb, var(--accent-strong) 12%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      600px 420px at 40% 100%,
+      color-mix(in srgb, var(--accent) 10%, transparent),
+      transparent 70%
+    );
+}
+
+.home-card,
+.hx-card,
+.home-stat,
+.profile-stat-card,
+.profile-chart-card,
+.profile-opening-card,
+.profile-settings-card,
+.ach-card {
+  --mx: -300px;
+  --my: -300px;
+  --spot: 0;
+  background-image:
+    radial-gradient(
+      220px circle at var(--mx) var(--my),
+      color-mix(
+        in srgb,
+        var(--accent-strong) calc(var(--spot) * 22%),
+        transparent
+      ),
+      transparent 70%
+    ),
+    linear-gradient(
+      145deg,
+      color-mix(in srgb, var(--panel) 78%, white 4%),
+      color-mix(in srgb, var(--panel) 62%, transparent)
+    ) !important;
+  background-color: transparent;
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  backdrop-filter: blur(12px) saturate(140%);
+  border: 1px solid
+    color-mix(in srgb, var(--accent-strong) 18%, var(--panel-border));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    0 6px 18px rgba(0, 0, 0, 0.18);
+  transition:
+    transform 0.2s,
+    border-color 0.25s,
+    box-shadow 0.25s;
+}
+
+.home-card:hover,
+.hx-card:hover,
+.ach-card:hover,
+.profile-stat-card:hover {
+  border-color: color-mix(in srgb, var(--accent-strong) 55%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    0 12px 28px rgba(0, 0, 0, 0.28),
+    0 0 22px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+@media (hover: none) {
+  .home-card,
+  .hx-card,
+  .home-stat,
+  .profile-stat-card,
+  .profile-chart-card,
+  .profile-opening-card,
+  .profile-settings-card,
+  .ach-card {
+    --spot: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-card,
+  .hx-card,
+  .ach-card,
+  .profile-stat-card {
+    transition: none;
+  }
+}

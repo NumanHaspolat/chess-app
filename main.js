@@ -28,6 +28,7 @@ import { BotEngine, BOT_LEVELS } from "./src/bot.js";
 import { BOT_BOOK } from "./src/bot-book.js";
 import { PUZZLE_OPENINGS } from "./src/puzzle-openings.js";
 import { buildRoadmap, masteryDots } from "./roadmap.js";
+import "./card-fx.js";
 import {
   openingProgress,
   recordLearn,
@@ -3351,6 +3352,19 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
     const expectedMove = lesson.variation.moves[lesson.index];
     if (!expectedMove) return;
 
+    // Learn: the next part stays locked until "Next part" is pressed
+    if (
+      !trainMode &&
+      lesson.partGate != null &&
+      lesson.index >= lesson.partGate
+    ) {
+      const gk = trainParts(lesson.variation.moves.length).findIndex(
+        ([, to]) => to === lesson.partGate,
+      );
+      if (gk >= 0) openLearnPartOverlay(gk, true);
+      return;
+    }
+
     if (trainMode) {
       if (trainPhase !== "your-move") return;
 
@@ -3432,7 +3446,18 @@ function playMove(from, to, promotion = "q", byDrill = false, animate = true) {
     requestEngineEvaluation(game.fen(), "play");
   }
 
+  if (lesson && !trainMode && lesson.index < lesson.variation.moves.length) {
+    const parts = trainParts(lesson.variation.moves.length);
+    const k = parts.findIndex(([, to]) => to === lesson.index);
+    if (k >= 0 && k < parts.length - 1) {
+      lesson.partShown ||= new Set();
+      if (!lesson.partShown.has(k) || lesson.partGate === parts[k][1])
+        openLearnPartOverlay(k, lesson.partShown.has(k));
+    }
+  }
+
   if (lesson && lesson.index >= lesson.variation.moves.length) {
+    lesson.overlayMode = "line";
     if (!trainMode && !lesson.learnSessionRecorded) {
       recordLearn(lesson.opening, lesson.variation);
       lesson.learnSessionRecorded = true;
@@ -3548,6 +3573,32 @@ function continueTrain() {
       }, 1100);
       return;
     }
+
+    const allParts = trainParts(moves.length);
+    const cumK = lesson.trainCumulative ? lesson.trainCumulativePart : -1;
+    if (cumK >= 0 && cumK < allParts.length - 1) {
+      trainPhase = "complete";
+      setPartOverlay("train-part", cumK);
+      playSound("promote", 0.5);
+      const pov = document.getElementById("learn-complete-overlay");
+      pov.hidden = true;
+      clearTimeout(learnCompleteTimer);
+      learnCompleteTimer = setTimeout(() => {
+        if (trainMode && trainPhase === "complete") {
+          renderLearnTrainCompleteStats();
+          updateLineCompleteButtons();
+          pov.hidden = false;
+        }
+      }, 400);
+      renderLearnPanel();
+      return;
+    }
+    if (lesson.trainCumulative) {
+      // the last part includes everything: this was the whole line
+      lesson.trainCumulative = false;
+      lesson.partIdx = -1;
+    }
+    lesson.overlayMode = "line";
 
     trainPhase = "complete";
 
@@ -5124,6 +5175,86 @@ function trainParts(len) {
   return parts;
 }
 
+// Which part a learn position belongs to (a finished part still counts as that part)
+function learnPartOf(index, parts) {
+  let k = 0;
+  parts.forEach(([from], i) => {
+    if (index > from) k = i;
+  });
+  return k;
+}
+
+const movesLabel = (from, to) =>
+  `move${Math.ceil(to / 2) - Math.floor(from / 2) > 1 ? "s" : ""} ${Math.floor(from / 2) + 1}–${Math.ceil(to / 2)}`;
+
+// Fill the line-complete popup for a finished part (not the whole line)
+function setPartOverlay(mode, k) {
+  const parts = trainParts(lesson.variation.moves.length);
+  const [from, to] = parts[k];
+  lesson.overlayMode = mode;
+  lesson.overlayPart = k;
+  const title = document.getElementById("learn-complete-title");
+  const msg = document.getElementById("learn-complete-message");
+  if (mode === "learn-part") {
+    if (title) title.textContent = `Part ${k + 1} of ${parts.length} learned!`;
+    if (msg)
+      msg.innerHTML = `You've learned <span class="completed-variation">${movesLabel(from, to)}</span>. Lock it in now, it sticks much better.`;
+  } else {
+    if (title)
+      title.textContent = `Part ${k + 1} of ${parts.length} locked in!`;
+    if (msg)
+      msg.innerHTML = `<span class="completed-variation">${movesLabel(0, to)}</span> are in your memory. Ready for the next part?`;
+  }
+}
+
+// Show the "part learned" popup and lock the lesson at the part boundary
+function openLearnPartOverlay(k, quiet = false) {
+  const parts = trainParts(lesson.variation.moves.length);
+  lesson.partShown ||= new Set();
+  lesson.partShown.add(k);
+  lesson.partGate = parts[k][1];
+  learnHintMove = null;
+  setPartOverlay("learn-part", k);
+  const ov = document.getElementById("learn-complete-overlay");
+  if (!quiet) playSound("promote", 0.5);
+  // already open (or opening): leave it alone, no flicker, no repeated sound
+  if (!ov.hidden || lesson.partOverlayPending) return;
+  ov.hidden = true;
+  clearTimeout(learnCompleteTimer);
+  lesson.partOverlayPending = true;
+  learnCompleteTimer = setTimeout(() => {
+    if (lesson) lesson.partOverlayPending = false;
+    if (lesson && !trainMode && lesson.index === parts[k][1]) {
+      if (learnCompleteStats) learnCompleteStats.innerHTML = "";
+      updateLineCompleteButtons();
+      ov.hidden = false;
+    }
+  }, 400);
+  update(false);
+}
+
+// Back to guided learning at a given ply (after a part was trained)
+function resumeLearnAt(idx) {
+  leaveTrainState();
+  lesson.mode = "learn";
+  lesson.trainCumulative = false;
+  lesson.partGate = null;
+  lesson.partIdx = -1;
+  lesson.trainTo = null;
+  lesson.fixing = false;
+  lesson.fixQueue = [];
+  const moves = lesson.variation.moves;
+  game.reset();
+  viewPly = null;
+  clearSelection();
+  for (let i = 0; i < idx; i++)
+    game.move({ from: moves[i].from, to: moves[i].to, promotion: "q" });
+  lesson.index = idx;
+  const nm = moves[idx];
+  learnHintMove = nm ? { from: nm.from, to: nm.to } : null;
+  update();
+}
+
 function trainEnd() {
   return lesson?.trainTo ?? lesson?.variation?.moves.length ?? 0;
 }
@@ -5149,7 +5280,7 @@ function populatePartSelect() {
   if (select.value !== String(lesson.partIdx ?? -1)) select.value = "-1";
 }
 
-function beginTrainRun(partIdx = lesson?.partIdx ?? -1) {
+function beginTrainRun(partIdx = lesson?.partIdx ?? -1, cumulative = false) {
   if (!lesson || !lesson.variation) return;
 
   clearTimeout(learnCompleteTimer);
@@ -5164,6 +5295,8 @@ function beginTrainRun(partIdx = lesson?.partIdx ?? -1) {
   let from = 0;
   let to = moves.length;
   if (partIdx >= 0) [from, to] = parts[partIdx];
+  const cumul = cumulative && partIdx >= 0;
+  if (cumul) from = 0; // play everything learned so far, from the start
 
   game.reset();
   viewPly = null;
@@ -5174,6 +5307,10 @@ function beginTrainRun(partIdx = lesson?.partIdx ?? -1) {
   }
 
   lesson.partIdx = partIdx;
+  lesson.trainCumulative = cumul;
+  lesson.partGate = null;
+  lesson.trainCumulativePart = cumul ? partIdx : -1;
+  lesson.overlayMode = "line";
   lesson.index = from;
   lesson.trainTo = to;
   lesson.mistakes = new Set();
@@ -5195,6 +5332,11 @@ function beginTrainRun(partIdx = lesson?.partIdx ?? -1) {
   hideTrainFixIntro();
   document.getElementById("train-hint").hidden = false;
   populatePartSelect();
+  if (cumul) {
+    const sel = document.getElementById("train-part-select");
+    const opt = sel?.options[sel.selectedIndex];
+    if (opt) opt.textContent = `Parts 1–${partIdx + 1} · ${movesLabel(0, to)}`;
+  }
 
   showPage("play");
   update(false);
@@ -5320,6 +5462,10 @@ function selectLearnVariation() {
   lesson.index = 0;
   lesson.partIdx = -1;
   lesson.trainTo = null;
+  lesson.partShown = new Set();
+  lesson.partGate = null;
+  lesson.trainCumulative = false;
+  lesson.overlayMode = "line";
   if (trainMode) {
     beginTrainRun(-1);
     return;
@@ -5361,6 +5507,11 @@ function previousLessonMove() {
   game.undo();
   lesson.index--;
 
+  if (lesson.overlayMode === "learn-part") {
+    document.getElementById("learn-complete-overlay").hidden = true;
+    clearTimeout(learnCompleteTimer);
+    lesson.partOverlayPending = false;
+  }
   clearSelection();
   update(false);
 }
@@ -5440,7 +5591,35 @@ function renderLearnPanel() {
   const fixNo = fixTotal - fixLeft;
   document.getElementById("learn-progress").textContent = fixing
     ? `Mistake review · ${Math.min(Math.max(fixNo, 1), fixTotal)} / ${fixTotal}`
-    : `Move ${lesson.index} / ${moves.length}`;
+    : (() => {
+        const ps = trainParts(moves.length);
+        const k = learnPartOf(lesson.index, ps);
+        return ps.length > 1
+          ? `Part ${k + 1} / ${ps.length} · Move ${lesson.index} / ${moves.length}`
+          : `Move ${lesson.index} / ${moves.length}`;
+      })();
+  {
+    const ps = trainParts(moves.length);
+    const prog = document.getElementById("learn-progress");
+    let bar = document.getElementById("learn-parts-bar");
+    if (!bar && prog) {
+      bar = document.createElement("div");
+      bar.id = "learn-parts-bar";
+      prog.insertAdjacentElement("afterend", bar);
+    }
+    if (bar) {
+      bar.hidden = isTrain || ps.length < 2;
+      if (!bar.hidden) {
+        const cur = learnPartOf(lesson.index, ps);
+        bar.innerHTML = ps
+          .map(([f, t], i) => {
+            const pct = Math.max(0, Math.min(1, (lesson.index - f) / (t - f)));
+            return `<span class="lp${pct >= 1 ? " done" : ""}${i === cur ? " cur" : ""}" title="Part ${i + 1}: ${movesLabel(f, t)}"><i style="width:${pct * 100}%"></i></span>`;
+          })
+          .join("");
+      }
+    }
+  }
   if (fixing) {
     const side = game.turn() === "w" ? "White" : "Black";
     let text;
@@ -8340,9 +8519,25 @@ function nextVariationOf(current) {
 }
 
 function updateLineCompleteButtons() {
-  const hasNext = !!nextVariationOf(lesson?.variation);
   const learnBtn = document.getElementById("learn-complete-close");
   const trainBtn = document.getElementById("learn-complete-train");
+  const mode = lesson?.overlayMode || "line";
+  const titleEl = document.getElementById("learn-complete-title");
+  if (mode === "learn-part" || mode === "train-part") {
+    const k = lesson.overlayPart ?? 0;
+    const parts = trainParts(lesson.variation.moves.length);
+    if (learnBtn)
+      learnBtn.textContent =
+        mode === "learn-part" ? "Next part" : `Learn part ${k + 2}`;
+    if (trainBtn)
+      trainBtn.textContent =
+        mode === "learn-part"
+          ? `Train ${movesLabel(0, parts[k][1])}`
+          : "Train again";
+    return;
+  }
+  if (titleEl) titleEl.textContent = "Line Complete!";
+  const hasNext = !!nextVariationOf(lesson?.variation);
   if (learnBtn) learnBtn.textContent = hasNext ? "Learn next" : "Learn again";
   if (trainBtn) trainBtn.textContent = "Train";
 }
@@ -8386,6 +8581,20 @@ function goToNextVariation(next, asTrain) {
 document
   .getElementById("learn-complete-close")
   ?.addEventListener("click", () => {
+    const mode = lesson?.overlayMode || "line";
+    if (mode === "learn-part") {
+      document.getElementById("learn-complete-overlay").hidden = true;
+      lesson.partGate = null;
+      const nm = lesson.variation.moves[lesson.index];
+      learnHintMove = nm ? { from: nm.from, to: nm.to } : null;
+      update(false);
+      return;
+    }
+    if (mode === "train-part") {
+      const parts = trainParts(lesson.variation.moves.length);
+      resumeLearnAt(parts[lesson.overlayPart][1]);
+      return;
+    }
     const next = nextVariationOf(lesson?.variation);
     if (next) return goToNextVariation(next, false);
 
@@ -8400,7 +8609,12 @@ document
 
 document
   .getElementById("learn-complete-train")
-  ?.addEventListener("click", startCurrentLearnTrain);
+  ?.addEventListener("click", () => {
+    const mode = lesson?.overlayMode || "line";
+    if (mode === "learn-part" || mode === "train-part")
+      return beginTrainRun(lesson.overlayPart, true);
+    startCurrentLearnTrain();
+  });
 
 const hintButton = document.getElementById("train-hint");
 

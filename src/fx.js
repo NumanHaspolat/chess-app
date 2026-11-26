@@ -10,11 +10,22 @@ function getThemeColorVariants() {
   const mainHex = root.getPropertyValue("--accent-strong").trim() || "#3fdef3";
   const lightHex = root.getPropertyValue("--accent").trim() || "#7ef0ff";
 
-  function hexToRgb(hex) {
-    const m = /^#?([0-9a-f]{6})$/i.exec(hex);
-    if (!m) return { r: 63, g: 222, b: 243 };
-    const n = parseInt(m[1], 16);
-    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+  let _ctx = null;
+  function hexToRgb(color) {
+    try {
+      _ctx = _ctx || document.createElement("canvas").getContext("2d");
+      _ctx.fillStyle = "#000";
+      _ctx.fillStyle = color; // browser normalises hex / rgb() / named colours
+      const v = _ctx.fillStyle;
+      let m = /^#([0-9a-f]{6})$/i.exec(v);
+      if (m) {
+        const n = parseInt(m[1], 16);
+        return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+      }
+      m = /rgba?\(\s*(\d+)[ ,]+(\d+)[ ,]+(\d+)/.exec(v);
+      if (m) return { r: +m[1], g: +m[2], b: +m[3] };
+    } catch {}
+    return { r: 63, g: 222, b: 243 };
   }
 
   function rgbToRgba({ r, g, b }, alpha = 1) {
@@ -239,8 +250,7 @@ export function brilliantFx(boardEl, squareEl) {
     [
       { boxShadow: `0 0 0 0 ${theme.rgba.zero}, 0 0 0 ${theme.rgba.zero}` },
       {
-        boxShadow:
-          `0 0 0 3px ${theme.rgba.high}, 0 0 46px 6px ${theme.rgba.medium}`,
+        boxShadow: `0 0 0 3px ${theme.rgba.high}, 0 0 46px 6px ${theme.rgba.medium}`,
         offset: 0.25,
       },
       { boxShadow: `0 0 0 0 ${theme.rgba.zero}, 0 0 0 ${theme.rgba.zero}` },
@@ -266,8 +276,7 @@ export function brilliantFx(boardEl, squareEl) {
     bottom: "-20%",
     left: "0",
     width: "38%",
-    background:
-      `linear-gradient(100deg, transparent, ${theme.rgba.zero} 10%, ${theme.rgba.high} 50%, ${theme.rgba.zero} 90%, transparent)`,
+    background: `linear-gradient(100deg, transparent, ${theme.rgba.zero} 10%, ${theme.rgba.high} 50%, ${theme.rgba.zero} 90%, transparent)`,
     transform: "translateX(-130%) skewX(-18deg)",
   });
   clip.appendChild(band);
@@ -324,8 +333,7 @@ export function brilliantFx(boardEl, squareEl) {
       letterSpacing: "2px",
       whiteSpace: "nowrap",
       color: colors[2],
-      textShadow:
-        `0 0 12px ${theme.main}, 0 0 26px ${theme.main}, 2px 2px 0 #04323b, -2px 2px 0 #04323b, 2px -2px 0 #04323b, -2px -2px 0 #04323b`,
+      textShadow: `0 0 12px ${theme.main}, 0 0 26px ${theme.main}, 2px 2px 0 #04323b, -2px 2px 0 #04323b, 2px -2px 0 #04323b, -2px -2px 0 #04323b`,
     },
     [
       { transform: "translate(-50%, -20%) scale(.4)", opacity: 0 },
@@ -375,19 +383,17 @@ export function visibleBoard() {
 }
 
 // ---------------------------------------------------------------- celebrations
-const PARTY = [
-  "#3fdef3",
-  "#7ef0ff",
-  "#ffffff",
-  "#b8f7ff",
-  "#ffd166",
-  "#9ef28a",
-];
+// Confetti / sparkle colours: theme accent shades plus a few warm accents
+function partyColors() {
+  const t = getThemeColorsForParticles();
+  return [t[0], t[1], "#ffffff", t[2], "#ffd166", "#9ef28a"];
+}
 const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-// Pixel confetti falling from the top of the screen (turquoise + a few warm accents).
+// Pixel confetti falling from the top of the screen (theme accent + a few warm accents).
 export function confetti({ count = 60 } = {}) {
   if (reduced()) return;
+  const PARTY = partyColors();
   const layer = document.createElement("div");
   layer.style.cssText =
     "position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:9998";
@@ -427,6 +433,7 @@ export function confetti({ count = 60 } = {}) {
 // A small pixel puff at a point on the screen.
 export function sparkleAt(x, y, n = 10) {
   if (reduced()) return;
+  const PARTY = partyColors();
   const layer = document.createElement("div");
   layer.style.cssText =
     "position:fixed;inset:0;pointer-events:none;z-index:9998";

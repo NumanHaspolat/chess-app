@@ -27,6 +27,7 @@ import {
 import { BotEngine, BOT_LEVELS } from "./src/bot.js";
 import { BOT_BOOK } from "./src/bot-book.js";
 import { PUZZLE_OPENINGS } from "./src/puzzle-openings.js";
+import { buildRoadmap, masteryDots } from "./roadmap.js";
 import {
   openingProgress,
   recordLearn,
@@ -5014,6 +5015,12 @@ function renderProfileProgress() {
 
     track.appendChild(fill);
     card.append(header, track);
+    if (variations.length > 1)
+      card.appendChild(
+        buildRoadmap(variations, getVariationProgress, (i, v) =>
+          learnFromRoadmap(opening, v),
+        ),
+      );
 
     variations.forEach((variation) => {
       const row = document.createElement("div");
@@ -5028,6 +5035,7 @@ function renderProfileProgress() {
       const value = document.createElement("strong");
       value.textContent = `${getVariationProgress(variation)}%`;
 
+      name.appendChild(masteryDots(getVariationProgress(variation)));
       rowHeader.append(name, value);
 
       const rowTrack = document.createElement("div");
@@ -5065,6 +5073,24 @@ function renderProfileProgress() {
 
     container.appendChild(card);
   });
+}
+
+// Roadmap node click: open that variation's Learn view
+function learnFromRoadmap(progressOpening, progressVariation) {
+  const lib = openingLibrary.find(
+    (o) => o.name === progressOpening.name || o.id === progressOpening.id,
+  );
+  const variation = lib?.variations.find(
+    (v) => v.name === progressVariation.name || v.id === progressVariation.id,
+  );
+  if (!lib || !variation) return;
+  if (drill) endDrill();
+  if (lesson) exitLearn();
+  startLearn(lib, false);
+  const select = document.getElementById("learn-variation-select");
+  if (select) select.value = variation.id;
+  selectLearnVariation();
+  recordLearn(lib, variation);
 }
 
 function startTrain(opening) {

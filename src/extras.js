@@ -53,11 +53,44 @@ const TIPS = [
 ];
 
 function greeting() {
+  const now = new Date();
+  const h = now.getHours();
+  const dow = now.getDay(); // 0 = Sunday
+  const seed = now.getFullYear() * 400 + now.getMonth() * 32 + now.getDate();
+  const pickBy = (arr) => arr[seed % arr.length];
+  const days = [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ];
+  if (h < 5)
+    return pickBy(["Still up?", "Night owl mode", "Burning the midnight oil?"]);
+  if (h < 8) return pickBy(["Early bird!", "Good morning", "Rise and shine"]);
+  if (h < 12) {
+    if (dow === 1) return "Good morning, fresh week";
+    return pickBy(["Good morning", "Morning", `Happy ${days[dow]}`]);
+  }
+  if (h < 14) return pickBy(["Good afternoon", "Lunch break game?", "Hello"]);
+  if (h < 18) {
+    if (dow === 5) return "Happy Friday";
+    if (dow === 0 || dow === 6) return `Happy ${days[dow]}`;
+    return pickBy(["Good afternoon", "Afternoon", "Hey there"]);
+  }
+  if (h < 22) return pickBy(["Good evening", "Evening", "Welcome back"]);
+  return pickBy(["Late session?", "Good night soon?", "Quiet hours"]);
+}
+
+// A time-of-day note that can replace the usual message (or null)
+function timeNote() {
   const h = new Date().getHours();
-  if (h < 5) return "Still up?";
-  if (h < 12) return "Good morning";
-  if (h < 18) return "Good afternoon";
-  return "Good evening";
+  if (h < 5) return "Sleep sharpens tactics too. One more puzzle, then rest.";
+  if (h >= 23) return "Wind down with one calm puzzle before bed.";
+  if (h < 8) return "A quiet morning is perfect for deep calculation.";
+  return null;
 }
 
 function dayOfYear() {
@@ -91,6 +124,8 @@ export function renderHomeExtras() {
     else if (d.streak > 0)
       msg = `Keep your ${d.streak}-day streak alive. ${Math.max(0, d.goal - d.today)} puzzle${d.goal - d.today === 1 ? "" : "s"} to go.`;
     else msg = "A fresh start today. One puzzle is enough to begin a streak.";
+    const tn = timeNote();
+    if (tn && sn.counts.solved) msg = tn;
     greet.innerHTML = `<strong>${esc(greeting())}${name ? `, ${esc(name)}` : ""}!</strong> <span>${esc(msg)}</span>`;
   }
   if (!box) return;

@@ -7311,3 +7311,50 @@ body::before {
     transition: none;
   }
 }
+
+/* ===== Piece shadows: pieces look lifted off the board ===== */
+.square .piece {
+  filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.35));
+  transition: filter 0.18s ease;
+}
+.square:hover .piece:not(.dragging) {
+  filter: drop-shadow(0 5px 3px rgba(0, 0, 0, 0.38));
+}
+.piece.dragging {
+  filter: none;
+}
+.drag-ghost {
+  filter: drop-shadow(0 14px 8px rgba(0, 0, 0, 0.45));
+  transform: scale(1.14);
+  transform-origin: 50% 60%;
+  animation: pieceLift 0.16s ease-out;
+}
+@keyframes pieceLift {
+  from {
+    transform: scale(1);
+    filter: drop-shadow(0 3px 2px rgba(0, 0, 0, 0.35));
+  }
+  to {
+    transform: scale(1.14);
+    filter: drop-shadow(0 14px 8px rgba(0, 0, 0, 0.45));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .drag-ghost {
+    animation: none;
+  }
+}
+
+/* ===== Cheer tones: gold + fire ===== */
+.cheer-gold {
+  color: #ffd166;
+  text-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.55),
+    0 0 14px rgba(255, 209, 102, 0.7);
+}
+.cheer-fire {
+  color: #ff9d3c;
+  text-shadow:
+    0 2px 0 rgba(0, 0, 0, 0.55),
+    0 0 14px rgba(255, 100, 30, 0.8);
+}

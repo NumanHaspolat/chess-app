@@ -2,6 +2,13 @@
 // tab title streak, and the footer heart. Listens to "cxess:event" (see progress.js).
 import { sparkleAt, confetti, visibleBoard } from "./fx.js";
 import { track } from "./progress.js";
+import {
+  goldRain,
+  embers,
+  fireworks,
+  crownDrop,
+  starBurst,
+} from "./celebrate.js";
 
 const reduced = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 const pick = (a) => a[Math.floor(Math.random() * a.length)];
@@ -80,38 +87,63 @@ function levelBanner({ level, title }) {
   setTimeout(close, 2600);
 }
 
+function firstWinEver() {
+  try {
+    if (localStorage.getItem("chexel-first-win")) return false;
+    localStorage.setItem("chexel-first-win", "1");
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function onEvent(e) {
   const { event, d = {}, levelUp, run } = e.detail || {};
   switch (event) {
     case "puzzle":
-      if (d.won && !d.hint)
-        cheer(run >= 3 ? `${run} in a row!` : pick(WIN_WORDS));
-      else if (d.won) cheer("Solved!");
+      if (d.won && !d.hint) {
+        if (run >= 5 && run % 5 === 0) {
+          cheer(`${run} in a row!`, "fire");
+          embers();
+        } else cheer(run >= 3 ? `${run} in a row!` : pick(WIN_WORDS));
+      } else if (d.won) cheer("Solved!");
       else cheer("So close! Next one.", "soft");
       break;
     case "drill":
-      cheer(d.mistakes ? "Line complete!" : "Flawless!");
+      if (d.mistakes) cheer("Line complete!");
+      else {
+        cheer("Flawless!", "gold");
+        starBurst();
+      }
       break;
     case "learn":
       cheer("Line learned!");
+      starBurst(8);
       break;
     case "train":
       cheer("Nicely trained!");
       break;
     case "bot":
       if (d.outcome === "w") {
-        cheer("You win!");
-        confetti({ count: 70 });
+        if (firstWinEver()) {
+          cheer("Your first win!", "gold");
+          crownDrop();
+        } else {
+          cheer("You win!");
+          confetti({ count: 70 });
+        }
       } else if (d.outcome === "d") cheer("Hard-fought draw", "soft");
       else cheer("Good fight. Check the analysis?", "soft");
       break;
     case "daily":
-      cheer("Daily goal complete!");
-      confetti({ count: 90 });
+      cheer("Daily goal complete!", "gold");
+      fireworks();
       break;
   }
-  if (levelUp)
-    setTimeout(() => levelBanner(levelUp), event === "daily" ? 900 : 300);
+  if (levelUp) {
+    goldRain();
+    setTimeout(() => levelBanner(levelUp), event === "daily" ? 1200 : 300);
+  }
 }
 
 export function initDelight({ daily } = {}) {

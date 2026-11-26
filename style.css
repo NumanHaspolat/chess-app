@@ -3623,7 +3623,7 @@ body.hide-last-move #analyse-board .last-move {
 /* ===== Telefon (≤649px): tüm hamle listeleri tek satırlık yatay şerit ===== */
 @media (max-width: 649px) {
   :root {
-    --learn-panel-fixed: 208px;
+    --learn-panel-h: 208px;
   }
 
   .moves-section .moves,
@@ -3656,7 +3656,7 @@ body.hide-last-move #analyse-board .last-move {
 
   /* Learn/Train: boyutlar sabit, hamle yapınca tahta ve sayfa oynamasın */
   main.app#play:has(#learn-panel:not([hidden])) {
-    padding-bottom: calc(var(--learn-panel-fixed) + 12px);
+    padding-bottom: calc(var(--learn-panel-h) + 12px);
   }
   main.app#play:has(#learn-panel:not([hidden])) .strip {
     display: none;
@@ -3666,16 +3666,19 @@ body.hide-last-move #analyse-board .last-move {
       200px,
       min(
         calc(100vw - 32px),
-        calc(100svh - var(--learn-panel-fixed) - 200px),
+        calc(100svh - var(--learn-panel-h) - 200px),
         560px
       )
     );
   }
+  /* The panel takes exactly the height its content needs (the explanation box
+     has a fixed height, so it does not jump between moves). main.js measures
+     it and stores the result in --learn-panel-h for the board-size math. */
   #learn-panel:not([hidden]) {
-    height: var(--learn-panel-fixed) !important;
+    height: auto !important;
     max-height: none;
     box-sizing: border-box;
-    overflow: hidden;
+    overflow: visible;
   }
   #learn-panel .learn-explanation {
     height: 74px;
@@ -3905,10 +3908,6 @@ main.app#play:has(#learn-panel:not([hidden])) .evaluation {
 
 /* ===== Telefon Learn/Train: tahta ekranın kenarlarına yapışık, olabildiğince büyük ===== */
 @media (max-width: 649px) {
-  :root {
-    --learn-panel-fixed: 188px;
-  }
-
   main.app#play:has(#learn-panel:not([hidden])) {
     padding-left: 0;
     padding-right: 0;
@@ -3921,9 +3920,16 @@ main.app#play:has(#learn-panel:not([hidden])) .evaluation {
     margin: 0;
   }
   main.app#play:has(#learn-panel:not([hidden])) .board-wrap {
+    /* Everything that must stay visible above the fixed panel:
+       navbar + gaps (84px) + board nav (36px) + moves strip (46px) + gaps. */
+    --learn-reserved: 216px;
     --size: max(
-      220px,
-      min(100vw, calc(100svh - var(--learn-panel-fixed) - 215px), 640px)
+      200px,
+      min(
+        100vw,
+        calc(100svh - var(--learn-panel-h) - var(--learn-reserved)),
+        640px
+      )
     );
     width: 100%;
     max-width: none;

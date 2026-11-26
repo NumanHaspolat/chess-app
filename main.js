@@ -5544,6 +5544,26 @@ function exitLearn() {
   update();
 }
 
+// On phones the Learn/Train panel is fixed to the bottom of the screen and the
+// board size is computed from its height (see --learn-panel-h in style.css).
+// Measure the real height instead of guessing it, so the moves strip and the
+// board navigation always fit above the panel.
+let learnPanelObserver = null;
+function watchLearnPanelHeight() {
+  if (learnPanelObserver) return;
+  const panel = document.getElementById("learn-panel");
+  if (!panel || typeof ResizeObserver === "undefined") return;
+  const sync = () => {
+    const h = Math.ceil(panel.getBoundingClientRect().height);
+    if (h > 0) {
+      document.documentElement.style.setProperty("--learn-panel-h", `${h}px`);
+    }
+  };
+  learnPanelObserver = new ResizeObserver(sync);
+  learnPanelObserver.observe(panel);
+  sync();
+}
+
 function renderLearnPanel() {
   const panel = document.getElementById("learn-panel");
   if (!panel) return;
@@ -5609,6 +5629,7 @@ function renderLearnPanel() {
     }
     if (bar) {
       bar.hidden = isTrain || ps.length < 2;
+      watchLearnPanelHeight();
       if (!bar.hidden) {
         const cur = learnPartOf(lesson.index, ps);
         bar.innerHTML = ps

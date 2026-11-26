@@ -5162,13 +5162,13 @@ function startTrain(opening) {
   beginTrainRun(-1);
 }
 
-const TRAIN_PART_PLIES = 8; // 4 tam hamle
+const TRAIN_PART_PLIES = 12; // 6 tam hamle
 
 function trainParts(len) {
   const parts = [];
   for (let from = 0; from < len; from += TRAIN_PART_PLIES) {
     let to = Math.min(len, from + TRAIN_PART_PLIES);
-    if (len - to < 4) to = len; // çok kısa artık kalmasın
+    if (len - to < 6) to = len; // çok kısa artık kalmasın
     parts.push([from, to]);
     if (to === len) break;
   }

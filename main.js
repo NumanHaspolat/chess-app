@@ -660,15 +660,18 @@ function renderRepertoireMoves() {
 
   repMovesEl.scrollTop = scrollTop;
 
+  // Keep the active move visible by scrolling ONLY the moves list. (The old
+  // scrollIntoView() also scrolled the whole page, which on mobile pushed the
+  // screen down with every added move.)
   const activeEl = repMovesEl.querySelector(".move.active");
   if (activeEl) {
-    const containerTop = repMovesEl.scrollTop;
-    const containerBottom = containerTop + repMovesEl.clientHeight;
-    const elemTop = activeEl.offsetTop - repMovesEl.offsetTop;
-
-    if (elemTop < containerTop || elemTop > containerBottom) {
-      activeEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    }
+    const top = activeEl.offsetTop - repMovesEl.offsetTop;
+    const bottom = top + activeEl.offsetHeight;
+    const viewTop = repMovesEl.scrollTop;
+    const viewBottom = viewTop + repMovesEl.clientHeight;
+    if (top < viewTop) repMovesEl.scrollTop = Math.max(0, top - 6);
+    else if (bottom > viewBottom)
+      repMovesEl.scrollTop = bottom - repMovesEl.clientHeight + 6;
   }
 }
 
@@ -7466,14 +7469,18 @@ function renderPuzzleChart(history) {
   const dots = history
     .map((p, i) => {
       const isLast = i === history.length - 1;
-      const when = new Date(p.t).toLocaleString(undefined, {
+      const short = new Date(p.t).toLocaleDateString(undefined, {
         day: "numeric",
         month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
       });
-      return `<circle cx="${x(i).toFixed(1)}" cy="${y(p.r).toFixed(1)}" r="${isLast ? 5 : 3}" class="${isLast ? "chart-dot-last" : "chart-dot"}"><title>${p.r} · ${when}</title></circle>`;
+      const cx = x(i).toFixed(1);
+      const cy = y(p.r).toFixed(1);
+      const prevR = i > 0 ? history[i - 1].r : null;
+      const diff = prevR === null ? "" : p.r - prevR;
+      return `<g class="chart-pt" data-r="${p.r}" data-d="${short}" data-diff="${diff}">
+        <circle cx="${cx}" cy="${cy}" r="${isLast ? 5 : 3}" class="${isLast ? "chart-dot-last" : "chart-dot"}"/>
+        <circle cx="${cx}" cy="${cy}" r="${isLast ? 9 : 8}" class="chart-hit"/>
+      </g>`;
     })
     .join("");
 
@@ -7484,7 +7491,58 @@ function renderPuzzleChart(history) {
       <polyline points="${line}" class="chart-line"/>
       ${dots}
       ${dateAxis}
-    </svg>`;
+    </svg>
+    <div class="chart-tip" hidden></div>`;
+
+  if (!el.dataset.tipBound) {
+    el.dataset.tipBound = "1";
+    const tipOf = () => el.querySelector(".chart-tip");
+    const hide = () => {
+      const tip = tipOf();
+      if (tip) tip.hidden = true;
+      el.querySelectorAll(".chart-pt.is-hot").forEach((n) =>
+        n.classList.remove("is-hot"),
+      );
+    };
+    const show = (g) => {
+      const tip = tipOf();
+      if (!tip) return;
+      hide();
+      g.classList.add("is-hot");
+      const diff = g.dataset.diff;
+      const dn = diff === "" ? null : Number(diff);
+      const delta =
+        dn === null || dn === 0
+          ? ""
+          : `<span class="chart-tip-d ${dn > 0 ? "up" : "down"}">${dn > 0 ? "+" : ""}${dn}</span>`;
+      tip.innerHTML = `<b>${g.dataset.r}</b>${delta}<small>${g.dataset.d}</small>`;
+      tip.hidden = false;
+      const er = el.getBoundingClientRect();
+      const dr = g.querySelector("circle").getBoundingClientRect();
+      const cxp = dr.left + dr.width / 2 - er.left;
+      const cyp = dr.top - er.top;
+      const half = tip.offsetWidth / 2;
+      const left = Math.min(Math.max(cxp, half + 4), el.clientWidth - half - 4);
+      tip.style.left = left + "px";
+      const above = cyp - tip.offsetHeight - 8;
+      tip.style.top = (above < 0 ? cyp + dr.height + 8 : above) + "px";
+    };
+    el.addEventListener("mouseover", (e) => {
+      const g = e.target.closest?.(".chart-pt");
+      if (g) show(g);
+    });
+    el.addEventListener("mouseout", (e) => {
+      if (e.target.closest?.(".chart-pt")) hide();
+    });
+    el.addEventListener("click", (e) => {
+      const g = e.target.closest?.(".chart-pt");
+      if (g) show(g);
+      else hide();
+    });
+    document.addEventListener("click", (e) => {
+      if (!el.contains(e.target)) hide();
+    });
+  }
 }
 
 function renderPuzzleProfile() {

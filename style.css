@@ -7137,3 +7137,78 @@ button {
     animation: none !important;
   }
 }
+
+/* Puzzle rating chart tooltip */
+.profile-chart-card {
+  position: relative;
+}
+
+.rating-chart .chart-pt {
+  cursor: pointer;
+}
+.rating-chart .chart-hit {
+  fill: transparent;
+}
+.rating-chart .chart-pt .chart-dot,
+.rating-chart .chart-pt .chart-dot-last {
+  transition:
+    r 0.15s ease,
+    filter 0.15s ease;
+}
+.rating-chart .chart-pt.is-hot .chart-dot {
+  r: 5;
+  filter: drop-shadow(0 0 4px var(--accent-strong));
+}
+.rating-chart .chart-pt.is-hot .chart-dot-last {
+  r: 7;
+  filter: drop-shadow(0 0 5px var(--accent-strong));
+}
+
+.chart-tip {
+  position: absolute;
+  z-index: 5;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 5px 9px;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--accent-strong);
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  font-family: var(--font-pixel);
+  white-space: nowrap;
+  pointer-events: none;
+  animation: chartTipIn 0.12s ease-out;
+}
+.chart-tip[hidden] {
+  display: none;
+}
+.chart-tip b {
+  color: var(--accent-strong);
+  font-size: 0.85rem;
+}
+.chart-tip small {
+  color: var(--text-muted);
+  font-size: 0.65rem;
+}
+.chart-tip-d {
+  font-size: 0.65rem;
+}
+.chart-tip-d.up {
+  color: #4ade80;
+}
+.chart-tip-d.down {
+  color: #f87171;
+}
+@keyframes chartTipIn {
+  from {
+    opacity: 0;
+    margin-top: 3px;
+  }
+  to {
+    opacity: 1;
+    margin-top: 0;
+  }
+}

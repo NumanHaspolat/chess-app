@@ -3,8 +3,62 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Chexel</title>
+    <title>Chexel – Train. Analyse. Get better.</title>
+    <meta
+      name="description"
+      content="Chexel is a chess trainer: solve puzzles, analyse your own games with a Stockfish coach, and build an opening repertoire you can drill until it is automatic."
+    />
+    <meta name="color-scheme" content="dark" />
+
+    <!-- Link previews (Discord, WhatsApp, Slack, X, Facebook ...).
+         TODO: replace YOUR-DOMAIN with the real address once deployed;
+         crawlers need an absolute URL for the image. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Chexel" />
+    <meta property="og:title" content="Chexel – Train. Analyse. Get better." />
+    <meta
+      property="og:description"
+      content="Puzzles, openings and a Stockfish coach in one place. Build your own repertoire and drill it until it sticks."
+    />
+    <meta
+      property="og:image"
+      content="https://YOUR-DOMAIN/assets/og-image.png"
+    />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta
+      property="og:image:alt"
+      content="Chexel: a chess board and the tagline Train. Analyse. Get better."
+    />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Chexel – Train. Analyse. Get better." />
+    <meta
+      name="twitter:description"
+      content="Puzzles, openings and a Stockfish coach in one place."
+    />
+    <meta
+      name="twitter:image"
+      content="https://YOUR-DOMAIN/assets/og-image.png"
+    />
     <link rel="stylesheet" href="style.css" />
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link
+      rel="modulepreload"
+      href="https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js"
+    />
+    <link
+      rel="modulepreload"
+      href="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js"
+    />
+    <link
+      rel="modulepreload"
+      href="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore.js"
+    />
+    <link
+      rel="modulepreload"
+      href="https://cdn.jsdelivr.net/npm/chess.js@1.0.0/+esm"
+    />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -23,7 +77,7 @@
     <header class="navbar">
       <a href="#play" class="nav-brand">CHEXEL</a>
 
-      <!-- Hamburger Menü Butonu (Mobilde görünecek) -->
+      <!-- Hamburger menu button (mobile only) -->
       <button class="menu-toggle" aria-label="Toggle menu" id="menu-toggle">
         <span></span>
         <span></span>
@@ -227,10 +281,30 @@
         </div>
 
         <div class="mobile-board-nav">
-          <button id="play-nav-first" title="Başlangıç Pozisyonu">«</button>
-          <button id="play-nav-prev" title="Geri (Önceki Hamle)">‹</button>
-          <button id="play-nav-next" title="İleri (Sonraki Hamle)">›</button>
-          <button id="play-nav-last" title="En Son Pozisyon">»</button>
+          <button
+            id="play-nav-first"
+            title="Start position"
+            aria-label="Start position"
+          >
+            «
+          </button>
+          <button
+            id="play-nav-prev"
+            title="Previous move"
+            aria-label="Previous move"
+          >
+            ‹
+          </button>
+          <button id="play-nav-next" title="Next move" aria-label="Next move">
+            ›
+          </button>
+          <button
+            id="play-nav-last"
+            title="Last position"
+            aria-label="Last position"
+          >
+            »
+          </button>
         </div>
       </section>
 
@@ -371,7 +445,7 @@
     </main>
 
     <main class="app" id="analyse" hidden>
-      <!-- SOL SÜTUN: BOARD + CHESS.COM IMPORT -->
+      <!-- LEFT COLUMN: BOARD + CHESS.COM IMPORT -->
       <section class="board-section">
         <div class="board-wrap">
           <div id="analyse-strip-top" class="strip"></div>
@@ -401,12 +475,36 @@
 
         <!-- BOARD'UN HEMEN ALTINDA CHESS.COM IMPORT -->
 
-        <!-- TAHTANIN ALTINDAKİ MOBİL NAVİGASYON BUTONLARI -->
+        <!-- MOBILE NAVIGATION BUTTONS UNDER THE BOARD -->
         <div class="mobile-board-nav">
-          <button id="analyse-nav-first">«</button>
-          <button id="analyse-nav-prev">‹</button>
-          <button id="analyse-nav-next">›</button>
-          <button id="analyse-nav-last">»</button>
+          <button
+            id="analyse-nav-first"
+            title="Start position"
+            aria-label="Start position"
+          >
+            «
+          </button>
+          <button
+            id="analyse-nav-prev"
+            title="Previous move"
+            aria-label="Previous move"
+          >
+            ‹
+          </button>
+          <button
+            id="analyse-nav-next"
+            title="Next move"
+            aria-label="Next move"
+          >
+            ›
+          </button>
+          <button
+            id="analyse-nav-last"
+            title="Last position"
+            aria-label="Last position"
+          >
+            »
+          </button>
         </div>
 
         <section class="analyse-games-section">
@@ -445,7 +543,7 @@
             <div class="analyse-upload">
               <label>Or upload PGN</label>
 
-              <!-- Orijinal input'u gizliyoruz ama ID'sini koruyoruz ki JS çalışmaya devam etsin -->
+              <!-- The real file input stays hidden but keeps its id so the JS keeps working -->
               <input
                 type="file"
                 id="pgn-upload"
@@ -453,7 +551,7 @@
                 style="display: none"
               />
 
-              <!-- Yerine sitenin diğer butonlarıyla birebir aynı tarzda özel butonumuz -->
+              <!-- A custom button styled like the rest of the site replaces it -->
               <button
                 type="button"
                 id="custom-upload-btn"
@@ -470,7 +568,7 @@
         </section>
       </section>
 
-      <!-- ORTA SÜTUN: MOVES -->
+      <!-- MIDDLE COLUMN: MOVES -->
       <section class="moves-section">
         <h2>Moves</h2>
 
@@ -499,7 +597,7 @@
         <ol id="analyse-moves" class="moves"></ol>
       </section>
 
-      <!-- SAĞ SÜTUN: STOCKFISH ANALYSIS -->
+      <!-- RIGHT COLUMN: STOCKFISH ANALYSIS -->
       <section id="analyse-analysis-panel" class="analysis-panel">
         <div class="analysis-header">
           <h2>Analysis</h2>
@@ -523,7 +621,7 @@
 
         <div id="analyse-analysis-status">Waiting for analysis...</div>
 
-        <!-- EN İYİ 5 HAMLE -->
+        <!-- TOP ENGINE MOVES -->
         <div id="analyse-analysis-lines"></div>
 
         <!-- OYUN RAPORU -->
@@ -671,17 +769,17 @@
     </main>
 
     <main class="app" id="puzzles" hidden>
-      <!-- SOL SÜTUN: PUZZLE BOARD -->
+      <!-- LEFT COLUMN: PUZZLE BOARD -->
       <section class="board-section">
         <div class="board-wrap">
           <div id="puzzle-strip-top" class="strip"></div>
           <div class="board-row">
-            <!-- Bulmacalarda eval bar olmamasını istediğin için doğrudan tahtayı koyuyoruz -->
+            <!-- No evaluation bar on puzzles, so the board goes in directly -->
             <div id="puzzle-board" class="board"></div>
           </div>
           <div id="puzzle-strip-bottom" class="strip"></div>
 
-          <!-- PUZZLE BİTİŞ POP-UP OVERLAY (Tahtanın Ortasında Çıkması İçin Burada) -->
+          <!-- PUZZLE COMPLETE POP-UP (lives inside the board wrap so it is centred on the board) -->
           <div
             id="puzzle-complete-overlay"
             class="drill-complete-overlay"
@@ -698,14 +796,34 @@
           </div>
         </div>
         <div class="mobile-board-nav">
-          <button id="puzzle-nav-first">«</button>
-          <button id="puzzle-nav-prev">‹</button>
-          <button id="puzzle-nav-next">›</button>
-          <button id="puzzle-nav-last">»</button>
+          <button
+            id="puzzle-nav-first"
+            title="Start position"
+            aria-label="Start position"
+          >
+            «
+          </button>
+          <button
+            id="puzzle-nav-prev"
+            title="Previous move"
+            aria-label="Previous move"
+          >
+            ‹
+          </button>
+          <button id="puzzle-nav-next" title="Next move" aria-label="Next move">
+            ›
+          </button>
+          <button
+            id="puzzle-nav-last"
+            title="Last position"
+            aria-label="Last position"
+          >
+            »
+          </button>
         </div>
       </section>
 
-      <!-- ORTA SÜTUN: MOVES -->
+      <!-- MIDDLE COLUMN: MOVES -->
       <section class="moves-section">
         <h2>Puzzle Moves</h2>
         <div id="puzzle-status" class="status">Loading puzzle...</div>
@@ -717,7 +835,7 @@
         <ol id="puzzle-moves" class="moves"></ol>
       </section>
 
-      <!-- SAĞ SÜTUN: PUZZLE PANEL (Elo, Zorluk, Geçmiş 10 Kutu) -->
+      <!-- RIGHT COLUMN: PUZZLE PANEL (rating, difficulty, last 10 results) -->
       <section class="analysis-panel">
         <h2>Puzzle Training</h2>
         <div
@@ -851,7 +969,7 @@
           id="puzzle-history-grid"
           style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px"
         >
-          <!-- Son 10 bulmaca kutucukları buraya dinamik olarak eklenecek -->
+          <!-- The last 10 puzzle squares are added here dynamically -->
         </div>
       </section>
     </main>
@@ -893,10 +1011,30 @@
           </div>
 
           <div class="mobile-board-nav">
-            <button id="rep-nav-first" title="Başlangıç Pozisyonu">«</button>
-            <button id="rep-nav-prev" title="Geri (Önceki Hamle)">‹</button>
-            <button id="rep-nav-next" title="İleri (Sonraki Hamle)">›</button>
-            <button id="rep-nav-last" title="En Son Pozisyon">»</button>
+            <button
+              id="rep-nav-first"
+              title="Start position"
+              aria-label="Start position"
+            >
+              «
+            </button>
+            <button
+              id="rep-nav-prev"
+              title="Previous move"
+              aria-label="Previous move"
+            >
+              ‹
+            </button>
+            <button id="rep-nav-next" title="Next move" aria-label="Next move">
+              ›
+            </button>
+            <button
+              id="rep-nav-last"
+              title="Last position"
+              aria-label="Last position"
+            >
+              »
+            </button>
           </div>
         </section>
 
@@ -1284,7 +1422,7 @@
                 >
               </div>
             </div>
-            <!-- YENİ EKLENEN MÜZİK SES AYARI -->
+            <!-- Music volume -->
             <div class="settings-row">
               <label for="setting-music-volume">Background Music Volume</label>
               <div class="settings-control">
@@ -1499,6 +1637,12 @@
         for chess lovers</span
       >
     </footer>
+
+    <noscript>
+      <p style="padding: 24px; text-align: center">
+        Chexel needs JavaScript to run. Please enable it and reload the page.
+      </p>
+    </noscript>
 
     <script type="module" src="main.js"></script>
     <script type="module" src="card-fx.js"></script>

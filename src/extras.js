@@ -52,6 +52,56 @@ const TIPS = [
   "Mistakes are not failures. Every master has played thousands of them.",
 ];
 
+const QUOTES = [
+  ["Every chess master was once a beginner.", "Irving Chernev"],
+  [
+    "Tactics is knowing what to do when there is something to do. Strategy is knowing what to do when there is nothing to do.",
+    "Savielly Tartakower",
+  ],
+  ["The pawns are the soul of chess.", "François-André Philidor"],
+  ["When you see a good move, look for a better one.", "Emanuel Lasker"],
+  [
+    "Chess is a sea in which a gnat may drink and an elephant may bathe.",
+    "Indian proverb",
+  ],
+  [
+    "Play the opening like a book, the middle game like a magician, and the endgame like a machine.",
+    "Rudolf Spielmann",
+  ],
+  ["Chess is everything: art, science and sport.", "Anatoly Karpov"],
+  ["Help your pieces so they can help you.", "Paul Morphy"],
+  ["It is enough to play better than your opponent.", "Siegbert Tarrasch"],
+  ["The hardest game to win is a won game.", "Emanuel Lasker"],
+  [
+    "Only the player with the initiative has the right to attack.",
+    "Wilhelm Steinitz",
+  ],
+  ["Strategy requires thought, tactics require observation.", "Max Euwe"],
+  [
+    "The winner of the game is the player who makes the next-to-last mistake.",
+    "Savielly Tartakower",
+  ],
+  [
+    "The blunders are all there on the board, waiting to be made.",
+    "Savielly Tartakower",
+  ],
+  ["I don't believe in psychology. I believe in good moves.", "Bobby Fischer"],
+  [
+    "Chess teaches you to think objectively when you are in trouble.",
+    "Stanley Kubrick",
+  ],
+  ["A bad plan is better than none at all.", "Frank Marshall"],
+  ["Chess is the gymnasium of the mind.", "Blaise Pascal"],
+  [
+    "The beauty of a move lies not in its appearance but in the thought behind it.",
+    "Aaron Nimzowitsch",
+  ],
+  [
+    "Losing can persuade you to change what doesn't need to be changed.",
+    "Garry Kasparov",
+  ],
+];
+
 function greeting() {
   const now = new Date();
   const h = now.getHours();
@@ -142,24 +192,56 @@ export function renderHomeExtras() {
         .join("")
     : `<li class="empty">Your first achievement is one puzzle away.</li>`;
 
-  box.innerHTML = `
-    <div class="hx-card hx-goal">
+  const [quote, author] = QUOTES[(dayOfYear() * 3 + 1) % QUOTES.length];
+  const cards = [
+    `<div class="hx-card hx-goal">
       ${ring(pct, "Daily goal", `${Math.min(d.today, d.goal)}/${d.goal}`)}
       <div>
         <h3>Daily goal</h3>
         <p>${d.today >= d.goal ? "Complete. Enjoy the rest of your day." : `${d.goal - d.today} more to reach today's goal.`}</p>
         <p class="hx-flame">${d.streak > 0 ? `<b>${d.streak}</b> day streak` : "No streak yet. Today is a good day."}</p>
       </div>
-    </div>
-    <div class="hx-card hx-ach">
+    </div>`,
+    `<div class="hx-card hx-ach">
       <h3>Achievements <small>${sn.earned.length} / ${sn.total}${sn.secrets ? ` · ${sn.secrets} secret${sn.secrets > 1 ? "s" : ""}` : ""}</small></h3>
       <ul class="hx-badges">${badges}</ul>
       <button type="button" class="hx-link" data-go="profile" data-tab="achievements">See all</button>
-    </div>
-    <div class="hx-card hx-tip">
+    </div>`,
+    `<div class="hx-card hx-tip">
       <h3>Tip of the day</h3>
       <p>${esc(tip)}</p>
-    </div>`;
+      <blockquote class="hx-quote">
+        <p>“${esc(quote)}”</p>
+        <cite>${esc(author)}</cite>
+      </blockquote>
+    </div>`,
+  ];
+
+  // First render builds the cards. Later renders (progress events, cloud sync)
+  // only swap the cards whose content really changed, and without replaying
+  // the entrance animation, so nothing "pops in again" after the page loaded.
+  const prev = box._cards;
+  if (!prev || box.children.length !== cards.length) {
+    const wasSkel = box.classList.contains("is-skel");
+    box.innerHTML = cards.join("");
+    if (wasSkel) {
+      // skeleton was already on screen: swap in place, no second entrance
+      box.classList.remove("is-skel");
+      box.removeAttribute("aria-busy");
+      [...box.children].forEach((c) => c.classList.add("hx-noanim"));
+    }
+    box._cards = cards;
+    return;
+  }
+  cards.forEach((html, i) => {
+    if (html === prev[i]) return;
+    const t = document.createElement("template");
+    t.innerHTML = html.trim();
+    const el = t.content.firstChild;
+    el.classList.add("hx-noanim");
+    box.replaceChild(el, box.children[i]);
+  });
+  box._cards = cards;
 }
 
 // ------------------------------------------------------------- profile

@@ -239,7 +239,7 @@ function itemCard(i, mode) {
     mode === "drill"
       ? `<button class="rv-btn primary" data-rv="drill" data-k="${esc(i.key)}">Drill ${i.weak.length} move${i.weak.length === 1 ? "" : "s"}</button>
          <button class="rv-btn" data-rv="train" data-k="${esc(i.key)}">Full line</button>`
-      : `<button class="rv-btn primary" data-rv="train" data-k="${esc(i.key)}">${i.trained ? "Train" : "Train it"}</button>
+      : `<button class="rv-btn primary" data-rv="train" data-k="${esc(i.key)}">Train</button>
          <button class="rv-btn" data-rv="learn" data-k="${esc(i.key)}">Learn</button>`;
   return `<article class="rv-item">
     <div class="rv-item-main">
@@ -389,12 +389,14 @@ function drawBar() {
   const el = bar();
   if (!session) {
     el.hidden = true;
+    document.body.classList.remove("rv-session-on");
     return;
   }
   const cur = session.queue[session.i];
   const last = session.i >= session.queue.length - 1;
   const n = session.queue.length;
   el.hidden = false;
+  document.body.classList.add("rv-session-on");
   el.classList.toggle("is-done", session.finished);
   el.innerHTML = `<div class="rv-session-info">
       <span class="rv-session-step">Review ${session.i + 1}/${n}</span>

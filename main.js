@@ -29,7 +29,13 @@ import { BOT_BOOK } from "./src/bot-book.js";
 import { PUZZLE_OPENINGS } from "./src/puzzle-openings.js";
 import { buildRoadmap, masteryDots } from "./roadmap.js";
 import "./card-fx.js";
-import { initStudyReview, renderStudyReview, renderHomeReview } from "./study-review.js";
+import { checkMastery, progressOf } from "./mastery.js";
+import { initHelp, setHelpPage } from "./help.js";
+import {
+  initStudyReview,
+  renderStudyReview,
+  renderHomeReview,
+} from "./study-review.js";
 import {
   openingProgress,
   recordLearn,
@@ -3544,12 +3550,14 @@ function continueTrain() {
     if (!lesson.trainSessionRecorded) {
       const total = trainCorrectMoves + trainTotalMistakes;
       const accuracy = total > 0 ? (trainCorrectMoves / total) * 100 : 100;
+      const progressBefore = progressOf(lesson.opening, lesson.variation);
       recordTrain(
         lesson.opening,
         lesson.variation,
         accuracy,
         trainTotalMistakes,
       );
+      checkMastery(lesson.opening, lesson.variation, progressBefore);
       lesson.trainSessionRecorded = true;
       renderProfileProgress();
     }
@@ -3607,9 +3615,9 @@ function continueTrain() {
     message.innerHTML = lesson.reviewDrill
       ? `Weak moves drilled in <span class="completed-variation">${lesson.variation.name}</span>. Every correct answer lowers their mistake count.`
       : `You've completed <span class="completed-variation">${lesson.variation.name}</span>!` +
-      (lesson.fixTotal
-        ? `<br>You also fixed ${lesson.fixTotal} mistake${lesson.fixTotal === 1 ? "" : "s"} during the review.`
-        : "");
+        (lesson.fixTotal
+          ? `<br>You also fixed ${lesson.fixTotal} mistake${lesson.fixTotal === 1 ? "" : "s"} during the review.`
+          : "");
 
     playSound("promote", 0.5);
 
@@ -5159,11 +5167,18 @@ function learnFromRoadmap(progressOpening, progressVariation) {
 
 // Review: open one variation as Train / Learn / weak-move drill (used by study-review.js)
 function reviewOpen(item, mode) {
-  const lib = openingLibrary.find((o) => o.id === item.oid || o.name === item.openingName);
-  const variation = lib?.variations.find((v) => v.id === item.vid || v.name === item.variationName);
+  const lib = openingLibrary.find(
+    (o) => o.id === item.oid || o.name === item.openingName,
+  );
+  const variation = lib?.variations.find(
+    (v) => v.id === item.vid || v.name === item.variationName,
+  );
   if (!lib || !variation) return false;
   if (mode === "learn") {
-    learnFromRoadmap({ id: item.oid, name: item.openingName }, { id: item.vid, name: item.variationName });
+    learnFromRoadmap(
+      { id: item.oid, name: item.openingName },
+      { id: item.vid, name: item.variationName },
+    );
     return true;
   }
   startTrain(lib);
@@ -5171,7 +5186,9 @@ function reviewOpen(item, mode) {
   if (select) select.value = variation.id;
   selectLearnVariation();
   if (mode === "drill") {
-    const plies = (item.weak || []).map((p) => p.ply).filter((p) => variation.moves[p]);
+    const plies = (item.weak || [])
+      .map((p) => p.ply)
+      .filter((p) => variation.moves[p]);
     if (plies.length) {
       lesson.reviewDrill = true;
       lesson.trainSessionRecorded = true; // a drill is not a full run: no accuracy entry, no XP
@@ -8443,6 +8460,7 @@ const pages = {
 };
 
 function showPage(pageName) {
+  setHelpPage(pageName);
   const visiblePage = pageName === "bot" ? "play" : pageName;
   Object.entries(pages).forEach(([name, element]) => {
     if (element) element.hidden = name !== visiblePage;
@@ -8536,6 +8554,12 @@ brandLink?.addEventListener("click", (event) => {
   showPage("home");
   history.replaceState(null, "", "#home");
 });
+
+try {
+  initHelp(() => ({ learning: !!lesson }));
+} catch (e) {
+  console.warn("[help] init failed", e);
+}
 
 try {
   initStudyReview({

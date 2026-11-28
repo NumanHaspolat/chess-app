@@ -29,6 +29,7 @@ import { BOT_BOOK } from "./src/bot-book.js";
 import { PUZZLE_OPENINGS } from "./src/puzzle-openings.js";
 import { buildRoadmap, masteryDots } from "./roadmap.js";
 import "./card-fx.js";
+import { initStudyReview, renderStudyReview, renderHomeReview } from "./study-review.js";
 import {
   openingProgress,
   recordLearn,
@@ -3603,8 +3604,9 @@ function continueTrain() {
     trainPhase = "complete";
 
     const message = document.getElementById("learn-complete-message");
-    message.innerHTML =
-      `You've completed <span class="completed-variation">${lesson.variation.name}</span>!` +
+    message.innerHTML = lesson.reviewDrill
+      ? `Weak moves drilled in <span class="completed-variation">${lesson.variation.name}</span>. Every correct answer lowers their mistake count.`
+      : `You've completed <span class="completed-variation">${lesson.variation.name}</span>!` +
       (lesson.fixTotal
         ? `<br>You also fixed ${lesson.fixTotal} mistake${lesson.fixTotal === 1 ? "" : "s"} during the review.`
         : "");
@@ -3616,6 +3618,17 @@ function continueTrain() {
     if (!lesson.trainXpAwarded) {
       lesson.trainXpAwarded = true;
       track("train");
+    }
+    if (!lesson.reviewEmitted) {
+      lesson.reviewEmitted = true;
+      window.dispatchEvent(
+        new CustomEvent("cxess:train-finished", {
+          detail: {
+            oid: lesson.opening.id || lesson.opening.name,
+            vid: lesson.variation.id || lesson.variation.name,
+          },
+        }),
+      );
     }
 
     clearTimeout(learnCompleteTimer);
@@ -5142,6 +5155,35 @@ function learnFromRoadmap(progressOpening, progressVariation) {
   if (select) select.value = variation.id;
   selectLearnVariation();
   recordLearn(lib, variation);
+}
+
+// Review: open one variation as Train / Learn / weak-move drill (used by study-review.js)
+function reviewOpen(item, mode) {
+  const lib = openingLibrary.find((o) => o.id === item.oid || o.name === item.openingName);
+  const variation = lib?.variations.find((v) => v.id === item.vid || v.name === item.variationName);
+  if (!lib || !variation) return false;
+  if (mode === "learn") {
+    learnFromRoadmap({ id: item.oid, name: item.openingName }, { id: item.vid, name: item.variationName });
+    return true;
+  }
+  startTrain(lib);
+  const select = document.getElementById("learn-variation-select");
+  if (select) select.value = variation.id;
+  selectLearnVariation();
+  if (mode === "drill") {
+    const plies = (item.weak || []).map((p) => p.ply).filter((p) => variation.moves[p]);
+    if (plies.length) {
+      lesson.reviewDrill = true;
+      lesson.trainSessionRecorded = true; // a drill is not a full run: no accuracy entry, no XP
+      lesson.trainXpAwarded = true;
+      lesson.fixing = true;
+      lesson.mistakes = new Set(plies);
+      lesson.fixQueue = [...plies].sort((a, b) => a - b);
+      lesson.fixTotal = plies.length;
+      startTrainFix(lesson.fixQueue.shift());
+    }
+  }
+  return true;
 }
 
 function startTrain(opening) {
@@ -6856,8 +6898,10 @@ async function fetchNewPuzzle() {
   puzzleHasPuzzle = false;
   setPuzzleFinished(false);
   currentPuzzle = null; // yükleme bitene kadar tahta kilitli
+  setPuzzleLoading(true);
 
   if (Date.now() < puzzleCooldownUntil) {
+    setPuzzleLoading(false);
     showPuzzleCooldown(loadId);
     return;
   }
@@ -6918,6 +6962,7 @@ async function fetchNewPuzzle() {
     puzzleHasPuzzle = true;
     currentPuzzle = null;
 
+    setPuzzleLoading(false);
     renderPuzzleBoard(false);
     renderPuzzleMoves();
 
@@ -6953,6 +6998,7 @@ async function fetchNewPuzzle() {
     }, 600);
   } catch (error) {
     if (loadId !== puzzleLoadId) return;
+    setPuzzleLoading(false);
     console.error("Puzzle fetch error:", error);
     if (error.rateLimited) {
       showPuzzleCooldown(loadId);
@@ -7531,6 +7577,10 @@ function recordPuzzleStats(won, usedHint, ratingChange = 0) {
 
   addToday();
   renderDaily();
+}
+
+function setPuzzleLoading(on) {
+  document.getElementById("puzzle-board")?.classList.toggle("is-loading", on);
 }
 
 function formatDuration(ms) {
@@ -8388,6 +8438,7 @@ const pages = {
   puzzles: document.querySelector("#puzzles"),
   openings: document.querySelector("#openings"),
   repertoire: document.querySelector("#repertoire"),
+  review: document.querySelector("#review"),
   profile: document.querySelector("#profile"),
 };
 
@@ -8428,6 +8479,7 @@ function showPage(pageName) {
   }
   if (pageName === "puzzles") initPuzzle();
   if (pageName === "home") renderHome();
+  if (pageName === "review") renderStudyReview();
   window.scrollTo(0, 0);
 }
 
@@ -8459,6 +8511,7 @@ function renderHome() {
   set("home-rating", puzzleRating);
   set("home-rating-sub", s.today >= s.goal ? "Goal complete today" : "");
   renderHomeExtras();
+  renderHomeReview();
 }
 
 document.querySelectorAll("[data-go]").forEach((el) =>
@@ -8483,6 +8536,18 @@ brandLink?.addEventListener("click", (event) => {
   showPage("home");
   history.replaceState(null, "", "#home");
 });
+
+try {
+  initStudyReview({
+    open: reviewOpen,
+    go: (p) => {
+      showPage(p);
+      history.replaceState(null, "", `#${p}`);
+    },
+  });
+} catch (e) {
+  console.warn("[review] init failed", e);
+}
 
 try {
   initExtras({ daily: () => dailySummary(), rating: () => puzzleRating });

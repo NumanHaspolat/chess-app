@@ -91,6 +91,9 @@
         <a href="#puzzles" class="nav-link">Puzzles</a>
         <a href="#openings" class="nav-link">Openings</a>
         <a href="#repertoire" class="nav-link">My Repertoire</a>
+        <a href="#review" class="nav-link"
+          >Review<span class="nav-badge" id="nav-review-badge" hidden></span
+        ></a>
         <a href="#profile" class="nav-link">Profile</a>
         <span class="nav-indicator"></span>
       </nav>
@@ -180,6 +183,10 @@
           <span>Puzzle rating</span><strong id="home-rating">1500</strong>
           <small id="home-rating-sub"></small>
         </div>
+      </div>
+
+      <div id="home-review" class="home-review" aria-live="polite">
+        <div class="rv-skel-list"><div class="rv-skel"></div></div>
       </div>
 
       <div id="home-extra" class="home-extra"></div>
@@ -1165,6 +1172,16 @@
       </div>
 
       <div id="openings-list" class="openings-list"></div>
+    </section>
+
+    <section id="review" class="page-section" hidden>
+      <div class="rv-wrap">
+        <h1>Review</h1>
+        <p class="rv-lead">
+          What to practise today, and the moves you keep getting wrong.
+        </p>
+        <div id="review-body"></div>
+      </div>
     </section>
 
     <section id="profile" class="page-section" hidden>
